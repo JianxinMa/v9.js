@@ -1,5 +1,6 @@
 /*jslint
-    maxerr: 10, node: true, stupid: true, nomen: true, white: true
+    bitwise: true, node: true, stupid: true, nomen: true, white: true,
+    maxerr: 10
  */
 
 "use strict";
@@ -278,10 +279,10 @@ function calloc(sz, dtype) {
     return ret;
 }
 
-function rdAt(a, i) {
+function rdAtT(a, i, dtype) {
     var v;
 
-    switch (a.dtype) {
+    switch (dtype) {
         case INT8:
             v = a.readInt8(i);
             break;
@@ -312,8 +313,12 @@ function rdAt(a, i) {
     return v;
 }
 
-function wrAt(a, i, v) {
-    switch (a.dtype) {
+function rdAt(a, i) {
+    return rdAtT(a, i, a.dtype);
+}
+
+function wrAtT(a, i, v, dtype) {
+    switch (dtype) {
         case INT8:
             a.writeInt8(v, i);
             break;
@@ -342,6 +347,10 @@ function wrAt(a, i, v) {
             assert(false);
     }
     return v;
+}
+
+function wrAt(a, i, v) {
+    return wrAtT(a, i, v, a.dtype);
 }
 
 /* V9 Emulator */
@@ -391,17 +400,128 @@ var verbose = 0, // chatty option -v
 
 var cmd = "./xem";
 
+var H20_L12 = 0xFFFFF000;
+var H10_L2 = 0xFFC;
+
+// to prevent unintended use of signed shift >>
+function shr(x, n) {
+    return x >>> n;
+}
+
 function flush() {
-    var i;
+    /*
+    var v;
 
     while (tpages > 0) {
         tpages -= 1;
-        i = tpage[-tpages];
-        wrAt(trk, i, 0);
-        wrAt(twk, i, 0);
-        wrAt(tru, i, 0);
-        wrAt(twu, i, 0);
+        v = tpage[tpages];
+        wrAt(trk, v, 0);
+        wrAt(twk, v, 0);
+        wrAt(tru, v, 0);
+        wrAt(twu, v, 0);
     }
+    */
+}
+
+function setpage(v, p, writable, userable) {
+    if (p >= memsz) {
+        trap = FMEM;
+        vadr = v;
+        return 0;
+    }
+
+    /*
+    p = ((v ^ (mem + p)) & -4096) + 1;
+
+    v = shr(v, 12);
+    if (!trk[v]) {
+        if (tpages >= TPAGES) {
+            flush();
+        }
+        tpage[tpages] = v;
+        tpages += 1;
+    }
+    wrAt(trk, v, p);
+    wrAt(twk, v, (writable ? p : 0));
+    wrAt(tru, v, (userable ? p : 0));
+    wrAt(twu, v, ((userable && writable) ? p : 0));
+    return p;
+    */
+}
+
+function rlook(v) {
+    var pde, ppde, pte, ppte, q, userable;
+
+    if (!paging) {
+        return setpage(v, v, 1, 1);
+    }
+    ppde = pdir + (shr(v, 22) << 2);
+    assert((shr(ppde, 2) << 2) === ppde);
+    pde = rdAtT(mem, shr(ppde, 2), UINT32);
+    if (pde & PTE_P) {
+        if (!(pde & PTE_A)) {
+            wrAtT(mem, shr(ppde, 2), pde | PTE_A, UINT32);
+        }
+        if (pde >= memsz) {
+            trap = FMEM;
+            vadr = v;
+            return 0;
+        }
+        ppte = (pde & H20_L12) + (shr(v, 10) & H10_L2);
+        assert((shr(ppte, 2) << 2) === ppte);
+        pte = rdAtT(mem, shr(ppte, 2), UINT32);
+        if (pte & PTE_P) {
+            q = pte & pde;
+            userable = q & PTE_U;
+            if (userable || !user) {
+                if (!(pte & PTE_A)) {
+                    wrAtT(mem, shr(ppte, 2), pte | PTE_A, UINT32);
+                }
+                // set writable after first write so dirty gets set
+                return setpage(v, pte, (pte & PTE_D) && (q & PTE_W), userable);
+            }
+        }
+    }
+    trap = FRPAGE;
+    vadr = v;
+    return 0;
+}
+
+function wlook(v) {
+    var pde, ppde, pte, ppte, q, userable;
+
+    if (!paging) {
+        return setpage(v, v, 1, 1);
+    }
+    ppde = pdir + (shr(v, 22) << 2);
+    assert((shr(ppde, 2) << 2) === ppde);
+    pde = rdAtT(mem, shr(ppde, 2), UINT32);
+    if (pde & PTE_P) {
+        if (!(pde & PTE_A)) {
+            wrAtT(mem, shr(ppde, 2), pde | PTE_A, UINT32);
+        }
+        if (pde >= memsz) {
+            trap = FMEM;
+            vadr = v;
+            return 0;
+        }
+        ppte = (pde & H20_L12) + (shr(v, 10) & H10_L2);
+        assert((shr(ppte, 2) << 2) === ppte);
+        pte = rdAtT(mem, shr(ppte, 2), UINT32);
+        if (pte & PTE_P) {
+            q = pte & pde;
+            userable = q & PTE_U;
+            if ((userable || !user) && (q & PTE_W)) {
+                if ((pte & (PTE_D | PTE_A)) !== (PTE_D | PTE_A)) {
+                    wrAtT(mem, shr(ppte, 2), pte | (PTE_D | PTE_A), UINT32);
+                }
+                return setpage(v, pte, q & PTE_W, userable);
+            }
+        }
+    }
+    trap = FWPAGE;
+    vadr = v;
+    return 0;
 }
 
 function usage() {
