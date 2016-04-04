@@ -401,7 +401,8 @@ var verbose = 0, // chatty option -v
 var cmd = "./xem";
 
 var H20_L12 = 0xFFFFF000;
-var H10_L2 = 0xFFC;
+var L20_H10_L2 = 0xFFC;
+var L20_H12 = 0xFFF;
 
 // to prevent unintended use of signed shift >>
 function shr(x, n) {
@@ -409,18 +410,16 @@ function shr(x, n) {
 }
 
 function flush() {
-    /*
     var v;
 
     while (tpages > 0) {
         tpages -= 1;
-        v = tpage[tpages];
+        v = rdAt(tpage, tpages);
         wrAt(trk, v, 0);
         wrAt(twk, v, 0);
         wrAt(tru, v, 0);
         wrAt(twu, v, 0);
     }
-    */
 }
 
 function setpage(v, p, writable, userable) {
@@ -429,16 +428,13 @@ function setpage(v, p, writable, userable) {
         vadr = v;
         return 0;
     }
-
-    /*
-    p = ((v ^ (mem + p)) & -4096) + 1;
-
+    p = ((v ^ p) & H20_L12) + 1; // a trick that makes readers hate me
     v = shr(v, 12);
-    if (!trk[v]) {
+    if (rdAt(trk, v) === 0) {
         if (tpages >= TPAGES) {
             flush();
         }
-        tpage[tpages] = v;
+        wrAt(tpage, tpages, v);
         tpages += 1;
     }
     wrAt(trk, v, p);
@@ -446,7 +442,6 @@ function setpage(v, p, writable, userable) {
     wrAt(tru, v, (userable ? p : 0));
     wrAt(twu, v, ((userable && writable) ? p : 0));
     return p;
-    */
 }
 
 function rlook(v) {
@@ -467,7 +462,7 @@ function rlook(v) {
             vadr = v;
             return 0;
         }
-        ppte = (pde & H20_L12) + (shr(v, 10) & H10_L2);
+        ppte = (pde & H20_L12) + (shr(v, 10) & L20_H10_L2);
         assert((shr(ppte, 2) << 2) === ppte);
         pte = rdAtT(mem, shr(ppte, 2), UINT32);
         if (pte & PTE_P) {
@@ -477,7 +472,7 @@ function rlook(v) {
                 if (!(pte & PTE_A)) {
                     wrAtT(mem, shr(ppte, 2), pte | PTE_A, UINT32);
                 }
-                // set writable after first write so dirty gets set
+                // check PTE_D to ensure the dirty bit be set by wlook
                 return setpage(v, pte, (pte & PTE_D) && (q & PTE_W), userable);
             }
         }
@@ -505,7 +500,7 @@ function wlook(v) {
             vadr = v;
             return 0;
         }
-        ppte = (pde & H20_L12) + (shr(v, 10) & H10_L2);
+        ppte = (pde & H20_L12) + (shr(v, 10) & L20_H10_L2);
         assert((shr(ppte, 2) << 2) === ppte);
         pte = rdAtT(mem, shr(ppte, 2), UINT32);
         if (pte & PTE_P) {
@@ -594,7 +589,8 @@ function readhdr(filename) {
     return hdr;
 }
 
-function cpu(pc, sp) {}
+function cpu(pc, sp) {
+}
 
 function main(argv) {
     var hdr;
