@@ -364,7 +364,8 @@ function wrAt(a, i, v) {
 var MEM_SZ = 128 * 1024 * 1024, // default memory size of vm (128M)
     TB_SZ = 1024 * 1024, // page translation buffer size (4G / page_sz)
     FS_SZ = 4 * 1024 * 1024, // ram file system size (4M)
-    TPAGES = 4096; // maximum cached page translations
+    TPAGES = 4096, // maximum cached page translations
+    PAGE_SZ = 4096; // bytes per page
 
 var PTE_P = 0x001, // present
     PTE_W = 0x002, // writeable
@@ -683,7 +684,7 @@ function cpu(pc, sp) {
         if (p) {
             xsp = v ^ (p - 1);
             tsp = xsp - v;
-            fsp = (4096 - (xsp & L20_H12)) << 8;
+            fsp = (PAGE_SZ - (xsp & L20_H12)) << 8;
         }
         follower = chkpc;
     };
@@ -824,11 +825,11 @@ function cpu(pc, sp) {
                             return;
                         }
                     }
-                    v = 4096 - (a & L20_H12);
+                    v = PAGE_SZ - (a & L20_H12);
                     if (v > c) {
                         v = c;
                     }
-                    u = 4096 - (b & L20_H12);
+                    u = PAGE_SZ - (b & L20_H12);
                     if (u > v) {
                         u = v;
                     }
@@ -863,11 +864,11 @@ function cpu(pc, sp) {
                             return;
                         }
                     }
-                    v = 4096 - (a & L20_H12);
+                    v = PAGE_SZ - (a & L20_H12);
                     if (v > c) {
                         v = c;
                     }
-                    u = 4096 - (b & L20_H12);
+                    u = PAGE_SZ - (b & L20_H12);
                     if (u > v) {
                         u = v;
                     }
@@ -882,6 +883,57 @@ function cpu(pc, sp) {
                     }
                     a += u;
                     b += u;
+                    c -= u;
+                }
+                follower = chkpc;
+                return;
+            case MCHR:
+                while (true) {
+                    if (c === 0) {
+                        a = 0;
+                        break;
+                    }
+                    p = rdAt(tr, shr(a, 12));
+                    if (p === 0) {
+                        p = rlook(a);
+                        if (p === 0) {
+                            follower = exception;
+                            return;
+                        }
+                    }
+                    u = PAGE_SZ - (a & L20_H12);
+                    if (u > c) {
+                        u = c;
+                    }
+                    v = a ^ (p & H31_L1);
+                    t = mem.slice(v, v + u).indexOf(b);
+                    if (t !== -1) {
+                        a += t;
+                        c = 0;
+                        break;
+                    }
+                    a += u;
+                    c -= u;
+                }
+                follower = chkpc;
+                return;
+            case MSET:
+                while (c > 0) {
+                    p = rdAt(tw, shr(a, 12));
+                    if (p === 0) {
+                        p = wlook(a);
+                        if (p === 0) {
+                            follower = exception;
+                            return;
+                        }
+                    }
+                    u = PAGE_SZ - (a & L20_H12);
+                    if (u > c) {
+                        u = c;
+                    }
+                    v = a ^ (p & H31_L1);
+                    mem.fill(b, v, v + u);
+                    a += u;
                     c -= u;
                 }
                 follower = chkpc;
