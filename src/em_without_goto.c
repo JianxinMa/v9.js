@@ -557,6 +557,7 @@ void cpu(uint pc, uint sp) {
   struct pollfd pfd;
   struct sockaddr_in addr;
   static char rbuf[4096]; // XXX
+  void (*follower)();
 
   a = b = c = timer = timeout = fpc = tsp = fsp = 0;
   cycle = delta = 4096;
@@ -565,2241 +566,2274 @@ void cpu(uint pc, uint sp) {
   xpc = 0;
   tpc = -pc;
   xsp = sp;
-  void *follower = &&fixpc;
-  goto gotomanager;
 
-gotomanager:
-  if (follower == 0)
-    return;
-  else
-    goto *follower;
+  auto void fixsp();
+  auto void loopstart();
+  auto void fixpc();
+  auto void next();
+  auto void passifstat();
+  auto void exception();
+  auto void interrupt();
+  auto void fatal();
 
-fixsp:
-  if (p = tw[(v = xsp - tsp) >> 12]) {
-    tsp = (xsp = v ^ (p - 1)) - v;
-    fsp = (4096 - (xsp & 4095)) << 8;
-  }
-  follower = &&loopstart;
-  goto gotomanager;
-
-loopstart:
-  if ((uint)xpc == fpc) {
-    follower = &&fixpc;
-    goto gotomanager;
-  } else {
-    follower = &&passifstat;
-    goto gotomanager;
-  }
-
-fixpc:
-  if (!(p = tr[(v = (uint)xpc - tpc) >> 12]) && !(p = rlook(v))) {
-    trap = FIPAGE;
-    follower = &&exception;
-    goto gotomanager;
-  }
-  xcycle -= tpc;
-  xcycle += (tpc = (uint)(xpc = (int *)(v ^ (p - 1))) - v);
-  fpc = ((uint)xpc + 4096) & -4096;
-  follower = &&next;
-  goto gotomanager;
-
-next:
-  if ((uint)xpc > xcycle) {
-    cycle += delta;
-    xcycle += delta * 4;
-    if (iena ||
-        !(ipend & FKEYBD)) { // XXX dont do this, use a small queue instead
-      pfd.fd = 0;
-      pfd.events = POLLIN;
-      if (poll(&pfd, 1, 0) == 1 && read(0, &ch, 1) == 1) {
-        kbchar = ch;
-        if (kbchar == '`') {
-          dprintf(2, "ungraceful exit. cycle = %u\n",
-                  cycle + (int)((uint)xpc - xcycle) / 4);
-          follower = 0;
-          goto gotomanager;
-        }
-        if (iena) {
-          trap = FKEYBD;
-          iena = 0;
-          follower = &&interrupt;
-          goto gotomanager;
-        }
-        ipend |= FKEYBD;
-      }
-    }
-    if (timeout) {
-      timer += delta;
-      if (timer >= timeout) { // XXX  // any interrupt actually!
-        //          dprintf(2,"timeout! timer=%d,
-        //          timeout=%d\n",timer,timeout);
-        timer = 0;
-        if (iena) {
-          trap = FTIMER;
-          iena = 0;
-          follower = &&interrupt;
-          goto gotomanager;
-        }
-        ipend |= FTIMER;
-      }
-    }
-  }
-  follower = &&passifstat;
-  goto gotomanager;
-
-passifstat:
-  switch ((uchar)(ir = *xpc++)) {
-  case HALT:
-    if (user || verbose)
-      dprintf(2, "halt(%d) cycle = %u\n", a,
-              cycle + (int)((uint)xpc - xcycle) / 4);
+  void fatal() {
+    dprintf(2, "processor halted! cycle = %u pc = %08x ir = %08x sp = %08x a = "
+               "%d b = %d c = %d trap = %u\n",
+            cycle + (int)((uint)xpc - xcycle) / 4, (uint)xpc - tpc, ir,
+            xsp - tsp, a, b, c, trap);
     follower = 0;
-    goto gotomanager; // XXX should be supervisor!
-  case IDLE:
+    return;
+  }
+
+  void interrupt() {
+    xsp -= tsp;
+    tsp = fsp = 0;
     if (user) {
-      trap = FPRIV;
-      break;
+      usp = xsp;
+      xsp = ssp;
+      user = 0;
+      tr = trk;
+      tw = twk;
+      trap |= USER;
     }
+    xsp -= 8;
+    if (!(p = tw[xsp >> 12]) && !(p = wlook(xsp))) {
+      dprintf(2, "kstack fault!\n");
+      follower = &fatal;
+      return;
+    }
+    *(uint *)((xsp ^ p) & -8) = (uint)xpc - tpc;
+    xsp -= 8;
+    if (!(p = tw[xsp >> 12]) && !(p = wlook(xsp))) {
+      dprintf(2, "kstack fault\n");
+      follower = &fatal;
+      return;
+    }
+    *(uint *)((xsp ^ p) & -8) = trap;
+    xcycle += ivec + tpc - (uint)xpc;
+    xpc = (int *)(ivec + tpc);
+    follower = &fixpc;
+    return;
+  }
+
+  void exception() {
     if (!iena) {
-      trap = FINST;
-      break;
-    } // XXX this will be fatal !!!
-    for (;;) {
-      pfd.fd = 0;
-      pfd.events = POLLIN;
-      if (poll(&pfd, 1, 0) == 1 && read(0, &ch, 1) == 1) {
-        kbchar = ch;
-        if (kbchar == '`') {
-          dprintf(2, "ungraceful exit. cycle = %u\n",
-                  cycle + (int)((uint)xpc - xcycle) / 4);
-          follower = 0;
-          goto gotomanager;
-        }
-        trap = FKEYBD;
-        iena = 0;
-        follower = &&interrupt;
-        goto gotomanager;
-      }
+      dprintf(2, "exception in interrupt handler\n");
+      follower = &fatal;
+      return;
+    }
+    follower = &interrupt;
+    return;
+  }
+
+  void next() {
+    if ((uint)xpc > xcycle) {
       cycle += delta;
+      xcycle += delta * 4;
+      if (iena ||
+          !(ipend & FKEYBD)) { // XXX dont do this, use a small queue instead
+        pfd.fd = 0;
+        pfd.events = POLLIN;
+        if (poll(&pfd, 1, 0) == 1 && read(0, &ch, 1) == 1) {
+          kbchar = ch;
+          if (kbchar == '`') {
+            dprintf(2, "ungraceful exit. cycle = %u\n",
+                    cycle + (int)((uint)xpc - xcycle) / 4);
+            follower = 0;
+            return;
+          }
+          if (iena) {
+            trap = FKEYBD;
+            iena = 0;
+            follower = &interrupt;
+            return;
+          }
+          ipend |= FKEYBD;
+        }
+      }
       if (timeout) {
         timer += delta;
         if (timer >= timeout) { // XXX  // any interrupt actually!
-          //        dprintf(2,"IDLE timeout! timer=%d,
-          //        timeout=%d\n",timer,timeout);
+          //          dprintf(2,"timeout! timer=%d,
+          //          timeout=%d\n",timer,timeout);
           timer = 0;
-          trap = FTIMER;
-          iena = 0;
-          follower = &&interrupt;
-          goto gotomanager;
+          if (iena) {
+            trap = FTIMER;
+            iena = 0;
+            follower = &interrupt;
+            return;
+          }
+          ipend |= FTIMER;
         }
       }
     }
+    follower = &passifstat;
+    return;
+  }
 
-  // memory -- designed to be restartable/continuable after
-  // exception/interrupt
-  case MCPY: // while (c) { *a = *b; a++; b++; c--; }
-    while (c) {
-      if (!(t = tr[b >> 12]) && !(t = rlook(b))) {
-        follower = &&exception;
-        goto gotomanager;
-      }
-      if (!(p = tw[a >> 12]) && !(p = wlook(a))) {
-        follower = &&exception;
-        goto gotomanager;
-      }
-      if ((v = 4096 - (a & 4095)) > c) {
-        v = c;
-      }
-      if ((u = 4096 - (b & 4095)) > v) {
-        u = v;
-      }
-      memcpy((char *)(a ^ (p & -2)), (char *)(b ^ (t & -2)), u);
-      a += u;
-      b += u;
-      c -= u;
-      //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
+  void fixpc() {
+    if (!(p = tr[(v = (uint)xpc - tpc) >> 12]) && !(p = rlook(v))) {
+      trap = FIPAGE;
+      follower = &exception;
+      return;
     }
-    follower = &&loopstart;
-    goto gotomanager;
+    xcycle -= tpc;
+    xcycle += (tpc = (uint)(xpc = (int *)(v ^ (p - 1))) - v);
+    fpc = ((uint)xpc + 4096) & -4096;
+    follower = &next;
+    return;
+  }
 
-  case MCMP: // for (;;) { if (!c) { a = 0; break; } if (*b != *a) { a = *b -
-    // *a; b += c; c = 0; break; } a++; b++; c--; }
-    for (;;) {
-      if (!c) {
-        a = 0;
+  void loopstart() {
+    if ((uint)xpc == fpc) {
+      follower = &fixpc;
+      return;
+    } else {
+      follower = &passifstat;
+      return;
+    }
+  }
+
+  void fixsp() {
+    if (p = tw[(v = xsp - tsp) >> 12]) {
+      tsp = (xsp = v ^ (p - 1)) - v;
+      fsp = (4096 - (xsp & 4095)) << 8;
+    }
+    follower = &loopstart;
+    return;
+  }
+
+  void passifstat() {
+    switch ((uchar)(ir = *xpc++)) {
+    case HALT:
+      if (user || verbose)
+        dprintf(2, "halt(%d) cycle = %u\n", a,
+                cycle + (int)((uint)xpc - xcycle) / 4);
+      follower = 0;
+      return; // XXX should be supervisor!
+    case IDLE:
+      if (user) {
+        trap = FPRIV;
         break;
       }
-      if (!(t = tr[b >> 12]) && !(t = rlook(b))) {
-        follower = &&exception;
-        goto gotomanager;
+      if (!iena) {
+        trap = FINST;
+        break;
+      } // XXX this will be fatal !!!
+      for (;;) {
+        pfd.fd = 0;
+        pfd.events = POLLIN;
+        if (poll(&pfd, 1, 0) == 1 && read(0, &ch, 1) == 1) {
+          kbchar = ch;
+          if (kbchar == '`') {
+            dprintf(2, "ungraceful exit. cycle = %u\n",
+                    cycle + (int)((uint)xpc - xcycle) / 4);
+            follower = 0;
+            return;
+          }
+          trap = FKEYBD;
+          iena = 0;
+          follower = &interrupt;
+          return;
+        }
+        cycle += delta;
+        if (timeout) {
+          timer += delta;
+          if (timer >= timeout) { // XXX  // any interrupt actually!
+            //        dprintf(2,"IDLE timeout! timer=%d,
+            //        timeout=%d\n",timer,timeout);
+            timer = 0;
+            trap = FTIMER;
+            iena = 0;
+            follower = &interrupt;
+            return;
+          }
+        }
       }
-      if (!(p = tr[a >> 12]) && !(p = rlook(a))) {
-        follower = &&exception;
-        goto gotomanager;
+
+    // memory -- designed to be restartable/continuable after
+    // exception/interrupt
+    case MCPY: // while (c) { *a = *b; a++; b++; c--; }
+      while (c) {
+        if (!(t = tr[b >> 12]) && !(t = rlook(b))) {
+          follower = &exception;
+          return;
+        }
+        if (!(p = tw[a >> 12]) && !(p = wlook(a))) {
+          follower = &exception;
+          return;
+        }
+        if ((v = 4096 - (a & 4095)) > c) {
+          v = c;
+        }
+        if ((u = 4096 - (b & 4095)) > v) {
+          u = v;
+        }
+        memcpy((char *)(a ^ (p & -2)), (char *)(b ^ (t & -2)), u);
+        a += u;
+        b += u;
+        c -= u;
+        //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
       }
-      if ((v = 4096 - (a & 4095)) > c) {
-        v = c;
+      follower = &loopstart;
+      return;
+
+    case MCMP: // for (;;) { if (!c) { a = 0; break; } if (*b != *a) { a = *b -
+      // *a; b += c; c = 0; break; } a++; b++; c--; }
+      for (;;) {
+        if (!c) {
+          a = 0;
+          break;
+        }
+        if (!(t = tr[b >> 12]) && !(t = rlook(b))) {
+          follower = &exception;
+          return;
+        }
+        if (!(p = tr[a >> 12]) && !(p = rlook(a))) {
+          follower = &exception;
+          return;
+        }
+        if ((v = 4096 - (a & 4095)) > c) {
+          v = c;
+        }
+        if ((u = 4096 - (b & 4095)) > v) {
+          u = v;
+        }
+        if (t = memcmp((char *)(a ^ (p & -2)), (char *)(b ^ (t & -2)), u)) {
+          a = t;
+          b += c;
+          c = 0;
+          break;
+        }
+        a += u;
+        b += u;
+        c -= u;
+        //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
       }
-      if ((u = 4096 - (b & 4095)) > v) {
-        u = v;
+      follower = &loopstart;
+      return;
+
+    case MCHR: // for (;;) { if (!c) { a = 0; break; } if (*a == b) { c = 0;
+      // break; } a++; c--; }
+      for (;;) {
+        if (!c) {
+          a = 0;
+          break;
+        }
+        if (!(p = tr[a >> 12]) && !(p = rlook(a))) {
+          follower = &exception;
+          return;
+        }
+        if ((u = 4096 - (a & 4095)) > c) {
+          u = c;
+        }
+        if (t = (uint)memchr((char *)(v = a ^ (p & -2)), b, u)) {
+          a += t - v;
+          c = 0;
+          break;
+        }
+        a += u;
+        c -= u;
+        //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
       }
-      if (t = memcmp((char *)(a ^ (p & -2)), (char *)(b ^ (t & -2)), u)) {
-        a = t;
-        b += c;
-        c = 0;
+      follower = &loopstart;
+      return;
+
+    case MSET: // while (c) { *a = b; a++; c--; }
+      while (c) {
+        if (!(p = tw[a >> 12]) && !(p = wlook(a))) {
+          follower = &exception;
+          return;
+        }
+        if ((u = 4096 - (a & 4095)) > c) {
+          u = c;
+        }
+        memset((char *)(a ^ (p & -2)), b, u);
+        a += u;
+        c -= u;
+        //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
+      }
+      follower = &loopstart;
+      return;
+
+    // math
+    case POW:
+      f = pow(f, g);
+      follower = &loopstart;
+      return;
+    case ATN2:
+      f = atan2(f, g);
+      follower = &loopstart;
+      return;
+    case FABS:
+      f = fabs(f);
+      follower = &loopstart;
+      return;
+    case ATAN:
+      f = atan(f);
+      follower = &loopstart;
+      return;
+    case LOG:
+      if (f) {
+        f = log(f);
+      }
+      follower = &loopstart;
+      return; // XXX others?
+    case LOGT:
+      if (f) {
+        f = log10(f);
+      }
+      follower = &loopstart;
+      return; // XXX
+    case EXP:
+      f = exp(f);
+      follower = &loopstart;
+      return;
+    case FLOR:
+      f = floor(f);
+      follower = &loopstart;
+      return;
+    case CEIL:
+      f = ceil(f);
+      follower = &loopstart;
+      return;
+    case HYPO:
+      f = hypot(f, g);
+      follower = &loopstart;
+      return;
+    case SIN:
+      f = sin(f);
+      follower = &loopstart;
+      return;
+    case COS:
+      f = cos(f);
+      follower = &loopstart;
+      return;
+    case TAN:
+      f = tan(f);
+      follower = &loopstart;
+      return;
+    case ASIN:
+      f = asin(f);
+      follower = &loopstart;
+      return;
+    case ACOS:
+      f = acos(f);
+      follower = &loopstart;
+      return;
+    case SINH:
+      f = sinh(f);
+      follower = &loopstart;
+      return;
+    case COSH:
+      f = cosh(f);
+      follower = &loopstart;
+      return;
+    case TANH:
+      f = tanh(f);
+      follower = &loopstart;
+      return;
+    case SQRT:
+      f = sqrt(f);
+      follower = &loopstart;
+      return;
+    case FMOD:
+      f = fmod(f, g);
+      follower = &loopstart;
+      return;
+
+    case ENT:
+      if (fsp && (fsp -= ir & -256) > 4096 << 8) {
+        fsp = 0;
+      }
+      xsp += ir >> 8;
+      if (fsp) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LEV:
+      if (ir < fsp) {
+        t = *(uint *)(xsp + (ir >> 8)) + tpc;
+        fsp -= (ir + 0x800) & -256;
+      } // XXX revisit this mess
+      else {
+        if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+          break;
+        }
+        t = *(uint *)((v ^ p) & -8) + tpc;
+        fsp = 0;
+      }
+      xsp += (ir >> 8) + 8;
+      xcycle += t - (uint)xpc;
+      if ((uint)(xpc = (uint *)t) - fpc < -4096) {
+        follower = &fixpc;
+        return;
+      }
+      follower = &next;
+      return;
+
+    // jump
+    case JMP:
+      xcycle += ir >> 8;
+      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        follower = &fixpc;
+        return;
+      }
+      follower = &next;
+      return;
+    case JMPI:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8) + (a << 2)) >> 12]) &&
+          !(p = rlook(v))) {
         break;
       }
-      a += u;
-      b += u;
-      c -= u;
-      //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
-    }
-    follower = &&loopstart;
-    goto gotomanager;
+      xcycle += (t = *(uint *)((v ^ p) & -4));
+      if ((uint)(xpc = (int *)((uint)xpc + t)) - fpc < -4096) {
+        follower = &fixpc;
+        return;
+      }
+      follower = &next;
+      return;
+    case JSR:
+      if (fsp & (4095 << 8)) {
+        xsp -= 8;
+        fsp += 8 << 8;
+        *(uint *)xsp = (uint)xpc - tpc;
+      } else {
+        if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
+          break;
+        }
+        *(uint *)((v ^ p) & -8) = (uint)xpc - tpc;
+        fsp = 0;
+        xsp -= 8;
+      }
+      xcycle += ir >> 8;
+      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        follower = &fixpc;
+        return;
+      }
+      follower = &next;
+      return;
+    case JSRA:
+      if (fsp & (4095 << 8)) {
+        xsp -= 8;
+        fsp += 8 << 8;
+        *(uint *)xsp = (uint)xpc - tpc;
+      } else {
+        if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
+          break;
+        }
+        *(uint *)((v ^ p) & -8) = (uint)xpc - tpc;
+        fsp = 0;
+        xsp -= 8;
+      }
+      xcycle += a + tpc - (uint)xpc;
+      if ((uint)(xpc = (uint *)(a + tpc)) - fpc < -4096) {
+        follower = &fixpc;
+        return;
+      }
+      follower = &next;
+      return;
 
-  case MCHR: // for (;;) { if (!c) { a = 0; break; } if (*a == b) { c = 0;
-    // break; } a++; c--; }
-    for (;;) {
-      if (!c) {
-        a = 0;
+    // stack
+    case PSHA:
+      if (fsp & (4095 << 8)) {
+        xsp -= 8;
+        fsp += 8 << 8;
+        *(uint *)xsp = a;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
         break;
       }
-      if (!(p = tr[a >> 12]) && !(p = rlook(a))) {
-        follower = &&exception;
-        goto gotomanager;
-      }
-      if ((u = 4096 - (a & 4095)) > c) {
-        u = c;
-      }
-      if (t = (uint)memchr((char *)(v = a ^ (p & -2)), b, u)) {
-        a += t - v;
-        c = 0;
-        break;
-      }
-      a += u;
-      c -= u;
-      //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-
-  case MSET: // while (c) { *a = b; a++; c--; }
-    while (c) {
-      if (!(p = tw[a >> 12]) && !(p = wlook(a))) {
-        follower = &&exception;
-        goto gotomanager;
-      }
-      if ((u = 4096 - (a & 4095)) > c) {
-        u = c;
-      }
-      memset((char *)(a ^ (p & -2)), b, u);
-      a += u;
-      c -= u;
-      //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-
-  // math
-  case POW:
-    f = pow(f, g);
-    follower = &&loopstart;
-    goto gotomanager;
-  case ATN2:
-    f = atan2(f, g);
-    follower = &&loopstart;
-    goto gotomanager;
-  case FABS:
-    f = fabs(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case ATAN:
-    f = atan(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LOG:
-    if (f) {
-      f = log(f);
-    }
-    follower = &&loopstart;
-    goto gotomanager; // XXX others?
-  case LOGT:
-    if (f) {
-      f = log10(f);
-    }
-    follower = &&loopstart;
-    goto gotomanager; // XXX
-  case EXP:
-    f = exp(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case FLOR:
-    f = floor(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case CEIL:
-    f = ceil(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case HYPO:
-    f = hypot(f, g);
-    follower = &&loopstart;
-    goto gotomanager;
-  case SIN:
-    f = sin(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case COS:
-    f = cos(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case TAN:
-    f = tan(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case ASIN:
-    f = asin(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case ACOS:
-    f = acos(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case SINH:
-    f = sinh(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case COSH:
-    f = cosh(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case TANH:
-    f = tanh(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case SQRT:
-    f = sqrt(f);
-    follower = &&loopstart;
-    goto gotomanager;
-  case FMOD:
-    f = fmod(f, g);
-    follower = &&loopstart;
-    goto gotomanager;
-
-  case ENT:
-    if (fsp && (fsp -= ir & -256) > 4096 << 8) {
+      *(uint *)((v ^ p) & -8) = a;
+      xsp -= 8;
       fsp = 0;
-    }
-    xsp += ir >> 8;
-    if (fsp) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LEV:
-    if (ir < fsp) {
-      t = *(uint *)(xsp + (ir >> 8)) + tpc;
-      fsp -= (ir + 0x800) & -256;
-    } // XXX revisit this mess
-    else {
+      follower = &fixsp;
+      return;
+    case PSHB:
+      if (fsp & (4095 << 8)) {
+        xsp -= 8;
+        fsp += 8 << 8;
+        *(uint *)xsp = b;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(uint *)((v ^ p) & -8) = b;
+      xsp -= 8;
+      fsp = 0;
+      follower = &fixsp;
+      return;
+    case PSHC:
+      if (fsp & (4095 << 8)) {
+        xsp -= 8;
+        fsp += 8 << 8;
+        *(uint *)xsp = c;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(uint *)((v ^ p) & -8) = c;
+      xsp -= 8;
+      fsp = 0;
+      follower = &fixsp;
+      return;
+    case PSHF:
+      if (fsp & (4095 << 8)) {
+        xsp -= 8;
+        fsp += 8 << 8;
+        *(double *)xsp = f;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(double *)((v ^ p) & -8) = f;
+      xsp -= 8;
+      fsp = 0;
+      follower = &fixsp;
+      return;
+    case PSHG:
+      if (fsp & (4095 << 8)) {
+        xsp -= 8;
+        fsp += 8 << 8;
+        *(double *)xsp = g;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(double *)((v ^ p) & -8) = g;
+      xsp -= 8;
+      fsp = 0;
+      follower = &fixsp;
+      return;
+    case PSHI:
+      if (fsp & (4095 << 8)) {
+        xsp -= 8;
+        fsp += 8 << 8;
+        *(int *)xsp = ir >> 8;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(int *)((v ^ p) & -8) = ir >> 8;
+      xsp -= 8;
+      fsp = 0;
+      follower = &fixsp;
+      return;
+
+    case POPA:
+      if (fsp) {
+        a = *(uint *)xsp;
+        xsp += 8;
+        fsp -= 8 << 8;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a = *(uint *)((v ^ p) & -8);
+      xsp += 8;
+      follower = &fixsp;
+      return;
+    case POPB:
+      if (fsp) {
+        b = *(uint *)xsp;
+        xsp += 8;
+        fsp -= 8 << 8;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      b = *(uint *)((v ^ p) & -8);
+      xsp += 8;
+      follower = &fixsp;
+      return;
+    case POPC:
+      if (fsp) {
+        c = *(uint *)xsp;
+        xsp += 8;
+        fsp -= 8 << 8;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      c = *(uint *)((v ^ p) & -8);
+      xsp += 8;
+      follower = &fixsp;
+      return;
+    case POPF:
+      if (fsp) {
+        f = *(double *)xsp;
+        xsp += 8;
+        fsp -= 8 << 8;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      f = *(double *)((v ^ p) & -8);
+      xsp += 8;
+      follower = &fixsp;
+      return;
+    case POPG:
+      if (fsp) {
+        g = *(double *)xsp;
+        xsp += 8;
+        fsp -= 8 << 8;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      g = *(double *)((v ^ p) & -8);
+      xsp += 8;
+      follower = &fixsp;
+      return;
+
+    // load effective address
+    case LEA:
+      a = xsp - tsp + (ir >> 8);
+      follower = &loopstart;
+      return;
+    case LEAG:
+      a = (uint)xpc - tpc + (ir >> 8);
+      follower = &loopstart;
+      return;
+
+    // load a local
+    case LL:
+      if (ir < fsp) {
+        a = *(uint *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
-      t = *(uint *)((v ^ p) & -8) + tpc;
-      fsp = 0;
-    }
-    xsp += (ir >> 8) + 8;
-    xcycle += t - (uint)xpc;
-    if ((uint)(xpc = (uint *)t) - fpc < -4096) {
-      follower = &&fixpc;
-      goto gotomanager;
-    }
-    follower = &&next;
-    goto gotomanager;
-
-  // jump
-  case JMP:
-    xcycle += ir >> 8;
-    if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-      follower = &&fixpc;
-      goto gotomanager;
-    }
-    follower = &&next;
-    goto gotomanager;
-  case JMPI:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8) + (a << 2)) >> 12]) &&
-        !(p = rlook(v))) {
-      break;
-    }
-    xcycle += (t = *(uint *)((v ^ p) & -4));
-    if ((uint)(xpc = (int *)((uint)xpc + t)) - fpc < -4096) {
-      follower = &&fixpc;
-      goto gotomanager;
-    }
-    follower = &&next;
-    goto gotomanager;
-  case JSR:
-    if (fsp & (4095 << 8)) {
-      xsp -= 8;
-      fsp += 8 << 8;
-      *(uint *)xsp = (uint)xpc - tpc;
-    } else {
-      if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
+      a = *(uint *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LLS:
+      if (ir < fsp) {
+        a = *(short *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
-      *(uint *)((v ^ p) & -8) = (uint)xpc - tpc;
-      fsp = 0;
-      xsp -= 8;
-    }
-    xcycle += ir >> 8;
-    if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-      follower = &&fixpc;
-      goto gotomanager;
-    }
-    follower = &&next;
-    goto gotomanager;
-  case JSRA:
-    if (fsp & (4095 << 8)) {
-      xsp -= 8;
-      fsp += 8 << 8;
-      *(uint *)xsp = (uint)xpc - tpc;
-    } else {
-      if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
+      a = *(short *)((v ^ p) & -2);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LLH:
+      if (ir < fsp) {
+        a = *(ushort *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
-      *(uint *)((v ^ p) & -8) = (uint)xpc - tpc;
-      fsp = 0;
-      xsp -= 8;
-    }
-    xcycle += a + tpc - (uint)xpc;
-    if ((uint)(xpc = (uint *)(a + tpc)) - fpc < -4096) {
-      follower = &&fixpc;
-      goto gotomanager;
-    }
-    follower = &&next;
-    goto gotomanager;
+      a = *(ushort *)((v ^ p) & -2);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LLC:
+      if (ir < fsp) {
+        a = *(char *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a = *(char *)(v ^ p & -2);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LLB:
+      if (ir < fsp) {
+        a = *(uchar *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a = *(uchar *)(v ^ p & -2);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LLD:
+      if (ir < fsp) {
+        f = *(double *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      f = *(double *)((v ^ p) & -8);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LLF:
+      if (ir < fsp) {
+        f = *(float *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      f = *(float *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
 
-  // stack
-  case PSHA:
-    if (fsp & (4095 << 8)) {
-      xsp -= 8;
-      fsp += 8 << 8;
-      *(uint *)xsp = a;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(uint *)((v ^ p) & -8) = a;
-    xsp -= 8;
-    fsp = 0;
-    follower = &&fixsp;
-    goto gotomanager;
-  case PSHB:
-    if (fsp & (4095 << 8)) {
-      xsp -= 8;
-      fsp += 8 << 8;
-      *(uint *)xsp = b;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(uint *)((v ^ p) & -8) = b;
-    xsp -= 8;
-    fsp = 0;
-    follower = &&fixsp;
-    goto gotomanager;
-  case PSHC:
-    if (fsp & (4095 << 8)) {
-      xsp -= 8;
-      fsp += 8 << 8;
-      *(uint *)xsp = c;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(uint *)((v ^ p) & -8) = c;
-    xsp -= 8;
-    fsp = 0;
-    follower = &&fixsp;
-    goto gotomanager;
-  case PSHF:
-    if (fsp & (4095 << 8)) {
-      xsp -= 8;
-      fsp += 8 << 8;
-      *(double *)xsp = f;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(double *)((v ^ p) & -8) = f;
-    xsp -= 8;
-    fsp = 0;
-    follower = &&fixsp;
-    goto gotomanager;
-  case PSHG:
-    if (fsp & (4095 << 8)) {
-      xsp -= 8;
-      fsp += 8 << 8;
-      *(double *)xsp = g;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(double *)((v ^ p) & -8) = g;
-    xsp -= 8;
-    fsp = 0;
-    follower = &&fixsp;
-    goto gotomanager;
-  case PSHI:
-    if (fsp & (4095 << 8)) {
-      xsp -= 8;
-      fsp += 8 << 8;
-      *(int *)xsp = ir >> 8;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(int *)((v ^ p) & -8) = ir >> 8;
-    xsp -= 8;
-    fsp = 0;
-    follower = &&fixsp;
-    goto gotomanager;
+    // load a global
+    case LG:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      a = *(uint *)((v ^ p) & -4);
+      follower = &loopstart;
+      return;
+    case LGS:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      a = *(short *)((v ^ p) & -2);
+      follower = &loopstart;
+      return;
+    case LGH:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      a = *(ushort *)((v ^ p) & -2);
+      follower = &loopstart;
+      return;
+    case LGC:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      a = *(char *)(v ^ p & -2);
+      follower = &loopstart;
+      return;
+    case LGB:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      a = *(uchar *)(v ^ p & -2);
+      follower = &loopstart;
+      return;
+    case LGD:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      f = *(double *)((v ^ p) & -8);
+      follower = &loopstart;
+      return;
+    case LGF:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      f = *(float *)((v ^ p) & -4);
+      follower = &loopstart;
+      return;
 
-  case POPA:
-    if (fsp) {
-      a = *(uint *)xsp;
-      xsp += 8;
-      fsp -= 8 << 8;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(uint *)((v ^ p) & -8);
-    xsp += 8;
-    follower = &&fixsp;
-    goto gotomanager;
-  case POPB:
-    if (fsp) {
-      b = *(uint *)xsp;
-      xsp += 8;
-      fsp -= 8 << 8;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(uint *)((v ^ p) & -8);
-    xsp += 8;
-    follower = &&fixsp;
-    goto gotomanager;
-  case POPC:
-    if (fsp) {
-      c = *(uint *)xsp;
-      xsp += 8;
-      fsp -= 8 << 8;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    c = *(uint *)((v ^ p) & -8);
-    xsp += 8;
-    follower = &&fixsp;
-    goto gotomanager;
-  case POPF:
-    if (fsp) {
-      f = *(double *)xsp;
-      xsp += 8;
-      fsp -= 8 << 8;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    f = *(double *)((v ^ p) & -8);
-    xsp += 8;
-    follower = &&fixsp;
-    goto gotomanager;
-  case POPG:
-    if (fsp) {
-      g = *(double *)xsp;
-      xsp += 8;
-      fsp -= 8 << 8;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    g = *(double *)((v ^ p) & -8);
-    xsp += 8;
-    follower = &&fixsp;
-    goto gotomanager;
+    // load a indexed
+    case LX:
+      if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a = *(uint *)((v ^ p) & -4);
+      follower = &loopstart;
+      return;
+    case LXS:
+      if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a = *(short *)((v ^ p) & -2);
+      follower = &loopstart;
+      return;
+    case LXH:
+      if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a = *(ushort *)((v ^ p) & -2);
+      follower = &loopstart;
+      return;
+    case LXC:
+      if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a = *(char *)(v ^ p & -2);
+      follower = &loopstart;
+      return;
+    case LXB:
+      if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a = *(uchar *)(v ^ p & -2);
+      follower = &loopstart;
+      return;
+    case LXD:
+      if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      f = *(double *)((v ^ p) & -8);
+      follower = &loopstart;
+      return;
+    case LXF:
+      if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      f = *(float *)((v ^ p) & -4);
+      follower = &loopstart;
+      return;
 
-  // load effective address
-  case LEA:
-    a = xsp - tsp + (ir >> 8);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LEAG:
-    a = (uint)xpc - tpc + (ir >> 8);
-    follower = &&loopstart;
-    goto gotomanager;
+    // load a immediate
+    case LI:
+      a = ir >> 8;
+      follower = &loopstart;
+      return;
+    case LHI:
+      a = a << 24 | (uint)ir >> 8;
+      follower = &loopstart;
+      return;
+    case LIF:
+      f = (ir >> 8) / 256.0;
+      follower = &loopstart;
+      return;
 
-  // load a local
-  case LL:
-    if (ir < fsp) {
-      a = *(uint *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(uint *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LLS:
-    if (ir < fsp) {
-      a = *(short *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(short *)((v ^ p) & -2);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LLH:
-    if (ir < fsp) {
-      a = *(ushort *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(ushort *)((v ^ p) & -2);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LLC:
-    if (ir < fsp) {
-      a = *(char *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(char *)(v ^ p & -2);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LLB:
-    if (ir < fsp) {
-      a = *(uchar *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(uchar *)(v ^ p & -2);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LLD:
-    if (ir < fsp) {
-      f = *(double *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    f = *(double *)((v ^ p) & -8);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LLF:
-    if (ir < fsp) {
-      f = *(float *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    f = *(float *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
+    // load b local
+    case LBL:
+      if (ir < fsp) {
+        b = *(uint *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      b = *(uint *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LBLS:
+      if (ir < fsp) {
+        b = *(short *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      b = *(short *)((v ^ p) & -2);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LBLH:
+      if (ir < fsp) {
+        b = *(ushort *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      b = *(ushort *)((v ^ p) & -2);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LBLC:
+      if (ir < fsp) {
+        b = *(char *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      b = *(char *)(v ^ p & -2);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LBLB:
+      if (ir < fsp) {
+        b = *(uchar *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      b = *(uchar *)(v ^ p & -2);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LBLD:
+      if (ir < fsp) {
+        g = *(double *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      g = *(double *)((v ^ p) & -8);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case LBLF:
+      if (ir < fsp) {
+        g = *(float *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      g = *(float *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
 
-  // load a global
-  case LG:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(uint *)((v ^ p) & -4);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LGS:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(short *)((v ^ p) & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LGH:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(ushort *)((v ^ p) & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LGC:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(char *)(v ^ p & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LGB:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(uchar *)(v ^ p & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LGD:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    f = *(double *)((v ^ p) & -8);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LGF:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    f = *(float *)((v ^ p) & -4);
-    follower = &&loopstart;
-    goto gotomanager;
+    // load b global
+    case LBG:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      b = *(uint *)((v ^ p) & -4);
+      follower = &loopstart;
+      return;
+    case LBGS:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      b = *(short *)((v ^ p) & -2);
+      follower = &loopstart;
+      return;
+    case LBGH:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      b = *(ushort *)((v ^ p) & -2);
+      follower = &loopstart;
+      return;
+    case LBGC:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      b = *(char *)(v ^ p & -2);
+      follower = &loopstart;
+      return;
+    case LBGB:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      b = *(uchar *)(v ^ p & -2);
+      follower = &loopstart;
+      return;
+    case LBGD:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      g = *(double *)((v ^ p) & -8);
+      follower = &loopstart;
+      return;
+    case LBGF:
+      if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = rlook(v))) {
+        break;
+      }
+      g = *(float *)((v ^ p) & -4);
+      follower = &loopstart;
+      return;
 
-  // load a indexed
-  case LX:
-    if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(uint *)((v ^ p) & -4);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LXS:
-    if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(short *)((v ^ p) & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LXH:
-    if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(ushort *)((v ^ p) & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LXC:
-    if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(char *)(v ^ p & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LXB:
-    if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = *(uchar *)(v ^ p & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LXD:
-    if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    f = *(double *)((v ^ p) & -8);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LXF:
-    if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    f = *(float *)((v ^ p) & -4);
-    follower = &&loopstart;
-    goto gotomanager;
+    // load b indexed
+    case LBX:
+      if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      b = *(uint *)((v ^ p) & -4);
+      follower = &loopstart;
+      return;
+    case LBXS:
+      if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      b = *(short *)((v ^ p) & -2);
+      follower = &loopstart;
+      return;
+    case LBXH:
+      if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      b = *(ushort *)((v ^ p) & -2);
+      follower = &loopstart;
+      return;
+    case LBXC:
+      if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      b = *(char *)(v ^ p & -2);
+      follower = &loopstart;
+      return;
+    case LBXB:
+      if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      b = *(uchar *)(v ^ p & -2);
+      follower = &loopstart;
+      return;
+    case LBXD:
+      if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      g = *(double *)((v ^ p) & -8);
+      follower = &loopstart;
+      return;
+    case LBXF:
+      if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      g = *(float *)((v ^ p) & -4);
+      follower = &loopstart;
+      return;
 
-  // load a immediate
-  case LI:
-    a = ir >> 8;
-    follower = &&loopstart;
-    goto gotomanager;
-  case LHI:
-    a = a << 24 | (uint)ir >> 8;
-    follower = &&loopstart;
-    goto gotomanager;
-  case LIF:
-    f = (ir >> 8) / 256.0;
-    follower = &&loopstart;
-    goto gotomanager;
+    // load b immediate
+    case LBI:
+      b = ir >> 8;
+      follower = &loopstart;
+      return;
+    case LBHI:
+      b = b << 24 | (uint)ir >> 8;
+      follower = &loopstart;
+      return;
+    case LBIF:
+      g = (ir >> 8) / 256.0;
+      follower = &loopstart;
+      return;
 
-  // load b local
-  case LBL:
-    if (ir < fsp) {
-      b = *(uint *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(uint *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LBLS:
-    if (ir < fsp) {
-      b = *(short *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(short *)((v ^ p) & -2);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LBLH:
-    if (ir < fsp) {
-      b = *(ushort *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(ushort *)((v ^ p) & -2);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LBLC:
-    if (ir < fsp) {
-      b = *(char *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(char *)(v ^ p & -2);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LBLB:
-    if (ir < fsp) {
-      b = *(uchar *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(uchar *)(v ^ p & -2);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LBLD:
-    if (ir < fsp) {
-      g = *(double *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    g = *(double *)((v ^ p) & -8);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case LBLF:
-    if (ir < fsp) {
-      g = *(float *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    g = *(float *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
+    // misc transfer
+    case LCL:
+      if (ir < fsp) {
+        c = *(uint *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      c = *(uint *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
 
-  // load b global
-  case LBG:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(uint *)((v ^ p) & -4);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBGS:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(short *)((v ^ p) & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBGH:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(ushort *)((v ^ p) & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBGC:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(char *)(v ^ p & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBGB:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(uchar *)(v ^ p & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBGD:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    g = *(double *)((v ^ p) & -8);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBGF:
-    if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    g = *(float *)((v ^ p) & -4);
-    follower = &&loopstart;
-    goto gotomanager;
+    case LBA:
+      b = a;
+      follower = &loopstart;
+      return; // XXX need LAB, LAC to improve k.c  // or maybe a = a *
+              // imm
+    // + b
+    // ?  or b = b * imm + a ?
+    case LCA:
+      c = a;
+      follower = &loopstart;
+      return;
+    case LBAD:
+      g = f;
+      follower = &loopstart;
+      return;
 
-  // load b indexed
-  case LBX:
-    if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(uint *)((v ^ p) & -4);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBXS:
-    if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(short *)((v ^ p) & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBXH:
-    if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(ushort *)((v ^ p) & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBXC:
-    if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(char *)(v ^ p & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBXB:
-    if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    b = *(uchar *)(v ^ p & -2);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBXD:
-    if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    g = *(double *)((v ^ p) & -8);
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBXF:
-    if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    g = *(float *)((v ^ p) & -4);
-    follower = &&loopstart;
-    goto gotomanager;
+    // store a local
+    case SL:
+      if (ir < fsp) {
+        *(uint *)(xsp + (ir >> 8)) = a;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(uint *)((v ^ p) & -4) = a;
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case SLH:
+      if (ir < fsp) {
+        *(ushort *)(xsp + (ir >> 8)) = a;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(ushort *)((v ^ p) & -2) = a;
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case SLB:
+      if (ir < fsp) {
+        *(uchar *)(xsp + (ir >> 8)) = a;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(uchar *)(v ^ p & -2) = a;
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case SLD:
+      if (ir < fsp) {
+        *(double *)(xsp + (ir >> 8)) = f;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(double *)((v ^ p) & -8) = f;
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+    case SLF:
+      if (ir < fsp) {
+        *(float *)(xsp + (ir >> 8)) = f;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(float *)((v ^ p) & -4) = f;
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
 
-  // load b immediate
-  case LBI:
-    b = ir >> 8;
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBHI:
-    b = b << 24 | (uint)ir >> 8;
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBIF:
-    g = (ir >> 8) / 256.0;
-    follower = &&loopstart;
-    goto gotomanager;
+    // store a global
+    case SG:
+      if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = wlook(v))) {
+        break;
+      }
+      *(uint *)((v ^ p) & -4) = a;
+      follower = &loopstart;
+      return;
+    case SGH:
+      if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = wlook(v))) {
+        break;
+      }
+      *(ushort *)((v ^ p) & -2) = a;
+      follower = &loopstart;
+      return;
+    case SGB:
+      if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = wlook(v))) {
+        break;
+      }
+      *(uchar *)(v ^ p & -2) = a;
+      follower = &loopstart;
+      return;
+    case SGD:
+      if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = wlook(v))) {
+        break;
+      }
+      *(double *)((v ^ p) & -8) = f;
+      follower = &loopstart;
+      return;
+    case SGF:
+      if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
+          !(p = wlook(v))) {
+        break;
+      }
+      *(float *)((v ^ p) & -4) = f;
+      follower = &loopstart;
+      return;
 
-  // misc transfer
-  case LCL:
-    if (ir < fsp) {
-      c = *(uint *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    c = *(uint *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
+    // store a indexed
+    case SX:
+      if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(uint *)((v ^ p) & -4) = a;
+      follower = &loopstart;
+      return;
+    case SXH:
+      if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(ushort *)((v ^ p) & -2) = a;
+      follower = &loopstart;
+      return;
+    case SXB:
+      if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(uchar *)(v ^ p & -2) = a;
+      follower = &loopstart;
+      return;
+    case SXD:
+      if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(double *)((v ^ p) & -8) = f;
+      follower = &loopstart;
+      return;
+    case SXF:
+      if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
+        break;
+      }
+      *(float *)((v ^ p) & -4) = f;
+      follower = &loopstart;
+      return;
 
-  case LBA:
-    b = a;
-    follower = &&loopstart;
-    goto gotomanager; // XXX need LAB, LAC to improve k.c  // or maybe a = a *
-                      // imm
-  // + b
-  // ?  or b = b * imm + a ?
-  case LCA:
-    c = a;
-    follower = &&loopstart;
-    goto gotomanager;
-  case LBAD:
-    g = f;
-    follower = &&loopstart;
-    goto gotomanager;
+    // arithmetic
+    case ADDF:
+      f += g;
+      follower = &loopstart;
+      return;
+    case SUBF:
+      f -= g;
+      follower = &loopstart;
+      return;
+    case MULF:
+      f *= g;
+      follower = &loopstart;
+      return;
+    case DIVF:
+      if (g == 0.0) {
+        trap = FARITH;
+        break;
+      }
+      f /= g;
+      follower = &loopstart;
+      return; // XXX
 
-  // store a local
-  case SL:
-    if (ir < fsp) {
-      *(uint *)(xsp + (ir >> 8)) = a;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(uint *)((v ^ p) & -4) = a;
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case SLH:
-    if (ir < fsp) {
-      *(ushort *)(xsp + (ir >> 8)) = a;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(ushort *)((v ^ p) & -2) = a;
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case SLB:
-    if (ir < fsp) {
-      *(uchar *)(xsp + (ir >> 8)) = a;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(uchar *)(v ^ p & -2) = a;
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case SLD:
-    if (ir < fsp) {
-      *(double *)(xsp + (ir >> 8)) = f;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(double *)((v ^ p) & -8) = f;
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-  case SLF:
-    if (ir < fsp) {
-      *(float *)(xsp + (ir >> 8)) = f;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(float *)((v ^ p) & -4) = f;
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
+    case ADD:
+      a += b;
+      follower = &loopstart;
+      return;
+    case ADDI:
+      a += ir >> 8;
+      follower = &loopstart;
+      return;
+    case ADDL:
+      if (ir < fsp) {
+        a += *(uint *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a += *(uint *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
 
-  // store a global
-  case SG:
-    if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(uint *)((v ^ p) & -4) = a;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SGH:
-    if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(ushort *)((v ^ p) & -2) = a;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SGB:
-    if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(uchar *)(v ^ p & -2) = a;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SGD:
-    if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(double *)((v ^ p) & -8) = f;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SGF:
-    if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(float *)((v ^ p) & -4) = f;
-    follower = &&loopstart;
-    goto gotomanager;
+    case SUB:
+      a -= b;
+      follower = &loopstart;
+      return;
+    case SUBI:
+      a -= ir >> 8;
+      follower = &loopstart;
+      return;
+    case SUBL:
+      if (ir < fsp) {
+        a -= *(uint *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a -= *(uint *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
 
-  // store a indexed
-  case SX:
-    if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(uint *)((v ^ p) & -4) = a;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SXH:
-    if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(ushort *)((v ^ p) & -2) = a;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SXB:
-    if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(uchar *)(v ^ p & -2) = a;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SXD:
-    if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(double *)((v ^ p) & -8) = f;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SXF:
-    if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
-      break;
-    }
-    *(float *)((v ^ p) & -4) = f;
-    follower = &&loopstart;
-    goto gotomanager;
+    case MUL:
+      a = (int)a * (int)b;
+      follower = &loopstart;
+      return; // XXX MLU ???
+    case MULI:
+      a = (int)a * (ir >> 8);
+      follower = &loopstart;
+      return;
+    case MULL:
+      if (ir < fsp) {
+        a = (int)a * *(int *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a = (int)a * *(int *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
 
-  // arithmetic
-  case ADDF:
-    f += g;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SUBF:
-    f -= g;
-    follower = &&loopstart;
-    goto gotomanager;
-  case MULF:
-    f *= g;
-    follower = &&loopstart;
-    goto gotomanager;
-  case DIVF:
-    if (g == 0.0) {
-      trap = FARITH;
-      break;
-    }
-    f /= g;
-    follower = &&loopstart;
-    goto gotomanager; // XXX
-
-  case ADD:
-    a += b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case ADDI:
-    a += ir >> 8;
-    follower = &&loopstart;
-    goto gotomanager;
-  case ADDL:
-    if (ir < fsp) {
-      a += *(uint *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a += *(uint *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  case SUB:
-    a -= b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SUBI:
-    a -= ir >> 8;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SUBL:
-    if (ir < fsp) {
-      a -= *(uint *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a -= *(uint *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  case MUL:
-    a = (int)a * (int)b;
-    follower = &&loopstart;
-    goto gotomanager; // XXX MLU ???
-  case MULI:
-    a = (int)a * (ir >> 8);
-    follower = &&loopstart;
-    goto gotomanager;
-  case MULL:
-    if (ir < fsp) {
-      a = (int)a * *(int *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = (int)a * *(int *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  case DIV:
-    if (!b) {
-      trap = FARITH;
-      break;
-    }
-    a = (int)a / (int)b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case DIVI:
-    if (!(t = ir >> 8)) {
-      trap = FARITH;
-      break;
-    }
-    a = (int)a / (int)t;
-    follower = &&loopstart;
-    goto gotomanager;
-  case DIVL:
-    if (ir < fsp) {
-      if (!(t = *(uint *)(xsp + (ir >> 8)))) {
+    case DIV:
+      if (!b) {
+        trap = FARITH;
+        break;
+      }
+      a = (int)a / (int)b;
+      follower = &loopstart;
+      return;
+    case DIVI:
+      if (!(t = ir >> 8)) {
         trap = FARITH;
         break;
       }
       a = (int)a / (int)t;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    if (!(t = *(uint *)((v ^ p) & -4))) {
-      trap = FARITH;
-      break;
-    }
-    a = (int)a / (int)t;
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
+      follower = &loopstart;
+      return;
+    case DIVL:
+      if (ir < fsp) {
+        if (!(t = *(uint *)(xsp + (ir >> 8)))) {
+          trap = FARITH;
+          break;
+        }
+        a = (int)a / (int)t;
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      if (!(t = *(uint *)((v ^ p) & -4))) {
+        trap = FARITH;
+        break;
+      }
+      a = (int)a / (int)t;
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
 
-  case DVU:
-    if (!b) {
-      trap = FARITH;
-      break;
-    }
-    a /= b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case DVUI:
-    if (!(t = ir >> 8)) {
-      trap = FARITH;
-      break;
-    }
-    a /= t;
-    follower = &&loopstart;
-    goto gotomanager;
-  case DVUL:
-    if (ir < fsp) {
-      if (!(t = *(int *)(xsp + (ir >> 8)))) {
+    case DVU:
+      if (!b) {
+        trap = FARITH;
+        break;
+      }
+      a /= b;
+      follower = &loopstart;
+      return;
+    case DVUI:
+      if (!(t = ir >> 8)) {
         trap = FARITH;
         break;
       }
       a /= t;
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    if (!(t = *(uint *)((v ^ p) & -4))) {
-      trap = FARITH;
-      break;
-    }
-    a /= t;
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  case MOD:
-    a = (int)a % (int)b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case MODI:
-    a = (int)a % (ir >> 8);
-    follower = &&loopstart;
-    goto gotomanager;
-  case MODL:
-    if (ir < fsp) {
-      a = (int)a % *(int *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = (int)a % *(int *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  case MDU:
-    a %= b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case MDUI:
-    a %= (ir >> 8);
-    follower = &&loopstart;
-    goto gotomanager;
-  case MDUL:
-    if (ir < fsp) {
-      a %= *(uint *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a %= *(uint *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  case AND:
-    a &= b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case ANDI:
-    a &= ir >> 8;
-    follower = &&loopstart;
-    goto gotomanager;
-  case ANDL:
-    if (ir < fsp) {
-      a &= *(uint *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a &= *(uint *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  case OR:
-    a |= b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case ORI:
-    a |= ir >> 8;
-    follower = &&loopstart;
-    goto gotomanager;
-  case ORL:
-    if (ir < fsp) {
-      a |= *(uint *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a |= *(uint *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  case XOR:
-    a ^= b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case XORI:
-    a ^= ir >> 8;
-    follower = &&loopstart;
-    goto gotomanager;
-  case XORL:
-    if (ir < fsp) {
-      a ^= *(uint *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a ^= *(uint *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  case SHL:
-    a <<= b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SHLI:
-    a <<= ir >> 8;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SHLL:
-    if (ir < fsp) {
-      a <<= *(uint *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a <<= *(uint *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  case SHR:
-    a = (int)a >> (int)b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SHRI:
-    a = (int)a >> (ir >> 8);
-    follower = &&loopstart;
-    goto gotomanager;
-  case SHRL:
-    if (ir < fsp) {
-      a = (int)a >> *(int *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a = (int)a >> *(int *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  case SRU:
-    a >>= b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SRUI:
-    a >>= ir >> 8;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SRUL:
-    if (ir < fsp) {
-      a >>= *(uint *)(xsp + (ir >> 8));
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
-      break;
-    }
-    a >>= *(uint *)((v ^ p) & -4);
-    if (fsp || (v ^ (xsp - tsp)) & -4096) {
-      follower = &&loopstart;
-      goto gotomanager;
-    }
-    follower = &&fixsp;
-    goto gotomanager;
-
-  // logical
-  case EQ:
-    a = a == b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case EQF:
-    a = f == g;
-    follower = &&loopstart;
-    goto gotomanager;
-  case NE:
-    a = a != b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case NEF:
-    a = f != g;
-    follower = &&loopstart;
-    goto gotomanager;
-  case LT:
-    a = (int)a < (int)b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case LTU:
-    a = a < b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case LTF:
-    a = f < g;
-    follower = &&loopstart;
-    goto gotomanager;
-  case GE:
-    a = (int)a >= (int)b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case GEU:
-    a = a >= b;
-    follower = &&loopstart;
-    goto gotomanager;
-  case GEF:
-    a = f >= g;
-    follower = &&loopstart;
-    goto gotomanager;
-
-  // branch
-  case BZ:
-    if (!a) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
+      follower = &loopstart;
+      return;
+    case DVUL:
+      if (ir < fsp) {
+        if (!(t = *(int *)(xsp + (ir >> 8)))) {
+          trap = FARITH;
+          break;
+        }
+        a /= t;
+        follower = &loopstart;
+        return;
       }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BZF:
-    if (!f) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
       }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BNZ:
-    if (a) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
+      if (!(t = *(uint *)((v ^ p) & -4))) {
+        trap = FARITH;
+        break;
       }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BNZF:
-    if (f) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
+      a /= t;
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
       }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BE:
-    if (a == b) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
-      }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BEF:
-    if (f == g) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
-      }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BNE:
-    if (a != b) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
-      }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BNEF:
-    if (f != g) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
-      }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BLT:
-    if ((int)a < (int)b) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
-      }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BLTU:
-    if (a < b) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
-      }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BLTF:
-    if (f < g) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
-      }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BGE:
-    if ((int)a >= (int)b) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
-      }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BGEU:
-    if (a >= b) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
-      }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case BGEF:
-    if (f >= g) {
-      xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
-        follower = &&fixpc;
-        goto gotomanager;
-      }
-      follower = &&next;
-      goto gotomanager;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
+      follower = &fixsp;
+      return;
 
-  // conversion
-  case CID:
-    f = (int)a;
-    follower = &&loopstart;
-    goto gotomanager;
-  case CUD:
-    f = a;
-    follower = &&loopstart;
-    goto gotomanager;
-  case CDI:
-    a = (int)f;
-    follower = &&loopstart;
-    goto gotomanager;
-  case CDU:
-    a = f;
-    follower = &&loopstart;
-    goto gotomanager;
+    case MOD:
+      a = (int)a % (int)b;
+      follower = &loopstart;
+      return;
+    case MODI:
+      a = (int)a % (ir >> 8);
+      follower = &loopstart;
+      return;
+    case MODL:
+      if (ir < fsp) {
+        a = (int)a % *(int *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a = (int)a % *(int *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
 
-  // misc
-  case BIN:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    a = kbchar;
-    kbchar = -1;
-    follower = &&loopstart;
-    goto gotomanager; // XXX
-  case BOUT:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    if (a != 1) {
-      dprintf(2, "bad write a=%d\n", a);
-      follower = 0;
-      goto gotomanager;
-    }
-    ch = b;
-    a = write(a, &ch, 1);
-    follower = &&loopstart;
-    goto gotomanager;
-  case SSP:
-    xsp = a;
-    tsp = fsp = 0;
-    follower = &&fixsp;
-    goto gotomanager;
+    case MDU:
+      a %= b;
+      follower = &loopstart;
+      return;
+    case MDUI:
+      a %= (ir >> 8);
+      follower = &loopstart;
+      return;
+    case MDUL:
+      if (ir < fsp) {
+        a %= *(uint *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a %= *(uint *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
 
-  case NOP:
-    follower = &&loopstart;
-    goto gotomanager;
-  case CYC:
-    a = cycle + (int)((uint)xpc - xcycle) / 4;
-    follower = &&loopstart;
-    goto gotomanager; // XXX protected?  XXX also need wall clock time
-                      // instruction
-  case MSIZ:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    a = memsz;
-    follower = &&loopstart;
-    goto gotomanager;
+    case AND:
+      a &= b;
+      follower = &loopstart;
+      return;
+    case ANDI:
+      a &= ir >> 8;
+      follower = &loopstart;
+      return;
+    case ANDL:
+      if (ir < fsp) {
+        a &= *(uint *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a &= *(uint *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
 
-  case CLI:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    a = iena;
-    iena = 0;
-    follower = &&loopstart;
-    goto gotomanager;
-  case STI:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    if (ipend) {
-      trap = ipend & -ipend;
-      ipend ^= trap;
+    case OR:
+      a |= b;
+      follower = &loopstart;
+      return;
+    case ORI:
+      a |= ir >> 8;
+      follower = &loopstart;
+      return;
+    case ORL:
+      if (ir < fsp) {
+        a |= *(uint *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a |= *(uint *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+
+    case XOR:
+      a ^= b;
+      follower = &loopstart;
+      return;
+    case XORI:
+      a ^= ir >> 8;
+      follower = &loopstart;
+      return;
+    case XORL:
+      if (ir < fsp) {
+        a ^= *(uint *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a ^= *(uint *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+
+    case SHL:
+      a <<= b;
+      follower = &loopstart;
+      return;
+    case SHLI:
+      a <<= ir >> 8;
+      follower = &loopstart;
+      return;
+    case SHLL:
+      if (ir < fsp) {
+        a <<= *(uint *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a <<= *(uint *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+
+    case SHR:
+      a = (int)a >> (int)b;
+      follower = &loopstart;
+      return;
+    case SHRI:
+      a = (int)a >> (ir >> 8);
+      follower = &loopstart;
+      return;
+    case SHRL:
+      if (ir < fsp) {
+        a = (int)a >> *(int *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a = (int)a >> *(int *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+
+    case SRU:
+      a >>= b;
+      follower = &loopstart;
+      return;
+    case SRUI:
+      a >>= ir >> 8;
+      follower = &loopstart;
+      return;
+    case SRUL:
+      if (ir < fsp) {
+        a >>= *(uint *)(xsp + (ir >> 8));
+        follower = &loopstart;
+        return;
+      }
+      if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
+        break;
+      }
+      a >>= *(uint *)((v ^ p) & -4);
+      if (fsp || (v ^ (xsp - tsp)) & -4096) {
+        follower = &loopstart;
+        return;
+      }
+      follower = &fixsp;
+      return;
+
+    // logical
+    case EQ:
+      a = a == b;
+      follower = &loopstart;
+      return;
+    case EQF:
+      a = f == g;
+      follower = &loopstart;
+      return;
+    case NE:
+      a = a != b;
+      follower = &loopstart;
+      return;
+    case NEF:
+      a = f != g;
+      follower = &loopstart;
+      return;
+    case LT:
+      a = (int)a < (int)b;
+      follower = &loopstart;
+      return;
+    case LTU:
+      a = a < b;
+      follower = &loopstart;
+      return;
+    case LTF:
+      a = f < g;
+      follower = &loopstart;
+      return;
+    case GE:
+      a = (int)a >= (int)b;
+      follower = &loopstart;
+      return;
+    case GEU:
+      a = a >= b;
+      follower = &loopstart;
+      return;
+    case GEF:
+      a = f >= g;
+      follower = &loopstart;
+      return;
+
+    // branch
+    case BZ:
+      if (!a) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BZF:
+      if (!f) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BNZ:
+      if (a) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BNZF:
+      if (f) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BE:
+      if (a == b) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BEF:
+      if (f == g) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BNE:
+      if (a != b) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BNEF:
+      if (f != g) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BLT:
+      if ((int)a < (int)b) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BLTU:
+      if (a < b) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BLTF:
+      if (f < g) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BGE:
+      if ((int)a >= (int)b) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BGEU:
+      if (a >= b) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+    case BGEF:
+      if (f >= g) {
+        xcycle += ir >> 8;
+        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+          follower = &fixpc;
+          return;
+        }
+        follower = &next;
+        return;
+      }
+      follower = &loopstart;
+      return;
+
+    // conversion
+    case CID:
+      f = (int)a;
+      follower = &loopstart;
+      return;
+    case CUD:
+      f = a;
+      follower = &loopstart;
+      return;
+    case CDI:
+      a = (int)f;
+      follower = &loopstart;
+      return;
+    case CDU:
+      a = f;
+      follower = &loopstart;
+      return;
+
+    // misc
+    case BIN:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      a = kbchar;
+      kbchar = -1;
+      follower = &loopstart;
+      return; // XXX
+    case BOUT:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      if (a != 1) {
+        dprintf(2, "bad write a=%d\n", a);
+        follower = 0;
+        return;
+      }
+      ch = b;
+      a = write(a, &ch, 1);
+      follower = &loopstart;
+      return;
+    case SSP:
+      xsp = a;
+      tsp = fsp = 0;
+      follower = &fixsp;
+      return;
+
+    case NOP:
+      follower = &loopstart;
+      return;
+    case CYC:
+      a = cycle + (int)((uint)xpc - xcycle) / 4;
+      follower = &loopstart;
+      return; // XXX protected?  XXX also need wall clock time
+              // instruction
+    case MSIZ:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      a = memsz;
+      follower = &loopstart;
+      return;
+
+    case CLI:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      a = iena;
       iena = 0;
-      follower = &&interrupt;
-      goto gotomanager;
-    }
-    iena = 1;
-    follower = &&loopstart;
-    goto gotomanager;
-
-  case RTI:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    xsp -= tsp;
-    tsp = fsp = 0;
-    if (!(p = tr[xsp >> 12]) && !(p = rlook(xsp))) {
-      dprintf(2, "RTI kstack fault\n");
-      follower = &&fatal;
-      goto gotomanager;
-    }
-    t = *(uint *)((xsp ^ p) & -8);
-    xsp += 8;
-    if (!(p = tr[xsp >> 12]) && !(p = rlook(xsp))) {
-      dprintf(2, "RTI kstack fault\n");
-      follower = &&fatal;
-      goto gotomanager;
-    }
-    xcycle += (pc = *(uint *)((xsp ^ p) & -8) + tpc) - (uint)xpc;
-    xsp += 8;
-    xpc = (uint *)pc;
-    if (t & USER) {
-      ssp = xsp;
-      xsp = usp;
-      user = 1;
-      tr = tru;
-      tw = twu;
-    }
-    if (!iena) {
+      follower = &loopstart;
+      return;
+    case STI:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
       if (ipend) {
         trap = ipend & -ipend;
         ipend ^= trap;
-        follower = &&interrupt;
-        goto gotomanager;
+        iena = 0;
+        follower = &interrupt;
+        return;
       }
       iena = 1;
-    }
-    follower = &&fixpc;
-    goto gotomanager; // page may be invalid
+      follower = &loopstart;
+      return;
 
-  case IVEC:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    ivec = a;
-    follower = &&loopstart;
-    goto gotomanager;
-  case PDIR:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    if (a > memsz) {
-      trap = FMEM;
-      break;
-    }
-    pdir = (mem + a) & -4096;
-    flush();
-    fsp = 0;
-    follower = &&fixpc;
-    goto gotomanager; // set page directory
-  case SPAG:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    if (a && !pdir) {
-      trap = FMEM;
-      break;
-    }
-    paging = a;
-    flush();
-    fsp = 0;
-    follower = &&fixpc;
-    goto gotomanager; // enable paging
-
-  case TIME:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    if (ir >> 8) {
-      dprintf(2, "timer%d=%u timeout=%u\n", ir >> 8, timer, timeout);
-      follower = &&loopstart;
-      goto gotomanager;
-    } // XXX undocumented feature!
-    timeout = a;
-    follower = &&loopstart;
-    goto gotomanager; // XXX cancel pending interrupts if disabled?
-
-  // XXX need some sort of user mode thread locking functions to support user
-  // mode semaphores, etc.  atomic test/set?
-
-  case LVAD:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    a = vadr;
-    follower = &&loopstart;
-    goto gotomanager;
-
-  case TRAP:
-    trap = FSYS;
-    break;
-
-  case LUSP:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    a = usp;
-    follower = &&loopstart;
-    goto gotomanager;
-  case SUSP:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    usp = a;
-    follower = &&loopstart;
-    goto gotomanager;
-
-  // networking -- XXX HACK CODE (and all wrong), but it gets some basic
-  // networking going...
-  case NET1:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    a = socket(a, b, c);
-    follower = &&loopstart;
-    goto gotomanager; // XXX
-  case NET2:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    a = close(a);
-    follower = &&loopstart;
-    goto gotomanager; // XXX does this block?
-  case NET3:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = b & 0xFFFF;
-    addr.sin_port = b >> 16;
-    addr.sin_addr.s_addr = c;
-    a = connect(a, (struct sockaddr *)&addr,
-                sizeof(struct sockaddr_in)); // XXX needs to be non-blocking
-    follower = &&loopstart;
-    goto gotomanager;
-  case NET4:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    t = 0;
-    // XXX if ((unknown || !ready) && !poll()) return -1;
-    if ((int)c > 0) {
-      if ((int)c > sizeof(rbuf)) {
-        c = sizeof(rbuf);
-      }
-      a = c = read(a, rbuf, c);
-    } else {
-      a = 0; // XXX uint or int??
-    }
-    while ((int)c > 0) {
-      if (!(p = tw[b >> 12]) && !(p = wlook(b))) {
-        dprintf(2, "unstable!!");
-        exit(9);
-      } // follower=&&exception;goto gotomanager; } XXX
-      if ((u = 4096 - (b & 4095)) > c) {
-        u = c;
-      }
-      memcpy((char *)(b ^ p & -2), &rbuf[t], u);
-      t += u;
-      b += u;
-      c -= u;
-    }
-    follower = &&loopstart;
-    goto gotomanager;
-  case NET5:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    t = c;
-    // XXX if ((unknown || !ready) && !poll()) return -1;
-    while ((int)c > 0) {
-      if (!(p = tr[b >> 12]) && !(p = rlook(b))) {
-        follower = &&exception;
-        goto gotomanager;
-      }
-      if ((u = 4096 - (b & 4095)) > c) {
-        u = c;
-      }
-      if ((int)(u = write(a, (char *)(b ^ p & -2), u)) > 0) {
-        b += u;
-        c -= u;
-      } else {
-        t = u;
+    case RTI:
+      if (user) {
+        trap = FPRIV;
         break;
       }
-    }
-    a = t;
-    follower = &&loopstart;
-    goto gotomanager;
-  case NET6:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    pfd.fd = a;
-    pfd.events = POLLIN;
-    a = poll(&pfd, 1, 0); // XXX do something completely different
-    follower = &&loopstart;
-    goto gotomanager;
-  case NET7:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = b & 0xFFFF;
-    addr.sin_port = b >> 16;
-    addr.sin_addr.s_addr = c;
-    a = bind(a, (struct sockaddr *)&addr, sizeof(struct sockaddr_in));
-    follower = &&loopstart;
-    goto gotomanager;
-  case NET8:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    a = listen(a, b);
-    follower = &&loopstart;
-    goto gotomanager;
-  case NET9:
-    if (user) {
-      trap = FPRIV;
-      break;
-    }
-    // XXX if ((unknown || !ready) && !poll()) return -1;
-    a = accept(a, (void *)b,
-               (void *)c); // XXX cant do this with virtual addresses!!!
-    follower = &&loopstart;
-    goto gotomanager;
-  default:
-    trap = FINST;
-    break;
-  }
-  follower = &&exception;
-  goto gotomanager;
+      xsp -= tsp;
+      tsp = fsp = 0;
+      if (!(p = tr[xsp >> 12]) && !(p = rlook(xsp))) {
+        dprintf(2, "RTI kstack fault\n");
+        follower = &fatal;
+        return;
+      }
+      t = *(uint *)((xsp ^ p) & -8);
+      xsp += 8;
+      if (!(p = tr[xsp >> 12]) && !(p = rlook(xsp))) {
+        dprintf(2, "RTI kstack fault\n");
+        follower = &fatal;
+        return;
+      }
+      xcycle += (pc = *(uint *)((xsp ^ p) & -8) + tpc) - (uint)xpc;
+      xsp += 8;
+      xpc = (uint *)pc;
+      if (t & USER) {
+        ssp = xsp;
+        xsp = usp;
+        user = 1;
+        tr = tru;
+        tw = twu;
+      }
+      if (!iena) {
+        if (ipend) {
+          trap = ipend & -ipend;
+          ipend ^= trap;
+          follower = &interrupt;
+          return;
+        }
+        iena = 1;
+      }
+      follower = &fixpc;
+      return; // page may be invalid
 
-exception:
-  if (!iena) {
-    dprintf(2, "exception in interrupt handler\n");
-    follower = &&fatal;
-    goto gotomanager;
-  }
-  follower = &&interrupt;
-  goto gotomanager;
+    case IVEC:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      ivec = a;
+      follower = &loopstart;
+      return;
+    case PDIR:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      if (a > memsz) {
+        trap = FMEM;
+        break;
+      }
+      pdir = (mem + a) & -4096;
+      flush();
+      fsp = 0;
+      follower = &fixpc;
+      return; // set page directory
+    case SPAG:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      if (a && !pdir) {
+        trap = FMEM;
+        break;
+      }
+      paging = a;
+      flush();
+      fsp = 0;
+      follower = &fixpc;
+      return; // enable paging
 
-interrupt:
-  xsp -= tsp;
-  tsp = fsp = 0;
-  if (user) {
-    usp = xsp;
-    xsp = ssp;
-    user = 0;
-    tr = trk;
-    tw = twk;
-    trap |= USER;
-  }
-  xsp -= 8;
-  if (!(p = tw[xsp >> 12]) && !(p = wlook(xsp))) {
-    dprintf(2, "kstack fault!\n");
-    follower = &&fatal;
-    goto gotomanager;
-  }
-  *(uint *)((xsp ^ p) & -8) = (uint)xpc - tpc;
-  xsp -= 8;
-  if (!(p = tw[xsp >> 12]) && !(p = wlook(xsp))) {
-    dprintf(2, "kstack fault\n");
-    follower = &&fatal;
-    goto gotomanager;
-  }
-  *(uint *)((xsp ^ p) & -8) = trap;
-  xcycle += ivec + tpc - (uint)xpc;
-  xpc = (int *)(ivec + tpc);
-  follower = &&fixpc;
-  goto gotomanager;
+    case TIME:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      if (ir >> 8) {
+        dprintf(2, "timer%d=%u timeout=%u\n", ir >> 8, timer, timeout);
+        follower = &loopstart;
+        return;
+      } // XXX undocumented feature!
+      timeout = a;
+      follower = &loopstart;
+      return; // XXX cancel pending interrupts if disabled?
 
-fatal:
-  dprintf(2, "processor halted! cycle = %u pc = %08x ir = %08x sp = %08x a = "
-             "%d b = %d c = %d trap = %u\n",
-          cycle + (int)((uint)xpc - xcycle) / 4, (uint)xpc - tpc, ir, xsp - tsp,
-          a, b, c, trap);
-  follower = 0;
-  goto gotomanager;
+    // XXX need some sort of user mode thread locking functions to support user
+    // mode semaphores, etc.  atomic test/set?
+
+    case LVAD:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      a = vadr;
+      follower = &loopstart;
+      return;
+
+    case TRAP:
+      trap = FSYS;
+      break;
+
+    case LUSP:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      a = usp;
+      follower = &loopstart;
+      return;
+    case SUSP:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      usp = a;
+      follower = &loopstart;
+      return;
+
+    // networking -- XXX HACK CODE (and all wrong), but it gets some basic
+    // networking going...
+    case NET1:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      a = socket(a, b, c);
+      follower = &loopstart;
+      return; // XXX
+    case NET2:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      a = close(a);
+      follower = &loopstart;
+      return; // XXX does this block?
+    case NET3:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      memset(&addr, 0, sizeof(addr));
+      addr.sin_family = b & 0xFFFF;
+      addr.sin_port = b >> 16;
+      addr.sin_addr.s_addr = c;
+      a = connect(a, (struct sockaddr *)&addr,
+                  sizeof(struct sockaddr_in)); // XXX needs to be non-blocking
+      follower = &loopstart;
+      return;
+    case NET4:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      t = 0;
+      // XXX if ((unknown || !ready) && !poll()) return -1;
+      if ((int)c > 0) {
+        if ((int)c > sizeof(rbuf)) {
+          c = sizeof(rbuf);
+        }
+        a = c = read(a, rbuf, c);
+      } else {
+        a = 0; // XXX uint or int??
+      }
+      while ((int)c > 0) {
+        if (!(p = tw[b >> 12]) && !(p = wlook(b))) {
+          dprintf(2, "unstable!!");
+          exit(9);
+        } // follower=&exception;return; } XXX
+        if ((u = 4096 - (b & 4095)) > c) {
+          u = c;
+        }
+        memcpy((char *)(b ^ p & -2), &rbuf[t], u);
+        t += u;
+        b += u;
+        c -= u;
+      }
+      follower = &loopstart;
+      return;
+    case NET5:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      t = c;
+      // XXX if ((unknown || !ready) && !poll()) return -1;
+      while ((int)c > 0) {
+        if (!(p = tr[b >> 12]) && !(p = rlook(b))) {
+          follower = &exception;
+          return;
+        }
+        if ((u = 4096 - (b & 4095)) > c) {
+          u = c;
+        }
+        if ((int)(u = write(a, (char *)(b ^ p & -2), u)) > 0) {
+          b += u;
+          c -= u;
+        } else {
+          t = u;
+          break;
+        }
+      }
+      a = t;
+      follower = &loopstart;
+      return;
+    case NET6:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      pfd.fd = a;
+      pfd.events = POLLIN;
+      a = poll(&pfd, 1, 0); // XXX do something completely different
+      follower = &loopstart;
+      return;
+    case NET7:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      memset(&addr, 0, sizeof(addr));
+      addr.sin_family = b & 0xFFFF;
+      addr.sin_port = b >> 16;
+      addr.sin_addr.s_addr = c;
+      a = bind(a, (struct sockaddr *)&addr, sizeof(struct sockaddr_in));
+      follower = &loopstart;
+      return;
+    case NET8:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      a = listen(a, b);
+      follower = &loopstart;
+      return;
+    case NET9:
+      if (user) {
+        trap = FPRIV;
+        break;
+      }
+      // XXX if ((unknown || !ready) && !poll()) return -1;
+      a = accept(a, (void *)b,
+                 (void *)c); // XXX cant do this with virtual addresses!!!
+      follower = &loopstart;
+      return;
+    default:
+      trap = FINST;
+      break;
+    }
+    follower = &exception;
+    return;
+  }
+
+  follower = &fixpc;
+  while (follower != 0) {
+    (*follower)();
+  }
 }
 
 usage() {
