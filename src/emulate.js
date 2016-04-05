@@ -1,6 +1,5 @@
 /*jslint
-    bitwise: true, node: true, stupid: true, nomen: true, white: true,
-    maxerr: 10
+    bitwise: true, node: true, stupid: true, nomen: true, white: true
  */
 
 "use strict";
@@ -244,6 +243,10 @@ var POW = 188,
 
 /* Weird C Library */
 
+function read(d, b, n) {
+    ///
+}
+
 function dprintf(fd) {
     var args;
 
@@ -254,6 +257,15 @@ function dprintf(fd) {
         assert(false);
     }
 }
+
+var POLLIN = 1,
+    POLLOUT = 2,
+    POLLNVAL = 4;
+
+function poll(pfd, n, msec) {
+    ///
+}
+
 
 var INT8 = 0,
     UINT8 = 1,
@@ -667,10 +679,90 @@ function cpu(pc, sp) {
         xpc = ivec + tpc;
         follower = fixpc;
     };
-    fixsp = function() {};
-    chkpc = function() {};
-    fixpc = function() {};
-    next = function() {};
+    fixsp = function() {
+        var v, p;
+
+        v = xsp - tsp;
+        p = rdAt(tw, shr(v, 12));
+        if (p) {
+            xsp = v ^ (p - 1);
+            tsp = xsp - v;
+            fsp = (4096 - (xsp & L20_H12)) << 8;
+        }
+        follower = chkpc;
+    };
+    chkpc = function() {
+        if (xpc === fpc) {
+            follower = fixpc;
+        } else {
+            follower = after;
+        }
+    };
+    fixpc = function() {
+        var v, p;
+
+        v = xpc - tpc;
+        p = rdAt(tr, shr(v, 12));
+        if (p === 0) {
+            p = rlook(v);
+            if (p === 0) {
+                trap = FIPAGE;
+                follower = exception;
+                return;
+            }
+        }
+        xcycle -= tpc;
+        xpc = v ^ (p - 1);
+        tpc = xpc - v;
+        xcycle += tpc;
+        fpc = (xpc + 4096) & H20_L12;
+        follower = next;
+    };
+    next = function() {
+        var pfd, ch;
+
+        if (xpc > xcycle) {
+            cycle += delta;
+            xcycle += delta * 4;
+            if (iena || !(ipend & FKEYBD)) {
+                pfd = {
+                    fd: 0,
+                    events: POLLIN
+                };
+                ch = {};
+                if (poll(pfd, 1, 0) === 1 && read(0, ch, 1) === 1) {
+                    kbchar = ch.v;
+                    if (kbchar === '`') {
+                        dprintf(2, "ungraceful exit. cycle = %u\n",
+                            cycle + Math.floor((xpc - xcycle) / 4));
+                        follower = 0;
+                        return;
+                    }
+                    if (iena) {
+                        trap = FKEYBD;
+                        iena = 0;
+                        follower = interrupt;
+                        return;
+                    }
+                    ipend |= FKEYBD;
+                }
+            }
+            if (timeout) {
+                timer += delta;
+                if (timer >= timeout) {
+                    timer = 0;
+                    if (iena) {
+                        trap = FTIMER;
+                        iena = 0;
+                        follower = interrupt;
+                        return;
+                    }
+                    ipend |= FTIMER;
+                }
+            }
+        }
+        follower = after;
+    };
     after = function() {};
     follower = fixpc;
     while (follower !== 0) {
