@@ -243,11 +243,12 @@ var POW = 188,
 
 /* Weird C Library */
 
-// should have the same effect as `poll + read`
-function probekeybd() {
-    assert(false);
-    ///
-    return -1;
+function signed(x) {
+    return x >> 0;
+}
+
+function unsigned(x) {
+    return x >>> 0;
 }
 
 function dprintf(fd) {
@@ -259,6 +260,12 @@ function dprintf(fd) {
     } else {
         assert(false);
     }
+}
+
+function probekeybd() {
+    assert(false);
+    /// should have the same effect as `poll + read`
+    return -1;
 }
 
 var INT8 = 0,
@@ -408,10 +415,11 @@ var verbose = 0, // chatty option -v
 var cmd = "./xem";
 
 var H31_L1 = 0xFFFFFFFE,
+    H29_L3 = 0xFFFFFFF8,
+    H24_L8 = 0xFFFFFF00,
     H20_L12 = 0xFFFFF000,
     L20_H10_L2 = 0xFFC,
     L20_H12 = 0xFFF,
-    H29_L3 = 0xFFFFFFF8,
     L24_H8 = 0xFF;
 
 // to prevent unintended use of signed shift >>
@@ -603,6 +611,8 @@ function cpu(pc, sp) {
     var a = 0,
         b = 0,
         c = 0,
+        f = 0.0,
+        g = 0.0,
         ssp,
         usp,
         xpc = 0,
@@ -937,6 +947,100 @@ function cpu(pc, sp) {
                     c -= u;
                 }
                 follower = chkpc;
+                return;
+            case POW:
+                f = Math.pow(f, g);
+                follower = chkpc;
+                return;
+            case ATN2:
+                f = Math.atan2(f, g);
+                follower = chkpc;
+                return;
+            case FABS:
+                f = Math.abs(f);
+                follower = chkpc;
+                return;
+            case ATAN:
+                f = Math.atan(f);
+                follower = chkpc;
+                return;
+            case LOG:
+                f = Math.log(f);
+                follower = chkpc;
+                return;
+            case LOGT:
+                f = Math.log10(f);
+                follower = chkpc;
+                return;
+            case EXP:
+                f = Math.exp(f);
+                follower = chkpc;
+                return;
+            case FLOR:
+                f = Math.floor(f);
+                follower = chkpc;
+                return;
+            case CEIL:
+                f = Math.ceil(f);
+                follower = chkpc;
+                return;
+            case HYPO:
+                f = Math.hypot(f, g);
+                follower = chkpc;
+                return;
+            case SIN:
+                f = Math.sin(f);
+                follower = chkpc;
+                return;
+            case COS:
+                f = Math.cos(f);
+                follower = chkpc;
+                return;
+            case TAN:
+                f = Math.tan(f);
+                follower = chkpc;
+                return;
+            case ASIN:
+                f = Math.asin(f);
+                follower = chkpc;
+                return;
+            case ACOS:
+                f = Math.acos(f);
+                follower = chkpc;
+                return;
+            case SINH:
+                f = Math.sinh(f);
+                follower = chkpc;
+                return;
+            case COSH:
+                f = Math.cosh(f);
+                follower = chkpc;
+                return;
+            case TANH:
+                f = Math.tanh(f);
+                follower = chkpc;
+                return;
+            case SQRT:
+                f = Math.sqrt(f);
+                follower = chkpc;
+                return;
+            case FMOD:
+                f = Math.fmod(f, g);
+                follower = chkpc;
+                return;
+            case ENT:
+                if (fsp) {
+                    fsp -= ir & H24_L8;
+                    if (fsp > (PAGE_SZ << 8)) {
+                        fsp = 0;
+                    }
+                }
+                xsp += ir >> 8;
+                if (fsp) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
                 return;
             default:
                 trap = FINST;
