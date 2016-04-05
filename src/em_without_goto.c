@@ -552,7 +552,8 @@ void cpu(uint pc, uint sp) {
   uint a, b, c, ssp, usp, t, p, v, u, delta, cycle, xcycle, timer, timeout, fpc,
       tpc, xsp, tsp, fsp;
   double f, g;
-  int ir, *xpc, kbchar;
+  uint xpc;
+  int ir, kbchar;
   char ch;
   struct pollfd pfd;
   struct sockaddr_in addr;
@@ -621,7 +622,7 @@ void cpu(uint pc, uint sp) {
     }
     *(uint *)((xsp ^ p) & -8) = trap;
     xcycle += ivec + tpc - (uint)xpc;
-    xpc = (int *)(ivec + tpc);
+    xpc = (ivec + tpc);
     follower = &fixpc;
     return;
   }
@@ -652,7 +653,7 @@ void cpu(uint pc, uint sp) {
       return;
     }
     xcycle -= tpc;
-    xcycle += (tpc = (uint)(xpc = (int *)(v ^ (p - 1))) - v);
+    xcycle += (tpc = (uint)(xpc = (v ^ (p - 1))) - v);
     fpc = ((uint)xpc + 4096) & -4096;
     follower = &next;
     return;
@@ -704,7 +705,9 @@ void cpu(uint pc, uint sp) {
   }
 
   void after() {
-    switch ((uchar)(ir = *xpc++)) {
+    ir = *((int *)xpc);
+    xpc += 4;
+    switch ((uchar)(ir)) {
     case HALT:
       if (user || verbose)
         dprintf(2, "halt(%d) cycle = %u\n", a,
@@ -967,7 +970,7 @@ void cpu(uint pc, uint sp) {
       }
       xsp += (ir >> 8) + 8;
       xcycle += t - (uint)xpc;
-      if ((uint)(xpc = (uint *)t) - fpc < -4096) {
+      if ((uint)(xpc = t) - fpc < -4096) {
         follower = &fixpc;
         return;
       }
@@ -977,7 +980,7 @@ void cpu(uint pc, uint sp) {
     // jump
     case JMP:
       xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+      if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
         follower = &fixpc;
         return;
       }
@@ -989,7 +992,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       xcycle += (t = *(uint *)((v ^ p) & -4));
-      if ((uint)(xpc = (int *)((uint)xpc + t)) - fpc < -4096) {
+      if ((uint)(xpc = ((uint)xpc + t)) - fpc < -4096) {
         follower = &fixpc;
         return;
       }
@@ -1009,7 +1012,7 @@ void cpu(uint pc, uint sp) {
         xsp -= 8;
       }
       xcycle += ir >> 8;
-      if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+      if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
         follower = &fixpc;
         return;
       }
@@ -1029,7 +1032,7 @@ void cpu(uint pc, uint sp) {
         xsp -= 8;
       }
       xcycle += a + tpc - (uint)xpc;
-      if ((uint)(xpc = (uint *)(a + tpc)) - fpc < -4096) {
+      if ((uint)(xpc = (a + tpc)) - fpc < -4096) {
         follower = &fixpc;
         return;
       }
@@ -2314,7 +2317,7 @@ void cpu(uint pc, uint sp) {
     case BZ:
       if (!a) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2326,7 +2329,7 @@ void cpu(uint pc, uint sp) {
     case BZF:
       if (!f) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2338,7 +2341,7 @@ void cpu(uint pc, uint sp) {
     case BNZ:
       if (a) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2350,7 +2353,7 @@ void cpu(uint pc, uint sp) {
     case BNZF:
       if (f) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2362,7 +2365,7 @@ void cpu(uint pc, uint sp) {
     case BE:
       if (a == b) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2374,7 +2377,7 @@ void cpu(uint pc, uint sp) {
     case BEF:
       if (f == g) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2386,7 +2389,7 @@ void cpu(uint pc, uint sp) {
     case BNE:
       if (a != b) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2398,7 +2401,7 @@ void cpu(uint pc, uint sp) {
     case BNEF:
       if (f != g) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2410,7 +2413,7 @@ void cpu(uint pc, uint sp) {
     case BLT:
       if ((int)a < (int)b) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2422,7 +2425,7 @@ void cpu(uint pc, uint sp) {
     case BLTU:
       if (a < b) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2434,7 +2437,7 @@ void cpu(uint pc, uint sp) {
     case BLTF:
       if (f < g) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2446,7 +2449,7 @@ void cpu(uint pc, uint sp) {
     case BGE:
       if ((int)a >= (int)b) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2458,7 +2461,7 @@ void cpu(uint pc, uint sp) {
     case BGEU:
       if (a >= b) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2470,7 +2473,7 @@ void cpu(uint pc, uint sp) {
     case BGEF:
       if (f >= g) {
         xcycle += ir >> 8;
-        if ((uint)(xpc += ir >> 10) - fpc < -4096) {
+        if ((uint)(xpc += (ir >> 10) << 2) - fpc < -4096) {
           follower = &fixpc;
           return;
         }
@@ -2591,7 +2594,7 @@ void cpu(uint pc, uint sp) {
       }
       xcycle += (pc = *(uint *)((xsp ^ p) & -8) + tpc) - (uint)xpc;
       xsp += 8;
-      xpc = (uint *)pc;
+      xpc = pc;
       if (t & USER) {
         ssp = xsp;
         xsp = usp;
