@@ -453,7 +453,7 @@ void *new (int size) {
   return (void *)(((int)p + 7) & -8);
 }
 
-flush() {
+void flush() {
   uint v;
   //  static int xx; if (tpages >= xx) { xx = tpages; dprintf(2,"******
   //  flush(%d)\n",tpages); }
@@ -568,10 +568,10 @@ void cpu(uint pc, uint sp) {
   xsp = sp;
 
   auto void fixsp();
-  auto void loopstart();
+  auto void chkpc();
   auto void fixpc();
   auto void next();
-  auto void passifstat();
+  auto void after();
   auto void exception();
   auto void interrupt();
   auto void fatal();
@@ -582,6 +582,16 @@ void cpu(uint pc, uint sp) {
             cycle + (int)((uint)xpc - xcycle) / 4, (uint)xpc - tpc, ir,
             xsp - tsp, a, b, c, trap);
     follower = 0;
+    return;
+  }
+
+  void exception() {
+    if (!iena) {
+      dprintf(2, "exception in interrupt handler\n");
+      follower = &fatal;
+      return;
+    }
+    follower = &interrupt;
     return;
   }
 
@@ -616,13 +626,35 @@ void cpu(uint pc, uint sp) {
     return;
   }
 
-  void exception() {
-    if (!iena) {
-      dprintf(2, "exception in interrupt handler\n");
-      follower = &fatal;
+  void fixsp() {
+    if (p = tw[(v = xsp - tsp) >> 12]) {
+      tsp = (xsp = v ^ (p - 1)) - v;
+      fsp = (4096 - (xsp & 4095)) << 8;
+    }
+    follower = &chkpc;
+    return;
+  }
+
+  void chkpc() {
+    if ((uint)xpc == fpc) {
+      follower = &fixpc;
+      return;
+    } else {
+      follower = &after;
       return;
     }
-    follower = &interrupt;
+  }
+
+  void fixpc() {
+    if (!(p = tr[(v = (uint)xpc - tpc) >> 12]) && !(p = rlook(v))) {
+      trap = FIPAGE;
+      follower = &exception;
+      return;
+    }
+    xcycle -= tpc;
+    xcycle += (tpc = (uint)(xpc = (int *)(v ^ (p - 1))) - v);
+    fpc = ((uint)xpc + 4096) & -4096;
+    follower = &next;
     return;
   }
 
@@ -667,43 +699,11 @@ void cpu(uint pc, uint sp) {
         }
       }
     }
-    follower = &passifstat;
+    follower = &after;
     return;
   }
 
-  void fixpc() {
-    if (!(p = tr[(v = (uint)xpc - tpc) >> 12]) && !(p = rlook(v))) {
-      trap = FIPAGE;
-      follower = &exception;
-      return;
-    }
-    xcycle -= tpc;
-    xcycle += (tpc = (uint)(xpc = (int *)(v ^ (p - 1))) - v);
-    fpc = ((uint)xpc + 4096) & -4096;
-    follower = &next;
-    return;
-  }
-
-  void loopstart() {
-    if ((uint)xpc == fpc) {
-      follower = &fixpc;
-      return;
-    } else {
-      follower = &passifstat;
-      return;
-    }
-  }
-
-  void fixsp() {
-    if (p = tw[(v = xsp - tsp) >> 12]) {
-      tsp = (xsp = v ^ (p - 1)) - v;
-      fsp = (4096 - (xsp & 4095)) << 8;
-    }
-    follower = &loopstart;
-    return;
-  }
-
-  void passifstat() {
+  void after() {
     switch ((uchar)(ir = *xpc++)) {
     case HALT:
       if (user || verbose)
@@ -775,7 +775,7 @@ void cpu(uint pc, uint sp) {
         c -= u;
         //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     case MCMP: // for (;;) { if (!c) { a = 0; break; } if (*b != *a) { a = *b -
@@ -810,7 +810,7 @@ void cpu(uint pc, uint sp) {
         c -= u;
         //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     case MCHR: // for (;;) { if (!c) { a = 0; break; } if (*a == b) { c = 0;
@@ -836,7 +836,7 @@ void cpu(uint pc, uint sp) {
         c -= u;
         //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     case MSET: // while (c) { *a = b; a++; c--; }
@@ -853,93 +853,93 @@ void cpu(uint pc, uint sp) {
         c -= u;
         //        if (!(++cycle % DELTA)) { pc -= 4; break; } XXX
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // math
     case POW:
       f = pow(f, g);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case ATN2:
       f = atan2(f, g);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case FABS:
       f = fabs(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case ATAN:
       f = atan(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LOG:
       if (f) {
         f = log(f);
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return; // XXX others?
     case LOGT:
       if (f) {
         f = log10(f);
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return; // XXX
     case EXP:
       f = exp(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case FLOR:
       f = floor(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case CEIL:
       f = ceil(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case HYPO:
       f = hypot(f, g);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SIN:
       f = sin(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case COS:
       f = cos(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case TAN:
       f = tan(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case ASIN:
       f = asin(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case ACOS:
       f = acos(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SINH:
       f = sinh(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case COSH:
       f = cosh(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case TANH:
       f = tanh(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SQRT:
       f = sqrt(f);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case FMOD:
       f = fmod(f, g);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     case ENT:
@@ -948,7 +948,7 @@ void cpu(uint pc, uint sp) {
       }
       xsp += ir >> 8;
       if (fsp) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1042,7 +1042,7 @@ void cpu(uint pc, uint sp) {
         xsp -= 8;
         fsp += 8 << 8;
         *(uint *)xsp = a;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
@@ -1058,7 +1058,7 @@ void cpu(uint pc, uint sp) {
         xsp -= 8;
         fsp += 8 << 8;
         *(uint *)xsp = b;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
@@ -1074,7 +1074,7 @@ void cpu(uint pc, uint sp) {
         xsp -= 8;
         fsp += 8 << 8;
         *(uint *)xsp = c;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
@@ -1090,7 +1090,7 @@ void cpu(uint pc, uint sp) {
         xsp -= 8;
         fsp += 8 << 8;
         *(double *)xsp = f;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
@@ -1106,7 +1106,7 @@ void cpu(uint pc, uint sp) {
         xsp -= 8;
         fsp += 8 << 8;
         *(double *)xsp = g;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
@@ -1122,7 +1122,7 @@ void cpu(uint pc, uint sp) {
         xsp -= 8;
         fsp += 8 << 8;
         *(int *)xsp = ir >> 8;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tw[(v = xsp - tsp - 8) >> 12]) && !(p = wlook(v))) {
@@ -1139,7 +1139,7 @@ void cpu(uint pc, uint sp) {
         a = *(uint *)xsp;
         xsp += 8;
         fsp -= 8 << 8;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
@@ -1154,7 +1154,7 @@ void cpu(uint pc, uint sp) {
         b = *(uint *)xsp;
         xsp += 8;
         fsp -= 8 << 8;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
@@ -1169,7 +1169,7 @@ void cpu(uint pc, uint sp) {
         c = *(uint *)xsp;
         xsp += 8;
         fsp -= 8 << 8;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
@@ -1184,7 +1184,7 @@ void cpu(uint pc, uint sp) {
         f = *(double *)xsp;
         xsp += 8;
         fsp -= 8 << 8;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
@@ -1199,7 +1199,7 @@ void cpu(uint pc, uint sp) {
         g = *(double *)xsp;
         xsp += 8;
         fsp -= 8 << 8;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp) >> 12]) && !(p = rlook(v))) {
@@ -1213,18 +1213,18 @@ void cpu(uint pc, uint sp) {
     // load effective address
     case LEA:
       a = xsp - tsp + (ir >> 8);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LEAG:
       a = (uint)xpc - tpc + (ir >> 8);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // load a local
     case LL:
       if (ir < fsp) {
         a = *(uint *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1232,7 +1232,7 @@ void cpu(uint pc, uint sp) {
       }
       a = *(uint *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1240,7 +1240,7 @@ void cpu(uint pc, uint sp) {
     case LLS:
       if (ir < fsp) {
         a = *(short *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1248,7 +1248,7 @@ void cpu(uint pc, uint sp) {
       }
       a = *(short *)((v ^ p) & -2);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1256,7 +1256,7 @@ void cpu(uint pc, uint sp) {
     case LLH:
       if (ir < fsp) {
         a = *(ushort *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1264,7 +1264,7 @@ void cpu(uint pc, uint sp) {
       }
       a = *(ushort *)((v ^ p) & -2);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1272,7 +1272,7 @@ void cpu(uint pc, uint sp) {
     case LLC:
       if (ir < fsp) {
         a = *(char *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1280,7 +1280,7 @@ void cpu(uint pc, uint sp) {
       }
       a = *(char *)(v ^ p & -2);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1288,7 +1288,7 @@ void cpu(uint pc, uint sp) {
     case LLB:
       if (ir < fsp) {
         a = *(uchar *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1296,7 +1296,7 @@ void cpu(uint pc, uint sp) {
       }
       a = *(uchar *)(v ^ p & -2);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1304,7 +1304,7 @@ void cpu(uint pc, uint sp) {
     case LLD:
       if (ir < fsp) {
         f = *(double *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1312,7 +1312,7 @@ void cpu(uint pc, uint sp) {
       }
       f = *(double *)((v ^ p) & -8);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1320,7 +1320,7 @@ void cpu(uint pc, uint sp) {
     case LLF:
       if (ir < fsp) {
         f = *(float *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1328,7 +1328,7 @@ void cpu(uint pc, uint sp) {
       }
       f = *(float *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1341,7 +1341,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = *(uint *)((v ^ p) & -4);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LGS:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1349,7 +1349,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = *(short *)((v ^ p) & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LGH:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1357,7 +1357,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = *(ushort *)((v ^ p) & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LGC:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1365,7 +1365,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = *(char *)(v ^ p & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LGB:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1373,7 +1373,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = *(uchar *)(v ^ p & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LGD:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1381,7 +1381,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       f = *(double *)((v ^ p) & -8);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LGF:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1389,7 +1389,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       f = *(float *)((v ^ p) & -4);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // load a indexed
@@ -1398,70 +1398,70 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = *(uint *)((v ^ p) & -4);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LXS:
       if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       a = *(short *)((v ^ p) & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LXH:
       if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       a = *(ushort *)((v ^ p) & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LXC:
       if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       a = *(char *)(v ^ p & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LXB:
       if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       a = *(uchar *)(v ^ p & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LXD:
       if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       f = *(double *)((v ^ p) & -8);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LXF:
       if (!(p = tr[(v = a + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       f = *(float *)((v ^ p) & -4);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // load a immediate
     case LI:
       a = ir >> 8;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LHI:
       a = a << 24 | (uint)ir >> 8;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LIF:
       f = (ir >> 8) / 256.0;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // load b local
     case LBL:
       if (ir < fsp) {
         b = *(uint *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1469,7 +1469,7 @@ void cpu(uint pc, uint sp) {
       }
       b = *(uint *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1477,7 +1477,7 @@ void cpu(uint pc, uint sp) {
     case LBLS:
       if (ir < fsp) {
         b = *(short *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1485,7 +1485,7 @@ void cpu(uint pc, uint sp) {
       }
       b = *(short *)((v ^ p) & -2);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1493,7 +1493,7 @@ void cpu(uint pc, uint sp) {
     case LBLH:
       if (ir < fsp) {
         b = *(ushort *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1501,7 +1501,7 @@ void cpu(uint pc, uint sp) {
       }
       b = *(ushort *)((v ^ p) & -2);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1509,7 +1509,7 @@ void cpu(uint pc, uint sp) {
     case LBLC:
       if (ir < fsp) {
         b = *(char *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1517,7 +1517,7 @@ void cpu(uint pc, uint sp) {
       }
       b = *(char *)(v ^ p & -2);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1525,7 +1525,7 @@ void cpu(uint pc, uint sp) {
     case LBLB:
       if (ir < fsp) {
         b = *(uchar *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1533,7 +1533,7 @@ void cpu(uint pc, uint sp) {
       }
       b = *(uchar *)(v ^ p & -2);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1541,7 +1541,7 @@ void cpu(uint pc, uint sp) {
     case LBLD:
       if (ir < fsp) {
         g = *(double *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1549,7 +1549,7 @@ void cpu(uint pc, uint sp) {
       }
       g = *(double *)((v ^ p) & -8);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1557,7 +1557,7 @@ void cpu(uint pc, uint sp) {
     case LBLF:
       if (ir < fsp) {
         g = *(float *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1565,7 +1565,7 @@ void cpu(uint pc, uint sp) {
       }
       g = *(float *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1578,7 +1578,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       b = *(uint *)((v ^ p) & -4);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBGS:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1586,7 +1586,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       b = *(short *)((v ^ p) & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBGH:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1594,7 +1594,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       b = *(ushort *)((v ^ p) & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBGC:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1602,7 +1602,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       b = *(char *)(v ^ p & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBGB:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1610,7 +1610,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       b = *(uchar *)(v ^ p & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBGD:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1618,7 +1618,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       g = *(double *)((v ^ p) & -8);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBGF:
       if (!(p = tr[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1626,7 +1626,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       g = *(float *)((v ^ p) & -4);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // load b indexed
@@ -1635,70 +1635,70 @@ void cpu(uint pc, uint sp) {
         break;
       }
       b = *(uint *)((v ^ p) & -4);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBXS:
       if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       b = *(short *)((v ^ p) & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBXH:
       if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       b = *(ushort *)((v ^ p) & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBXC:
       if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       b = *(char *)(v ^ p & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBXB:
       if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       b = *(uchar *)(v ^ p & -2);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBXD:
       if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       g = *(double *)((v ^ p) & -8);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBXF:
       if (!(p = tr[(v = b + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
         break;
       }
       g = *(float *)((v ^ p) & -4);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // load b immediate
     case LBI:
       b = ir >> 8;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBHI:
       b = b << 24 | (uint)ir >> 8;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBIF:
       g = (ir >> 8) / 256.0;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // misc transfer
     case LCL:
       if (ir < fsp) {
         c = *(uint *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1706,7 +1706,7 @@ void cpu(uint pc, uint sp) {
       }
       c = *(uint *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1714,25 +1714,25 @@ void cpu(uint pc, uint sp) {
 
     case LBA:
       b = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return; // XXX need LAB, LAC to improve k.c  // or maybe a = a *
               // imm
     // + b
     // ?  or b = b * imm + a ?
     case LCA:
       c = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LBAD:
       g = f;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // store a local
     case SL:
       if (ir < fsp) {
         *(uint *)(xsp + (ir >> 8)) = a;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
@@ -1740,7 +1740,7 @@ void cpu(uint pc, uint sp) {
       }
       *(uint *)((v ^ p) & -4) = a;
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1748,7 +1748,7 @@ void cpu(uint pc, uint sp) {
     case SLH:
       if (ir < fsp) {
         *(ushort *)(xsp + (ir >> 8)) = a;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
@@ -1756,7 +1756,7 @@ void cpu(uint pc, uint sp) {
       }
       *(ushort *)((v ^ p) & -2) = a;
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1764,7 +1764,7 @@ void cpu(uint pc, uint sp) {
     case SLB:
       if (ir < fsp) {
         *(uchar *)(xsp + (ir >> 8)) = a;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
@@ -1772,7 +1772,7 @@ void cpu(uint pc, uint sp) {
       }
       *(uchar *)(v ^ p & -2) = a;
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1780,7 +1780,7 @@ void cpu(uint pc, uint sp) {
     case SLD:
       if (ir < fsp) {
         *(double *)(xsp + (ir >> 8)) = f;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
@@ -1788,7 +1788,7 @@ void cpu(uint pc, uint sp) {
       }
       *(double *)((v ^ p) & -8) = f;
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1796,7 +1796,7 @@ void cpu(uint pc, uint sp) {
     case SLF:
       if (ir < fsp) {
         *(float *)(xsp + (ir >> 8)) = f;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tw[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
@@ -1804,7 +1804,7 @@ void cpu(uint pc, uint sp) {
       }
       *(float *)((v ^ p) & -4) = f;
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1817,7 +1817,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       *(uint *)((v ^ p) & -4) = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SGH:
       if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1825,7 +1825,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       *(ushort *)((v ^ p) & -2) = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SGB:
       if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1833,7 +1833,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       *(uchar *)(v ^ p & -2) = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SGD:
       if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1841,7 +1841,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       *(double *)((v ^ p) & -8) = f;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SGF:
       if (!(p = tw[(v = (uint)xpc - tpc + (ir >> 8)) >> 12]) &&
@@ -1849,7 +1849,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       *(float *)((v ^ p) & -4) = f;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // store a indexed
@@ -1858,49 +1858,49 @@ void cpu(uint pc, uint sp) {
         break;
       }
       *(uint *)((v ^ p) & -4) = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SXH:
       if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
         break;
       }
       *(ushort *)((v ^ p) & -2) = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SXB:
       if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
         break;
       }
       *(uchar *)(v ^ p & -2) = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SXD:
       if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
         break;
       }
       *(double *)((v ^ p) & -8) = f;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SXF:
       if (!(p = tw[(v = b + (ir >> 8)) >> 12]) && !(p = wlook(v))) {
         break;
       }
       *(float *)((v ^ p) & -4) = f;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // arithmetic
     case ADDF:
       f += g;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SUBF:
       f -= g;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case MULF:
       f *= g;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case DIVF:
       if (g == 0.0) {
@@ -1908,21 +1908,21 @@ void cpu(uint pc, uint sp) {
         break;
       }
       f /= g;
-      follower = &loopstart;
+      follower = &chkpc;
       return; // XXX
 
     case ADD:
       a += b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case ADDI:
       a += ir >> 8;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case ADDL:
       if (ir < fsp) {
         a += *(uint *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1930,7 +1930,7 @@ void cpu(uint pc, uint sp) {
       }
       a += *(uint *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1938,16 +1938,16 @@ void cpu(uint pc, uint sp) {
 
     case SUB:
       a -= b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SUBI:
       a -= ir >> 8;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SUBL:
       if (ir < fsp) {
         a -= *(uint *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1955,7 +1955,7 @@ void cpu(uint pc, uint sp) {
       }
       a -= *(uint *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1963,16 +1963,16 @@ void cpu(uint pc, uint sp) {
 
     case MUL:
       a = (int)a * (int)b;
-      follower = &loopstart;
+      follower = &chkpc;
       return; // XXX MLU ???
     case MULI:
       a = (int)a * (ir >> 8);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case MULL:
       if (ir < fsp) {
         a = (int)a * *(int *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -1980,7 +1980,7 @@ void cpu(uint pc, uint sp) {
       }
       a = (int)a * *(int *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -1992,7 +1992,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = (int)a / (int)b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case DIVI:
       if (!(t = ir >> 8)) {
@@ -2000,7 +2000,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = (int)a / (int)t;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case DIVL:
       if (ir < fsp) {
@@ -2009,7 +2009,7 @@ void cpu(uint pc, uint sp) {
           break;
         }
         a = (int)a / (int)t;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -2021,7 +2021,7 @@ void cpu(uint pc, uint sp) {
       }
       a = (int)a / (int)t;
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -2033,7 +2033,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a /= b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case DVUI:
       if (!(t = ir >> 8)) {
@@ -2041,7 +2041,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a /= t;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case DVUL:
       if (ir < fsp) {
@@ -2050,7 +2050,7 @@ void cpu(uint pc, uint sp) {
           break;
         }
         a /= t;
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -2062,7 +2062,7 @@ void cpu(uint pc, uint sp) {
       }
       a /= t;
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -2070,16 +2070,16 @@ void cpu(uint pc, uint sp) {
 
     case MOD:
       a = (int)a % (int)b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case MODI:
       a = (int)a % (ir >> 8);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case MODL:
       if (ir < fsp) {
         a = (int)a % *(int *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -2087,7 +2087,7 @@ void cpu(uint pc, uint sp) {
       }
       a = (int)a % *(int *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -2095,16 +2095,16 @@ void cpu(uint pc, uint sp) {
 
     case MDU:
       a %= b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case MDUI:
       a %= (ir >> 8);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case MDUL:
       if (ir < fsp) {
         a %= *(uint *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -2112,7 +2112,7 @@ void cpu(uint pc, uint sp) {
       }
       a %= *(uint *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -2120,16 +2120,16 @@ void cpu(uint pc, uint sp) {
 
     case AND:
       a &= b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case ANDI:
       a &= ir >> 8;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case ANDL:
       if (ir < fsp) {
         a &= *(uint *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -2137,7 +2137,7 @@ void cpu(uint pc, uint sp) {
       }
       a &= *(uint *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -2145,16 +2145,16 @@ void cpu(uint pc, uint sp) {
 
     case OR:
       a |= b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case ORI:
       a |= ir >> 8;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case ORL:
       if (ir < fsp) {
         a |= *(uint *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -2162,7 +2162,7 @@ void cpu(uint pc, uint sp) {
       }
       a |= *(uint *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -2170,16 +2170,16 @@ void cpu(uint pc, uint sp) {
 
     case XOR:
       a ^= b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case XORI:
       a ^= ir >> 8;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case XORL:
       if (ir < fsp) {
         a ^= *(uint *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -2187,7 +2187,7 @@ void cpu(uint pc, uint sp) {
       }
       a ^= *(uint *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -2195,16 +2195,16 @@ void cpu(uint pc, uint sp) {
 
     case SHL:
       a <<= b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SHLI:
       a <<= ir >> 8;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SHLL:
       if (ir < fsp) {
         a <<= *(uint *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -2212,7 +2212,7 @@ void cpu(uint pc, uint sp) {
       }
       a <<= *(uint *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -2220,16 +2220,16 @@ void cpu(uint pc, uint sp) {
 
     case SHR:
       a = (int)a >> (int)b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SHRI:
       a = (int)a >> (ir >> 8);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SHRL:
       if (ir < fsp) {
         a = (int)a >> *(int *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -2237,7 +2237,7 @@ void cpu(uint pc, uint sp) {
       }
       a = (int)a >> *(int *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -2245,16 +2245,16 @@ void cpu(uint pc, uint sp) {
 
     case SRU:
       a >>= b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SRUI:
       a >>= ir >> 8;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SRUL:
       if (ir < fsp) {
         a >>= *(uint *)(xsp + (ir >> 8));
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       if (!(p = tr[(v = xsp - tsp + (ir >> 8)) >> 12]) && !(p = rlook(v))) {
@@ -2262,7 +2262,7 @@ void cpu(uint pc, uint sp) {
       }
       a >>= *(uint *)((v ^ p) & -4);
       if (fsp || (v ^ (xsp - tsp)) & -4096) {
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       }
       follower = &fixsp;
@@ -2271,43 +2271,43 @@ void cpu(uint pc, uint sp) {
     // logical
     case EQ:
       a = a == b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case EQF:
       a = f == g;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case NE:
       a = a != b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case NEF:
       a = f != g;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LT:
       a = (int)a < (int)b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LTU:
       a = a < b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case LTF:
       a = f < g;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case GE:
       a = (int)a >= (int)b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case GEU:
       a = a >= b;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case GEF:
       a = f >= g;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // branch
@@ -2321,7 +2321,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BZF:
       if (!f) {
@@ -2333,7 +2333,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BNZ:
       if (a) {
@@ -2345,7 +2345,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BNZF:
       if (f) {
@@ -2357,7 +2357,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BE:
       if (a == b) {
@@ -2369,7 +2369,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BEF:
       if (f == g) {
@@ -2381,7 +2381,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BNE:
       if (a != b) {
@@ -2393,7 +2393,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BNEF:
       if (f != g) {
@@ -2405,7 +2405,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BLT:
       if ((int)a < (int)b) {
@@ -2417,7 +2417,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BLTU:
       if (a < b) {
@@ -2429,7 +2429,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BLTF:
       if (f < g) {
@@ -2441,7 +2441,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BGE:
       if ((int)a >= (int)b) {
@@ -2453,7 +2453,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BGEU:
       if (a >= b) {
@@ -2465,7 +2465,7 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case BGEF:
       if (f >= g) {
@@ -2477,25 +2477,25 @@ void cpu(uint pc, uint sp) {
         follower = &next;
         return;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // conversion
     case CID:
       f = (int)a;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case CUD:
       f = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case CDI:
       a = (int)f;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case CDU:
       a = f;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // misc
@@ -2506,7 +2506,7 @@ void cpu(uint pc, uint sp) {
       }
       a = kbchar;
       kbchar = -1;
-      follower = &loopstart;
+      follower = &chkpc;
       return; // XXX
     case BOUT:
       if (user) {
@@ -2520,7 +2520,7 @@ void cpu(uint pc, uint sp) {
       }
       ch = b;
       a = write(a, &ch, 1);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SSP:
       xsp = a;
@@ -2529,11 +2529,11 @@ void cpu(uint pc, uint sp) {
       return;
 
     case NOP:
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case CYC:
       a = cycle + (int)((uint)xpc - xcycle) / 4;
-      follower = &loopstart;
+      follower = &chkpc;
       return; // XXX protected?  XXX also need wall clock time
               // instruction
     case MSIZ:
@@ -2542,7 +2542,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = memsz;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     case CLI:
@@ -2552,7 +2552,7 @@ void cpu(uint pc, uint sp) {
       }
       a = iena;
       iena = 0;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case STI:
       if (user) {
@@ -2567,7 +2567,7 @@ void cpu(uint pc, uint sp) {
         return;
       }
       iena = 1;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     case RTI:
@@ -2617,7 +2617,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       ivec = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case PDIR:
       if (user) {
@@ -2655,11 +2655,11 @@ void cpu(uint pc, uint sp) {
       }
       if (ir >> 8) {
         dprintf(2, "timer%d=%u timeout=%u\n", ir >> 8, timer, timeout);
-        follower = &loopstart;
+        follower = &chkpc;
         return;
       } // XXX undocumented feature!
       timeout = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return; // XXX cancel pending interrupts if disabled?
 
     // XXX need some sort of user mode thread locking functions to support user
@@ -2671,7 +2671,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = vadr;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     case TRAP:
@@ -2684,7 +2684,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = usp;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case SUSP:
       if (user) {
@@ -2692,7 +2692,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       usp = a;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
 
     // networking -- XXX HACK CODE (and all wrong), but it gets some basic
@@ -2703,7 +2703,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = socket(a, b, c);
-      follower = &loopstart;
+      follower = &chkpc;
       return; // XXX
     case NET2:
       if (user) {
@@ -2711,7 +2711,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = close(a);
-      follower = &loopstart;
+      follower = &chkpc;
       return; // XXX does this block?
     case NET3:
       if (user) {
@@ -2724,7 +2724,7 @@ void cpu(uint pc, uint sp) {
       addr.sin_addr.s_addr = c;
       a = connect(a, (struct sockaddr *)&addr,
                   sizeof(struct sockaddr_in)); // XXX needs to be non-blocking
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case NET4:
       if (user) {
@@ -2754,7 +2754,7 @@ void cpu(uint pc, uint sp) {
         b += u;
         c -= u;
       }
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case NET5:
       if (user) {
@@ -2780,7 +2780,7 @@ void cpu(uint pc, uint sp) {
         }
       }
       a = t;
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case NET6:
       if (user) {
@@ -2790,7 +2790,7 @@ void cpu(uint pc, uint sp) {
       pfd.fd = a;
       pfd.events = POLLIN;
       a = poll(&pfd, 1, 0); // XXX do something completely different
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case NET7:
       if (user) {
@@ -2802,7 +2802,7 @@ void cpu(uint pc, uint sp) {
       addr.sin_port = b >> 16;
       addr.sin_addr.s_addr = c;
       a = bind(a, (struct sockaddr *)&addr, sizeof(struct sockaddr_in));
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case NET8:
       if (user) {
@@ -2810,7 +2810,7 @@ void cpu(uint pc, uint sp) {
         break;
       }
       a = listen(a, b);
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     case NET9:
       if (user) {
@@ -2820,7 +2820,7 @@ void cpu(uint pc, uint sp) {
       // XXX if ((unknown || !ready) && !poll()) return -1;
       a = accept(a, (void *)b,
                  (void *)c); // XXX cant do this with virtual addresses!!!
-      follower = &loopstart;
+      follower = &chkpc;
       return;
     default:
       trap = FINST;
@@ -2836,7 +2836,7 @@ void cpu(uint pc, uint sp) {
   }
 }
 
-usage() {
+void usage() {
   dprintf(2, "%s : usage: %s [-v] [-m memsize] [-f filesys] file\n", cmd, cmd);
   exit(-1);
 }
