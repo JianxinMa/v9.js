@@ -243,8 +243,11 @@ var POW = 188,
 
 /* Weird C Library */
 
-function read(d, b, n) {
+// should have the same effect as `poll + read`
+function probekeybd() {
+    assert(false);
     ///
+    return -1;
 }
 
 function dprintf(fd) {
@@ -257,15 +260,6 @@ function dprintf(fd) {
         assert(false);
     }
 }
-
-var POLLIN = 1,
-    POLLOUT = 2,
-    POLLNVAL = 4;
-
-function poll(pfd, n, msec) {
-    ///
-}
-
 
 var INT8 = 0,
     UINT8 = 1,
@@ -412,10 +406,12 @@ var verbose = 0, // chatty option -v
 
 var cmd = "./xem";
 
-var H20_L12 = 0xFFFFF000,
+var H31_L1 = 0xFFFFFFFE,
+    H20_L12 = 0xFFFFF000,
     L20_H10_L2 = 0xFFC,
     L20_H12 = 0xFFF,
-    H29_L3 = 0xFFFFFFF8;
+    H29_L3 = 0xFFFFFFF8,
+    L24_H8 = 0xFF;
 
 // to prevent unintended use of signed shift >>
 function shr(x, n) {
@@ -595,7 +591,7 @@ function readhdr(filename) {
     }
     i = fs.readSync(fd, mem, 0, st.size - 16);
     if (i !== st.size - 16) {
-        dprintf(2, "%s : failed to read file %sn", cmd, filename);
+        dprintf(2, "%s : failed to read file %s\n", cmd, filename);
         return -1;
     }
     fs.closeSync(fd);
@@ -625,8 +621,8 @@ function cpu(pc, sp) {
         follower, fatal, exception, interrupt, fixsp, chkpc, fixpc, next, after;
 
     fatal = function() {
-        dprintf(2, "processor halted! cycle = %u pc = %08x ir = %08x sp = %08x" +
-            " a = %d b = %d c = %d trap = %u\n",
+        dprintf(2, "processor halted! cycle = %d pc = %08x ir = %08x sp = %08x" +
+            " a = %d b = %d c = %d trap = %d\n",
             cycle + Math.floor((xpc - xcycle) / 4), xpc - tpc, ir, xsp - tsp,
             a, b, c, trap);
         follower = 0;
@@ -719,21 +715,17 @@ function cpu(pc, sp) {
         follower = next;
     };
     next = function() {
-        var pfd, ch;
+        var ch;
 
         if (xpc > xcycle) {
             cycle += delta;
             xcycle += delta * 4;
             if (iena || !(ipend & FKEYBD)) {
-                pfd = {
-                    fd: 0,
-                    events: POLLIN
-                };
-                ch = {};
-                if (poll(pfd, 1, 0) === 1 && read(0, ch, 1) === 1) {
-                    kbchar = ch.v;
+                ch = probekeybd();
+                if (ch !== -1) {
+                    kbchar = ch;
                     if (kbchar === '`') {
-                        dprintf(2, "ungraceful exit. cycle = %u\n",
+                        dprintf(2, "ungraceful exit. cycle = %d\n",
                             cycle + Math.floor((xpc - xcycle) / 4));
                         follower = 0;
                         return;
@@ -763,7 +755,143 @@ function cpu(pc, sp) {
         }
         follower = after;
     };
-    after = function() {};
+    after = function() {
+        var ch, u, v, p, t;
+
+        assert(shr(xpc, 2) << 2 === xpc);
+        ir = rdAtT(mem, shr(xpc, 2), INT32); // immediate is signed
+        xpc += 4;
+        switch (ir & L24_H8) {
+            case HALT:
+                if (user || verbose) {
+                    dprintf(2, "halt(%d) cycle = %d\n",
+                        a, cycle + Math.floor((xpc - xcycle) / 4));
+                }
+                follower = 0;
+                return;
+            case IDLE:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                if (!iena) {
+                    trap = FINST;
+                    break;
+                }
+                while (true) {
+                    ch = probekeybd();
+                    if (ch !== -1) {
+                        kbchar = ch;
+                        if (kbchar === '`') {
+                            dprintf(2, "ungraceful exit. cycle = %d\n",
+                                cycle + Math.floor((xpc - xcycle) / 4));
+                            follower = 0;
+                            return;
+                        }
+                        trap = FKEYBD;
+                        iena = 0;
+                        follower = interrupt;
+                        return;
+                    }
+                    cycle += delta;
+                    if (timeout) {
+                        timer += delta;
+                        if (timer >= timeout) {
+                            timer = 0;
+                            trap = FTIMER;
+                            iena = 0;
+                            follower = interrupt;
+                            return;
+                        }
+                    }
+                }
+                break;
+            case MCPY:
+                while (c > 0) {
+                    t = rdAt(tr, shr(b, 12));
+                    if (t === 0) {
+                        t = rlook(b);
+                        if (t === 0) {
+                            follower = exception;
+                            return;
+                        }
+                    }
+                    p = rdAt(tw, shr(a, 12));
+                    if (p === 0) {
+                        p = wlook(a);
+                        if (p === 0) {
+                            follower = exception;
+                            return;
+                        }
+                    }
+                    v = 4096 - (a & L20_H12);
+                    if (v > c) {
+                        v = c;
+                    }
+                    u = 4096 - (b & L20_H12);
+                    if (u > v) {
+                        u = v;
+                    }
+                    p = a ^ (p & H31_L1);
+                    t = b ^ (t & H31_L1);
+                    mem.copy(mem, p, t, t + u);
+                    a += u;
+                    b += u;
+                    c -= u;
+                }
+                follower = chkpc;
+                return;
+            case MCMP:
+                while (true) {
+                    if (c === 0) {
+                        a = 0;
+                        break;
+                    }
+                    t = rdAt(tr, shr(b, 12));
+                    if (t === 0) {
+                        t = rlook(b);
+                        if (t === 0) {
+                            follower = exception;
+                            return;
+                        }
+                    }
+                    p = rdAt(tr, shr(a, 12));
+                    if (p === 0) {
+                        p = rlook(a);
+                        if (p === 0) {
+                            follower = exception;
+                            return;
+                        }
+                    }
+                    v = 4096 - (a & L20_H12);
+                    if (v > c) {
+                        v = c;
+                    }
+                    u = 4096 - (b & L20_H12);
+                    if (u > v) {
+                        u = v;
+                    }
+                    p = a ^ (p & H31_L1);
+                    t = b ^ (t & H31_L1);
+                    t = mem.slice(p, p + u).compare(mem.slice(t, t + u));
+                    if (t !== 0) {
+                        a = t;
+                        b += c;
+                        c = 0;
+                        break;
+                    }
+                    a += u;
+                    b += u;
+                    c -= u;
+                }
+                follower = chkpc;
+                return;
+            default:
+                trap = FINST;
+                break;
+        }
+        follower = exception;
+    };
     follower = fixpc;
     while (follower !== 0) {
         follower();
