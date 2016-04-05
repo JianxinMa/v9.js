@@ -400,9 +400,10 @@ var verbose = 0, // chatty option -v
 
 var cmd = "./xem";
 
-var H20_L12 = 0xFFFFF000;
-var L20_H10_L2 = 0xFFC;
-var L20_H12 = 0xFFF;
+var H20_L12 = 0xFFFFF000,
+    L20_H10_L2 = 0xFFC,
+    L20_H12 = 0xFFF,
+    H29_L3 = 0xFFFFFFF8;
 
 // to prevent unintended use of signed shift >>
 function shr(x, n) {
@@ -472,7 +473,7 @@ function rlook(v) {
                 if (!(pte & PTE_A)) {
                     wrAtT(mem, shr(ppte, 2), pte | PTE_A, UINT32);
                 }
-                // check PTE_D to ensure the dirty bit be set by wlook
+                // check PTE_D here because the dirty bit should be set by wlook
                 return setpage(v, pte, (pte & PTE_D) && (q & PTE_W), userable);
             }
         }
@@ -590,6 +591,91 @@ function readhdr(filename) {
 }
 
 function cpu(pc, sp) {
+    var a = 0,
+        b = 0,
+        c = 0,
+        ssp,
+        usp,
+        xpc = 0,
+        tpc = -pc,
+        fpc = 0,
+        xsp = sp,
+        tsp = 0,
+        fsp = 0,
+        ir,
+        trap,
+        delta = 4096,
+        cycle = 4096,
+        xcycle = delta * 4,
+        timer = 0,
+        timeout = 0,
+        kbchar = -1,
+        follower, fatal, exception, interrupt, fixsp, chkpc, fixpc, next, after;
+
+    fatal = function() {
+        dprintf(2, "processor halted! cycle = %u pc = %08x ir = %08x sp = %08x" +
+            " a = %d b = %d c = %d trap = %u\n",
+            cycle + Math.floor((xpc - xcycle) / 4), xpc - tpc, ir, xsp - tsp,
+            a, b, c, trap);
+        follower = 0;
+    };
+    exception = function() {
+        if (iena === 0) {
+            dprintf(2, "exception in interrupt handler\n");
+            follower = fatal;
+        } else {
+            follower = interrupt;
+        }
+    };
+    interrupt = function() {
+        var p;
+
+        xsp -= tsp;
+        tsp = 0;
+        fsp = 0;
+        if (user) {
+            usp = xsp;
+            xsp = ssp;
+            user = 0;
+            tr = trk;
+            tw = twk;
+            trap |= USER;
+        }
+        xsp -= 8;
+        p = rdAt(tw, shr(xsp, 12));
+        if (p === 0) {
+            p = wlook(xsp);
+            if (p === 0) {
+                dprintf(2, "kstack fault!\n");
+                follower = fatal;
+                return;
+            }
+        }
+        wrAtT(mem, shr((xsp ^ p) & H29_L3, 2), xpc - tpc, UINT32);
+        xsp -= 8;
+        p = rdAt(tw, shr(xsp, 12));
+        if (p === 0) {
+            p = wlook(xsp);
+            if (p === 0) {
+                dprintf(2, "kstack fault\n");
+                follower = fatal;
+                return;
+            }
+        }
+        wrAtT(mem, shr((xsp ^ p) & H29_L3, 2), trap, UINT32);
+        xcycle += ivec + tpc - xpc;
+        xpc = ivec + tpc;
+        follower = fixpc;
+    };
+    fixsp = function() {};
+    chkpc = function() {};
+    fixpc = function() {};
+    next = function() {};
+    after = function() {};
+    follower = fixpc;
+    while (follower !== 0) {
+        follower();
+    }
 }
 
 function main(argv) {
