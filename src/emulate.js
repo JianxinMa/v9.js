@@ -4,13 +4,9 @@
 
 "use strict";
 
-/* Modules */
-
 var minimist = require("minimist"),
     assert = require("assert"),
     fs = require("fs");
-
-/* Instruction Set */
 
 // instructions: system
 var HALT = 0,
@@ -241,138 +237,10 @@ var POW = 188,
     FMOD = 207,
     IDLE = 208;
 
-/* Weird C Library */
-
-function signed(x) {
-    return x >> 0;
-}
-
-function unsigned(x) {
-    return x >>> 0;
-}
-
-function dprintf(fd) {
-    var args;
-
-    if (fd === 2) {
-        args = Array.prototype.slice.call(arguments, 1);
-        console.log.apply(console, args);
-    } else {
-        assert(false);
-    }
-}
-
-function probekeybd() {
-    assert(false);
-    /// should have the same effect as `poll + read`
-    return -1;
-}
-
-var INT8 = 0,
-    UINT8 = 1,
-    INT16 = 2,
-    UINT16 = 3,
-    INT32 = 4,
-    UINT32 = 5,
-    FLOAT = 6,
-    DOUBLE = 7;
-
-function calloc(sz, dtype) {
-    var ret;
-
-    if (dtype === INT16 || dtype === UINT16) {
-        sz *= 2;
-    } else if (dtype === INT32 || dtype === UINT32 || dtype === FLOAT) {
-        sz *= 4;
-    } else if (dtype === DOUBLE) {
-        sz *= 8;
-    }
-    ret = Buffer.alloc(sz);
-    ret.dtype = dtype;
-    return ret;
-}
-
-function rdAtT(a, i, dtype) {
-    var v;
-
-    switch (dtype) {
-        case INT8:
-            v = a.readInt8(i);
-            break;
-        case UINT8:
-            v = a.readUInt8(i);
-            break;
-        case INT16:
-            v = a.readInt16LE(i);
-            break;
-        case UINT16:
-            v = a.readUInt16LE(i);
-            break;
-        case INT32:
-            v = a.readInt32LE(i);
-            break;
-        case UINT32:
-            v = a.readUInt32LE(i);
-            break;
-        case FLOAT:
-            v = a.readFloatLE(i);
-            break;
-        case DOUBLE:
-            v = a.readDoubleLE(i);
-            break;
-        default:
-            assert(false);
-    }
-    return v;
-}
-
-function rdAt(a, i) {
-    return rdAtT(a, i, a.dtype);
-}
-
-function wrAtT(a, i, v, dtype) {
-    switch (dtype) {
-        case INT8:
-            a.writeInt8(v, i);
-            break;
-        case UINT8:
-            a.writeUInt8(v, i);
-            break;
-        case INT16:
-            a.writeInt16LE(v, i);
-            break;
-        case UINT16:
-            a.writeUInt16LE(v, i);
-            break;
-        case INT32:
-            a.writeInt32LE(v, i);
-            break;
-        case UINT32:
-            a.writeUInt32LE(v, i);
-            break;
-        case FLOAT:
-            a.writeFloatLE(v, i);
-            break;
-        case DOUBLE:
-            a.writeDoubleLE(v, i);
-            break;
-        default:
-            assert(false);
-    }
-    return v;
-}
-
-function wrAt(a, i, v) {
-    return wrAtT(a, i, v, a.dtype);
-}
-
-/* V9 Emulator */
-
 var MEM_SZ = 128 * 1024 * 1024, // default memory size of vm (128M)
     TB_SZ = 1024 * 1024, // page translation buffer size (4G / page_sz)
     FS_SZ = 4 * 1024 * 1024, // ram file system size (4M)
-    TPAGES = 4096, // maximum cached page translations
-    PAGE_SZ = 4096; // bytes per page
+    TPAGES = 4096; // maximum cached page translations
 
 var PTE_P = 0x001, // present
     PTE_W = 0x002, // writeable
@@ -403,7 +271,7 @@ var verbose = 0, // chatty option -v
     vadr = 0, // bad virtual address
     paging = 0, // virtual memory enabled
     pdir = 0, // page directory
-    tpage = calloc(TPAGES, UINT32), // valid page translations
+    tpage = Buffer.alloc(TPAGES * 4), // valid page translations
     tpages = 0, // number of cached page translations
     trk = 0, // kernel read page translation tables
     twk = 0, // kernel write page translation tables
@@ -414,17 +282,26 @@ var verbose = 0, // chatty option -v
 
 var cmd = "./xem";
 
-var H31_L1 = 0xFFFFFFFE,
-    H29_L3 = 0xFFFFFFF8,
-    H24_L8 = 0xFFFFFF00,
-    H20_L12 = 0xFFFFF000,
-    L20_H10_L2 = 0xFFC,
-    L20_H12 = 0xFFF,
-    L24_H8 = 0xFF;
+function signed(x) {
+    return x >> 0;
+}
 
-// to prevent unintended use of signed shift >>
+function unsigned(x) {
+    return x >>> 0;
+}
+
+function sar(x, n) {
+    return x >> n;
+}
+
 function shr(x, n) {
     return x >>> n;
+}
+
+function probekb() {
+    assert(false);
+    ///
+    return -1;
 }
 
 function flush() {
@@ -432,11 +309,11 @@ function flush() {
 
     while (tpages > 0) {
         tpages -= 1;
-        v = rdAt(tpage, tpages);
-        wrAt(trk, v, 0);
-        wrAt(twk, v, 0);
-        wrAt(tru, v, 0);
-        wrAt(twu, v, 0);
+        v = tpage.readUInt32LE(tpages * 4);
+        trk.writeUInt32LE(0, v * 4);
+        twk.writeUInt32LE(0, v * 4);
+        tru.writeUInt32LE(0, v * 4);
+        twu.writeUInt32LE(0, v * 4);
     }
 }
 
@@ -446,19 +323,19 @@ function setpage(v, p, writable, userable) {
         vadr = v;
         return 0;
     }
-    p = ((v ^ p) & H20_L12) + 1; // a trick that makes readers hate me
+    p = unsigned(((v ^ p) & -4096) + 1);
     v = shr(v, 12);
-    if (rdAt(trk, v) === 0) {
+    if (!trk.readUInt32LE(v * 4)) {
         if (tpages >= TPAGES) {
             flush();
         }
-        wrAt(tpage, tpages, v);
+        tpage.writeUInt32LE(v, tpages * 4);
         tpages += 1;
     }
-    wrAt(trk, v, p);
-    wrAt(twk, v, (writable ? p : 0));
-    wrAt(tru, v, (userable ? p : 0));
-    wrAt(twu, v, ((userable && writable) ? p : 0));
+    trk.writeUInt32LE(p, v * 4);
+    twk.writeUInt32LE((writable ? p : 0), v * 4);
+    tru.writeUInt32LE((userable ? p : 0), v * 4);
+    twu.writeUInt32LE(((userable && writable) ? p : 0), v * 4);
     return p;
 }
 
@@ -468,27 +345,25 @@ function rlook(v) {
     if (!paging) {
         return setpage(v, v, 1, 1);
     }
-    ppde = pdir + (shr(v, 22) << 2);
-    assert((shr(ppde, 2) << 2) === ppde);
-    pde = rdAtT(mem, shr(ppde, 2), UINT32);
+    ppde = unsigned(pdir + (shr(v, 22) << 2));
+    pde = mem.readUInt32LE(ppde);
     if (pde & PTE_P) {
         if (!(pde & PTE_A)) {
-            wrAtT(mem, shr(ppde, 2), pde | PTE_A, UINT32);
+            mem.writeInt32LE(pde | PTE_A, ppde);
         }
         if (pde >= memsz) {
             trap = FMEM;
             vadr = v;
             return 0;
         }
-        ppte = (pde & H20_L12) + (shr(v, 10) & L20_H10_L2);
-        assert((shr(ppte, 2) << 2) === ppte);
-        pte = rdAtT(mem, shr(ppte, 2), UINT32);
+        ppte = unsigned((pde & -4096) + (shr(v, 10) & 0xffc));
+        pte = mem.readUInt32LE(ppte);
         if (pte & PTE_P) {
             q = pte & pde;
             userable = q & PTE_U;
             if (userable || !user) {
                 if (!(pte & PTE_A)) {
-                    wrAtT(mem, shr(ppte, 2), pte | PTE_A, UINT32);
+                    mem.writeInt32LE(pte | PTE_A, ppte);
                 }
                 // check PTE_D here because the dirty bit should be set by wlook
                 return setpage(v, pte, (pte & PTE_D) && (q & PTE_W), userable);
@@ -506,27 +381,25 @@ function wlook(v) {
     if (!paging) {
         return setpage(v, v, 1, 1);
     }
-    ppde = pdir + (shr(v, 22) << 2);
-    assert((shr(ppde, 2) << 2) === ppde);
-    pde = rdAtT(mem, shr(ppde, 2), UINT32);
+    ppde = unsigned(pdir + (shr(v, 22) << 2));
+    pde = mem.readUInt32LE(ppde);
     if (pde & PTE_P) {
         if (!(pde & PTE_A)) {
-            wrAtT(mem, shr(ppde, 2), pde | PTE_A, UINT32);
+            mem.writeInt32LE(pde | PTE_A, ppde);
         }
         if (pde >= memsz) {
             trap = FMEM;
             vadr = v;
             return 0;
         }
-        ppte = (pde & H20_L12) + (shr(v, 10) & L20_H10_L2);
-        assert((shr(ppte, 2) << 2) === ppte);
-        pte = rdAtT(mem, shr(ppte, 2), UINT32);
+        ppte = unsigned((pde & -4096) + (shr(v, 10) & 0xffc));
+        pte = mem.readUInt32LE(ppte);
         if (pte & PTE_P) {
             q = pte & pde;
             userable = q & PTE_U;
             if ((userable || !user) && (q & PTE_W)) {
                 if ((pte & (PTE_D | PTE_A)) !== (PTE_D | PTE_A)) {
-                    wrAtT(mem, shr(ppte, 2), pte | (PTE_D | PTE_A), UINT32);
+                    mem.writeInt32LE(pte | (PTE_D | PTE_A), ppte);
                 }
                 return setpage(v, pte, q & PTE_W, userable);
             }
@@ -538,33 +411,33 @@ function wlook(v) {
 }
 
 function usage() {
-    dprintf(2, "USAGE: node emulate.js [options] <file>");
-    dprintf(2, "OPTIONS:");
-    dprintf(2, "  -v");
-    dprintf(2, "  -m <memsize>");
-    dprintf(2, "  -f <filesys>");
+    console.log("USAGE: node emulate.js [options] <file>");
+    console.log("OPTIONS:");
+    console.log("  -v");
+    console.log("  -m <memsize>");
+    console.log("  -f <filesys>");
 }
 
 function readfs(filename) {
     var fd, st, i;
 
     if (verbose) {
-        dprintf(2, "%s : loading ram file system %s\n", cmd, filename);
+        console.log("%s : loading ram file system %s\n", cmd, filename);
     }
     fd = fs.openSync(filename, "r");
     if (fd < 0) {
-        dprintf(2, "%s : couldn't open file system %s\n", cmd, filename);
+        console.log("%s : couldn't open file system %s\n", cmd, filename);
         return -1;
     }
     try {
         st = fs.fstatSync(fd);
     } catch (e) {
-        dprintf(2, "%s : couldn't stat file system %s\n", cmd, filename);
+        console.log("%s : couldn't stat file system %s\n", cmd, filename);
         return -1;
     }
     i = fs.readSync(fd, mem, memsz - FS_SZ, st.size);
     if (i !== st.size) {
-        dprintf(2, "%s : failed to read filesystem size %d returned %d\n",
+        console.log("%s : failed to read filesystem size %d returned %d\n",
             cmd, st.size, i);
         return -1;
     }
@@ -577,30 +450,30 @@ function readhdr(filename) {
 
     fd = fs.openSync(filename, "r");
     if (fd < 0) {
-        dprintf(2, "%s : couldn't open %s\n", cmd, filename);
+        console.log("%s : couldn't open %s\n", cmd, filename);
         return -1;
     }
     try {
         st = fs.fstatSync(fd); // How to check if it succeeds or not?
     } catch (e) {
-        dprintf(2, "%s : couldn't stat file %s\n", cmd, filename);
+        console.log("%s : couldn't stat file %s\n", cmd, filename);
         return -1;
     }
-    buf = calloc(4, UINT32);
+    buf = Buffer.alloc(16);
     fs.readSync(fd, buf, 0, 16);
     hdr = {
-        magic: rdAt(buf, 0),
-        bss: rdAt(buf, 1),
-        entry: rdAt(buf, 2),
-        flags: rdAt(buf, 3)
+        magic: buf.readUInt32LE(0),
+        bss: buf.readUInt32LE(4),
+        entry: buf.readUInt32LE(8),
+        flags: buf.readUInt32LE(12)
     };
     if (hdr.magic !== 0xC0DEF00D) {
-        dprintf(2, "%s : bad hdr.magic\n", cmd);
+        console.log("%s : bad hdr.magic\n", cmd);
         return -1;
     }
     i = fs.readSync(fd, mem, 0, st.size - 16);
     if (i !== st.size - 16) {
-        dprintf(2, "%s : failed to read file %s\n", cmd, filename);
+        console.log("%s : failed to read file %s\n", cmd, filename);
         return -1;
     }
     fs.closeSync(fd);
@@ -613,16 +486,16 @@ function cpu(pc, sp) {
         c = 0,
         f = 0.0,
         g = 0.0,
-        ssp,
-        usp,
+        ssp = 0,
+        usp = 0,
         xpc = 0,
         tpc = -pc,
         fpc = 0,
         xsp = sp,
         tsp = 0,
         fsp = 0,
-        ir,
-        trap,
+        ir = 0,
+        trap = 0,
         delta = 4096,
         cycle = 4096,
         xcycle = delta * 4,
@@ -632,15 +505,15 @@ function cpu(pc, sp) {
         follower, fatal, exception, interrupt, fixsp, chkpc, fixpc, next, after;
 
     fatal = function() {
-        dprintf(2, "processor halted! cycle = %d pc = %08x ir = %08x sp = %08x" +
+        console.log("processor halted! cycle = %d pc = %08x ir = %08x sp = %08x" +
             " a = %d b = %d c = %d trap = %d\n",
             cycle + Math.floor((xpc - xcycle) / 4), xpc - tpc, ir, xsp - tsp,
             a, b, c, trap);
         follower = 0;
     };
     exception = function() {
-        if (iena === 0) {
-            dprintf(2, "exception in interrupt handler\n");
+        if (!iena) {
+            console.log("exception in interrupt handler\n");
             follower = fatal;
         } else {
             follower = interrupt;
@@ -661,27 +534,27 @@ function cpu(pc, sp) {
             trap |= USER;
         }
         xsp -= 8;
-        p = rdAt(tw, shr(xsp, 12));
-        if (p === 0) {
+        p = tw.readUInt32LE(shr(xsp, 12) * 4);
+        if (!p) {
             p = wlook(xsp);
-            if (p === 0) {
-                dprintf(2, "kstack fault!\n");
+            if (!p) {
+                console.log("kstack fault!\n");
                 follower = fatal;
                 return;
             }
         }
-        wrAtT(mem, shr((xsp ^ p) & H29_L3, 2), xpc - tpc, UINT32);
+        mem.writeUInt32LE(xpc - tpc, unsigned((xsp ^ p) & -8));
         xsp -= 8;
-        p = rdAt(tw, shr(xsp, 12));
-        if (p === 0) {
+        p = tw.readUInt32LE(shr(xsp, 12) * 4);
+        if (!p) {
             p = wlook(xsp);
-            if (p === 0) {
-                dprintf(2, "kstack fault\n");
+            if (!p) {
+                console.log("kstack fault\n");
                 follower = fatal;
                 return;
             }
         }
-        wrAtT(mem, shr((xsp ^ p) & H29_L3, 2), trap, UINT32);
+        mem.writeUInt32LE(trap, unsigned((xsp ^ p) & -8));
         xcycle += ivec + tpc - xpc;
         xpc = ivec + tpc;
         follower = fixpc;
@@ -690,11 +563,11 @@ function cpu(pc, sp) {
         var v, p;
 
         v = xsp - tsp;
-        p = rdAt(tw, shr(v, 12));
+        p = tw.readUInt32LE(shr(v, 12) * 4);
         if (p) {
             xsp = v ^ (p - 1);
             tsp = xsp - v;
-            fsp = (PAGE_SZ - (xsp & L20_H12)) << 8;
+            fsp = (4096 - (xsp & 4095)) << 8;
         }
         follower = chkpc;
     };
@@ -709,10 +582,10 @@ function cpu(pc, sp) {
         var v, p;
 
         v = xpc - tpc;
-        p = rdAt(tr, shr(v, 12));
-        if (p === 0) {
+        p = tr.readUInt32LE(shr(v, 12) * 4);
+        if (!p) {
             p = rlook(v);
-            if (p === 0) {
+            if (!p) {
                 trap = FIPAGE;
                 follower = exception;
                 return;
@@ -722,7 +595,7 @@ function cpu(pc, sp) {
         xpc = v ^ (p - 1);
         tpc = xpc - v;
         xcycle += tpc;
-        fpc = (xpc + 4096) & H20_L12;
+        fpc = (xpc + 4096) & -4096;
         follower = next;
     };
     next = function() {
@@ -732,11 +605,11 @@ function cpu(pc, sp) {
             cycle += delta;
             xcycle += delta * 4;
             if (iena || !(ipend & FKEYBD)) {
-                ch = probekeybd();
+                ch = probekb();
                 if (ch !== -1) {
                     kbchar = ch;
                     if (kbchar === '`') {
-                        dprintf(2, "ungraceful exit. cycle = %d\n",
+                        console.log("ungraceful exit. cycle = %d\n",
                             cycle + Math.floor((xpc - xcycle) / 4));
                         follower = 0;
                         return;
@@ -769,13 +642,12 @@ function cpu(pc, sp) {
     after = function() {
         var ch, u, v, p, t;
 
-        assert(shr(xpc, 2) << 2 === xpc);
-        ir = rdAtT(mem, shr(xpc, 2), INT32); // immediate is signed
+        ir = mem.readUInt32LE(xpc);
         xpc += 4;
-        switch (ir & L24_H8) {
+        switch (ir & 0xFF) {
             case HALT:
                 if (user || verbose) {
-                    dprintf(2, "halt(%d) cycle = %d\n",
+                    console.log("halt(%d) cycle = %d\n",
                         a, cycle + Math.floor((xpc - xcycle) / 4));
                 }
                 follower = 0;
@@ -790,11 +662,11 @@ function cpu(pc, sp) {
                     break;
                 }
                 while (true) {
-                    ch = probekeybd();
+                    ch = probekb();
                     if (ch !== -1) {
                         kbchar = ch;
                         if (kbchar === '`') {
-                            dprintf(2, "ungraceful exit. cycle = %d\n",
+                            console.log("ungraceful exit. cycle = %d\n",
                                 cycle + Math.floor((xpc - xcycle) / 4));
                             follower = 0;
                             return;
@@ -818,33 +690,33 @@ function cpu(pc, sp) {
                 }
                 break;
             case MCPY:
-                while (c > 0) {
-                    t = rdAt(tr, shr(b, 12));
-                    if (t === 0) {
+                while (c) {
+                    t = tr.readUInt32LE(shr(b, 12) * 4);
+                    if (!t) {
                         t = rlook(b);
-                        if (t === 0) {
+                        if (!t) {
                             follower = exception;
                             return;
                         }
                     }
-                    p = rdAt(tw, shr(a, 12));
-                    if (p === 0) {
+                    p = tw.readUInt32LE(shr(a, 12) * 4);
+                    if (!p) {
                         p = wlook(a);
-                        if (p === 0) {
+                        if (!p) {
                             follower = exception;
                             return;
                         }
                     }
-                    v = PAGE_SZ - (a & L20_H12);
+                    v = 4096 - (a & 4095);
                     if (v > c) {
                         v = c;
                     }
-                    u = PAGE_SZ - (b & L20_H12);
+                    u = 4096 - (b & 4095);
                     if (u > v) {
                         u = v;
                     }
-                    p = a ^ (p & H31_L1);
-                    t = b ^ (t & H31_L1);
+                    p = a ^ (p & -2);
+                    t = b ^ (t & -2);
                     mem.copy(mem, p, t, t + u);
                     a += u;
                     b += u;
@@ -854,38 +726,38 @@ function cpu(pc, sp) {
                 return;
             case MCMP:
                 while (true) {
-                    if (c === 0) {
+                    if (!c) {
                         a = 0;
                         break;
                     }
-                    t = rdAt(tr, shr(b, 12));
-                    if (t === 0) {
+                    t = tr.readUInt32LE(shr(b, 12) * 4);
+                    if (!t) {
                         t = rlook(b);
-                        if (t === 0) {
+                        if (!t) {
                             follower = exception;
                             return;
                         }
                     }
-                    p = rdAt(tr, shr(a, 12));
-                    if (p === 0) {
+                    p = tr.readUInt32LE(shr(a, 12) * 4);
+                    if (!p) {
                         p = rlook(a);
-                        if (p === 0) {
+                        if (!p) {
                             follower = exception;
                             return;
                         }
                     }
-                    v = PAGE_SZ - (a & L20_H12);
+                    v = 4096 - (a & 4095);
                     if (v > c) {
                         v = c;
                     }
-                    u = PAGE_SZ - (b & L20_H12);
+                    u = 4096 - (b & 4095);
                     if (u > v) {
                         u = v;
                     }
-                    p = a ^ (p & H31_L1);
-                    t = b ^ (t & H31_L1);
+                    p = a ^ (p & -2);
+                    t = b ^ (t & -2);
                     t = mem.slice(p, p + u).compare(mem.slice(t, t + u));
-                    if (t !== 0) {
+                    if (t) {
                         a = t;
                         b += c;
                         c = 0;
@@ -903,19 +775,19 @@ function cpu(pc, sp) {
                         a = 0;
                         break;
                     }
-                    p = rdAt(tr, shr(a, 12));
-                    if (p === 0) {
+                    p = tr.readUInt32LE(shr(a, 12) * 4);
+                    if (!p) {
                         p = rlook(a);
-                        if (p === 0) {
+                        if (!p) {
                             follower = exception;
                             return;
                         }
                     }
-                    u = PAGE_SZ - (a & L20_H12);
+                    u = 4096 - (a & 4095);
                     if (u > c) {
                         u = c;
                     }
-                    v = a ^ (p & H31_L1);
+                    v = a ^ (p & -2);
                     t = mem.slice(v, v + u).indexOf(b);
                     if (t !== -1) {
                         a += t;
@@ -929,19 +801,19 @@ function cpu(pc, sp) {
                 return;
             case MSET:
                 while (c > 0) {
-                    p = rdAt(tw, shr(a, 12));
-                    if (p === 0) {
+                    p = tw.readUInt32LE(shr(a, 12) * 4);
+                    if (!p) {
                         p = wlook(a);
-                        if (p === 0) {
+                        if (!p) {
                             follower = exception;
                             return;
                         }
                     }
-                    u = PAGE_SZ - (a & L20_H12);
+                    u = 4096 - (a & 4095);
                     if (u > c) {
                         u = c;
                     }
-                    v = a ^ (p & H31_L1);
+                    v = a ^ (p & -2);
                     mem.fill(b, v, v + u);
                     a += u;
                     c -= u;
@@ -1030,17 +902,51 @@ function cpu(pc, sp) {
                 return;
             case ENT:
                 if (fsp) {
-                    fsp -= ir & H24_L8;
-                    if (fsp > (PAGE_SZ << 8)) {
+                    fsp -= ir & -256;
+                    if (fsp > (4096 << 8)) {
                         fsp = 0;
                     }
                 }
-                xsp += ir >> 8;
+                xsp += sar(ir, 8);
                 if (fsp) {
                     follower = chkpc;
                     return;
                 }
                 follower = fixsp;
+                return;
+            case LEV:
+                if (ir < fsp) {
+                    t = mem.readUInt32LE(xsp + sar(ir, 8)) + tpc;
+                    fsp -= (ir + 0x800) & -256;
+                } else {
+                    v = xsp - tsp + sar(ir, 8);
+                    p = tr.readUInt32LE(shr(v, 12) * 4);
+                    if (!p) {
+                        p = rlook(v);
+                        if (!p) {
+                            break;
+                        }
+                    }
+                    t = mem.readUInt32LE((v ^ p) & -8) + tpc;
+                    fsp = 0;
+                }
+                xsp += sar(ir, 8) + 8;
+                xcycle += t - xpc;
+                xpc = t;
+                if (xpc - fpc < -4096) {
+                    follower = fixpc;
+                    return;
+                }
+                follower = next;
+                return;
+            case JMP:
+                xcycle += sar(ir, 8);
+                xpc += sar(ir, 10) << 2;
+                if (xpc - fpc < -4096) {
+                    follower = fixpc;
+                    return;
+                }
+                follower = next;
                 return;
             default:
                 trap = FINST;
@@ -1068,9 +974,9 @@ function main(argv) {
         memsz = MEM_SZ;
     }
     if (verbose) {
-        dprintf(2, "mem size = %d\n", memsz);
+        console.log("mem size = %d\n", memsz);
     }
-    mem = calloc(memsz, UINT8);
+    mem = Buffer.alloc(memsz);
     if (argv.hasOwnProperty("f")) {
         if (readfs(argv.f) === -1) {
             return -1;
@@ -1080,14 +986,14 @@ function main(argv) {
     if (hdr === -1) {
         return -1;
     }
-    trk = calloc(TB_SZ, UINT32);
-    twk = calloc(TB_SZ, UINT32);
-    tru = calloc(TB_SZ, UINT32);
-    twu = calloc(TB_SZ, UINT32);
+    trk = Buffer.alloc(TB_SZ * 4);
+    twk = Buffer.alloc(TB_SZ * 4);
+    tru = Buffer.alloc(TB_SZ * 4);
+    twu = Buffer.alloc(TB_SZ * 4);
     tr = trk;
     tw = twk;
     if (verbose) {
-        dprintf(2, "%s : emulating %s\n", cmd, argv._[0]);
+        console.log("%s : emulating %s\n", cmd, argv._[0]);
     }
     cpu(hdr.entry, memsz - FS_SZ);
     return 0;
