@@ -1939,6 +1939,471 @@ function cpu(pc, sp) {
                 g = f;
                 follower = chkpc;
                 return;
+            case SL:
+                if (ir < fsp) {
+                    mem.writeUInt32LE(a, xsp + sar(ir, 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt32LE(a, (v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case SLH:
+                if (ir < fsp) {
+                    mem.writeUInt16LE(a, xsp + sar(ir, 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt16LE(a, (v ^ p) & -2);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case SLB:
+                if (ir < fsp) {
+                    mem.writeUInt8LE(a, xsp + sar(ir, 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt8LE(a, v ^ p & -2);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case SLD:
+                if (ir < fsp) {
+                    mem.writeDoubleLE(f, xsp + sar(ir, 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeDoubleLE(f, (v ^ p) & -8);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case SLF:
+                if (ir < fsp) {
+                    mem.writeFloatLE(f, xsp + sar(ir, 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeFloatLE(f, (v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case SG:
+                v = xpc - tpc + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt32LE(a, (v ^ p) & -4);
+                follower = chkpc;
+                return;
+            case SGH:
+                v = xpc - tpc + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt16LE(a, (v ^ p) & -2);
+                follower = chkpc;
+                return;
+            case SGB:
+                v = xpc - tpc + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt8LE(a, v ^ p & -2);
+                follower = chkpc;
+                return;
+            case SGD:
+                v = xpc - tpc + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeDoubleLE(a, (v ^ p) & -8);
+                follower = chkpc;
+                return;
+            case SGF:
+                v = xpc - tpc + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeFloatLE(a, (v ^ p) & -4);
+                follower = chkpc;
+                return;
+            case SX:
+                v = b + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt32LE(a, (v ^ p) & -4);
+                follower = chkpc;
+                return;
+            case SXH:
+                v = b + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt16LE(a, (v ^ p) & -2);
+                follower = chkpc;
+                return;
+            case SXB:
+                v = b + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt8LE(a, v ^ p & -2);
+                follower = chkpc;
+                return;
+            case SXD:
+                v = b + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeDoubleLE(f, (v ^ p) & -8);
+                follower = chkpc;
+                return;
+            case SXF:
+                v = b + sar(ir, 8);
+                p = tw.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeFloatLE(f, (v ^ p) & -4);
+                follower = chkpc;
+                return;
+            case ADDF:
+                f += g;
+                follower = chkpc;
+                return;
+            case SUBF:
+                f -= g;
+                follower = chkpc;
+                return;
+            case MULF:
+                f *= g;
+                follower = chkpc;
+                return;
+            case DIVF:
+                if (g === 0.0) {
+                    trap = FARITH;
+                    break;
+                }
+                f /= g;
+                follower = chkpc;
+                return;
+            case ADD:
+                a += b;
+                follower = chkpc;
+                return;
+            case ADDI:
+                a += sar(ir, 8);
+                follower = chkpc;
+                return;
+            case ADDL:
+                if (ir < fsp) {
+                    a += mem.readUInt32LE(xsp + sar(ir, 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a += mem.readUInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case SUB:
+                a -= b;
+                follower = chkpc;
+                return;
+            case SUBI:
+                a -= sar(ir, 8);
+                follower = chkpc;
+                return;
+            case SUBL:
+                if (ir < fsp) {
+                    a -= mem.readUInt32LE(xsp + sar(ir, 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a -= mem.readUInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case MUL:
+                a = a * b;
+                follower = chkpc;
+                return;
+            case MULI:
+                a = a * sar(ir, 8);
+                follower = chkpc;
+                return;
+            case MULL:
+                if (ir < fsp) {
+                    a = a * mem.readInt32LE(xsp + sar(ir, 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a = a * mem.readInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case DIV:
+                if (!b) {
+                    trap = FARITH;
+                    break;
+                }
+                a = Math.floor(a / b);
+                follower = chkpc;
+                return;
+            case DIVI:
+                t = sar(ir, 8);
+                if (!t) {
+                    trap = FARITH;
+                    break;
+                }
+                a = Math.floor(a / t);
+                follower = chkpc;
+                return;
+            case DIVL:
+                if (ir < fsp) {
+                    t = mem.readUInt32LE(xsp + sar(ir, 8));
+                    if (!t) {
+                        trap = FARITH;
+                        break;
+                    }
+                    a = Math.floor(a / t);
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                t = mem.readUInt32LE((v ^ p) & -4);
+                if (!t) {
+                    trap = FARITH;
+                    break;
+                }
+                a = Math.floor(a / t);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case DVU:
+                if (!b) {
+                    trap = FARITH;
+                    break;
+                }
+                a = Math.floor(a / b);
+                follower = chkpc;
+                return;
+            case DVUI:
+                t = sar(ir, 8);
+                if (!t) {
+                    trap = FARITH;
+                    break;
+                }
+                a = Math.floor(a / t);
+                follower = chkpc;
+                return;
+            case DVUL:
+                if (ir < fsp) {
+                    t = mem.readUInt32LE(xsp + sar(ir, 8));
+                    if (!t) {
+                        trap = FARITH;
+                        break;
+                    }
+                    a = Math.floor(a / t);
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                t = mem.readUInt32LE((v ^ p) & -4);
+                if (!t) {
+                    trap = FARITH;
+                    break;
+                }
+                a = Math.floor(a / t);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case MOD:
+                a = a % b;
+                follower = chkpc;
+                return;
+            case MODI:
+                a = a % sar(ir, 8);
+                follower = chkpc;
+                return;
+            case MODL:
+                if (ir < fsp) {
+                    a = a % mem.readUInt32LE(xsp + sar(ir, 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a = a % mem.readUInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case MDU:
+                a %= b;
+                follower = chkpc;
+                return;
+            case MDUI:
+                a %= sar(ir, 8);
+                follower = chkpc;
+                return;
             default:
                 trap = FINST;
                 break;
