@@ -1894,6 +1894,51 @@ function cpu(pc, sp) {
                 g = mem.readFloatLE((v ^ p) & -4);
                 follower = chkpc;
                 return;
+            case LBI:
+                b = sar(ir, 8);
+                follower = chkpc;
+                return;
+            case LBHI:
+                b = b << 24 | sar(ir, 8);
+                follower = chkpc;
+                return;
+            case LBIF:
+                g = sar(ir, 8) / 256.0;
+                follower = chkpc;
+                return;
+            case LCL:
+                if (ir < fsp) {
+                    c = mem.readUInt32LE(xsp + sar(ir, 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                c = mem.readUInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case LBA:
+                b = a;
+                follower = chkpc;
+                return;
+            case LCA:
+                c = a;
+                follower = chkpc;
+                return;
+            case LBAD:
+                g = f;
+                follower = chkpc;
+                return;
             default:
                 trap = FINST;
                 break;
