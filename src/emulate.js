@@ -349,7 +349,7 @@ function rlook(v) {
     pde = mem.readUInt32LE(ppde);
     if (pde & PTE_P) {
         if (!(pde & PTE_A)) {
-            mem.writeInt32LE(pde | PTE_A, ppde);
+            mem.writeUInt32LE(pde | PTE_A, ppde);
         }
         if (pde >= memsz) {
             trap = FMEM;
@@ -363,7 +363,7 @@ function rlook(v) {
             userable = q & PTE_U;
             if (userable || !user) {
                 if (!(pte & PTE_A)) {
-                    mem.writeInt32LE(pte | PTE_A, ppte);
+                    mem.writeUInt32LE(pte | PTE_A, ppte);
                 }
                 // check PTE_D here because the dirty bit should be set by wlook
                 return setpage(v, pte, (pte & PTE_D) && (q & PTE_W), userable);
@@ -385,7 +385,7 @@ function wlook(v) {
     pde = mem.readUInt32LE(ppde);
     if (pde & PTE_P) {
         if (!(pde & PTE_A)) {
-            mem.writeInt32LE(pde | PTE_A, ppde);
+            mem.writeUInt32LE(pde | PTE_A, ppde);
         }
         if (pde >= memsz) {
             trap = FMEM;
@@ -399,7 +399,7 @@ function wlook(v) {
             userable = q & PTE_U;
             if ((userable || !user) && (q & PTE_W)) {
                 if ((pte & (PTE_D | PTE_A)) !== (PTE_D | PTE_A)) {
-                    mem.writeInt32LE(pte | (PTE_D | PTE_A), ppte);
+                    mem.writeUInt32LE(pte | (PTE_D | PTE_A), ppte);
                 }
                 return setpage(v, pte, q & PTE_W, userable);
             }
@@ -947,6 +947,262 @@ function cpu(pc, sp) {
                     return;
                 }
                 follower = next;
+                return;
+            case JMPI:
+                v = xpc - tpc + sar(ir, 8) + (a << 2);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                t = mem.readUInt32LE((v ^ p) & -4);
+                xcycle += t;
+                xpc = xpc + t;
+                if (xpc - fpc < -4096) {
+                    follower = fixpc;
+                    return;
+                }
+                follower = next;
+                return;
+            case JSR:
+                if (fsp & (4095 << 8)) {
+                    xsp -= 8;
+                    fsp += 8 << 8;
+                    mem.writeUInt32LE(xpc - tpc, xsp);
+                } else {
+                    v = xsp - tsp - 8;
+                    p = tw.readUInt32LE(shr(v, 12));
+                    if (!p) {
+                        p = wlook(v);
+                        if (!p) {
+                            break;
+                        }
+                    }
+                    mem.writeUInt32LE(xpc - tpc, (v ^ p) & -8);
+                    fsp = 0;
+                    xsp -= 8;
+                }
+                xcycle += sar(ir, 8);
+                xpc += sar(ir, 10) << 2;
+                if (xpc - fpc < -4096) {
+                    follower = fixpc;
+                    return;
+                }
+                follower = next;
+                return;
+            case JSRA:
+                if (fsp & (4095 << 8)) {
+                    xsp -= 8;
+                    fsp += 8 << 8;
+                    mem.writeUInt32LE(xpc - tpc, xsp);
+                } else {
+                    v = xsp - tsp - 8;
+                    p = tw.readUInt32LE(shr(v, 12));
+                    if (!p) {
+                        p = wlook(v);
+                        if (!p) {
+                            break;
+                        }
+                    }
+                    mem.writeUInt32LE(xpc - tpc, (v ^ p) & -8);
+                    fsp = 0;
+                    xsp -= 8;
+                }
+                xcycle += a + tpc - xpc;
+                xpc = a + tpc;
+                if (xpc - fpc < -4096) {
+                    follower = fixpc;
+                    return;
+                }
+                follower = next;
+                return;
+            case PSHA:
+                if (fsp & (4095 << 8)) {
+                    xsp -= 8;
+                    fsp += 8 << 8;
+                    mem.writeUInt32LE(a, xsp);
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp - 8;
+                p = tw.readUInt32LE(shr(v, 12));
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt32LE(a, (v ^ p) & -8);
+                xsp -= 8;
+                fsp = 0;
+                follower = fixsp;
+                return;
+            case PSHB:
+                if (fsp & (4095 << 8)) {
+                    xsp -= 8;
+                    fsp += 8 << 8;
+                    mem.writeUInt32LE(b, xsp);
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp - 8;
+                p = tw.readUInt32LE(shr(v, 12));
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt32LE(b, (v ^ p) & -8);
+                xsp -= 8;
+                fsp = 0;
+                follower = fixsp;
+                return;
+            case PSHC:
+                if (fsp & (4095 << 8)) {
+                    xsp -= 8;
+                    fsp += 8 << 8;
+                    mem.writeUInt32LE(c, xsp);
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp - 8;
+                p = tw.readUInt32LE(shr(v, 12));
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeUInt32LE(c, (v ^ p) & -8);
+                xsp -= 8;
+                fsp = 0;
+                follower = fixsp;
+                return;
+            case PSHF:
+                if (fsp & (4095 << 8)) {
+                    xsp -= 8;
+                    fsp += 8 << 8;
+                    mem.writeDoubleLE(f, xsp);
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp - 8;
+                p = tw.readUInt32LE(shr(v, 12));
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeDoubleLE(f, (v ^ p) & -8);
+                xsp -= 8;
+                fsp = 0;
+                follower = fixsp;
+                return;
+            case PSHG:
+                if (fsp & (4095 << 8)) {
+                    xsp -= 8;
+                    fsp += 8 << 8;
+                    mem.writeDoubleLE(g, xsp);
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp - 8;
+                p = tw.readUInt32LE(shr(v, 12));
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeDoubleLE(g, (v ^ p) & -8);
+                xsp -= 8;
+                fsp = 0;
+                follower = fixsp;
+                return;
+            case PSHI:
+                if (fsp & (4095 << 8)) {
+                    xsp -= 8;
+                    fsp += 8 << 8;
+                    mem.writeInt32LE(sar(ir, 8), xsp);
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp - 8;
+                p = tw.readUInt32LE(shr(v, 12));
+                if (!p) {
+                    p = wlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                mem.writeInt32LE(sar(ir, 8), (v ^ p) & -8);
+                xsp -= 8;
+                fsp = 0;
+                follower = fixsp;
+                return;
+            case POPA:
+                if (fsp) {
+                    a = mem.readUInt32LE(xsp);
+                    xsp += 8;
+                    fsp -= 8 << 8;
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp;
+                p = tr.readUInt32LE(shr(v, 12));
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a = mem.readUInt32LE((v ^ p) & -8);
+                xsp += 8;
+                follower = fixsp;
+                return;
+            case POPB:
+                if (fsp) {
+                    b = mem.readUInt32LE(xsp);
+                    xsp += 8;
+                    fsp -= 8 << 8;
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp;
+                p = tr.readUInt32LE(shr(v, 12));
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                b = mem.readUInt32LE((v ^ p) & -8);
+                xsp += 8;
+                follower = fixsp;
+                return;
+            case POPC:
+                if (fsp) {
+                    c = mem.readUInt32LE(xsp);
+                    xsp += 8;
+                    fsp -= 8 << 8;
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp;
+                p = tr.readUInt32LE(shr(v, 12));
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                c = mem.readUInt32LE((v ^ p) & -8);
+                xsp += 8;
+                follower = fixsp;
                 return;
             default:
                 trap = FINST;
