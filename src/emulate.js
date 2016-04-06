@@ -1483,6 +1483,102 @@ function cpu(pc, sp) {
                 f = mem.readFloatLE((v ^ p) & -4);
                 follower = chkpc;
                 return;
+            case LX:
+                v = a + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a = mem.readUInt32LE((v ^ p) & -4);
+                follower = chkpc;
+                return;
+            case LXS:
+                v = a + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a = mem.readInt16LE((v ^ p) & -2);
+                follower = chkpc;
+                return;
+            case LXH:
+                v = a + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a = mem.readUInt16LE((v ^ p) & -2);
+                follower = chkpc;
+                return;
+            case LXC:
+                v = a + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a = mem.readInt8LE(v ^ p & -2);
+                follower = chkpc;
+                return;
+            case LXB:
+                v = a + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a = mem.readUInt8LE(v ^ p & -2);
+                follower = chkpc;
+                return;
+            case LXD:
+                v = a + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                f = mem.readDoubleLE((v ^ p) & -8);
+                follower = chkpc;
+                return;
+            case LXF:
+                v = a + sar(ir, 8);
+                p = tr.readUInt32LE(shr(v, 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                f = mem.readFloatLE((v ^ p) & -4);
+                follower = chkpc;
+                return;
+            case LI:
+                a = sar(ir, 8);
+                follower = chkpc;
+                return;
+            case LHI:
+                a = a << 24 | sar(ir, 8);
+                follower = chkpc;
+                return;
+            case LIF:
+                f = sar(ir, 8) / 256.0;
+                follower = chkpc;
+                return;
             default:
                 trap = FINST;
                 break;
