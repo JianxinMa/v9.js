@@ -8,7 +8,6 @@ var minimist = require("minimist"),
     assert = require("assert"),
     fs = require("fs");
 
-// instructions: system
 var HALT = 0,
     ENT = 1,
     LEV = 2,
@@ -22,10 +21,8 @@ var HALT = 0,
     MCPY = 10,
     MCMP = 11,
     MCHR = 12,
-    MSET = 13;
-
-// instructions: load a
-var LL = 14,
+    MSET = 13,
+    LL = 14,
     LLS = 15,
     LLH = 16,
     LLC = 17,
@@ -48,10 +45,8 @@ var LL = 14,
     LXF = 34,
     LI = 35,
     LHI = 36,
-    LIF = 37;
-
-// instructions: load b
-var LBL = 38,
+    LIF = 37,
+    LBL = 38,
     LBLS = 39,
     LBLH = 40,
     LBLC = 41,
@@ -76,10 +71,8 @@ var LBL = 38,
     LBHI = 60,
     LBIF = 61,
     LBA = 62,
-    LBAD = 63;
-
-// instructions: store
-var SL = 64,
+    LBAD = 63,
+    SL = 64,
     SLH = 65,
     SLB = 66,
     SLD = 67,
@@ -93,10 +86,8 @@ var SL = 64,
     SXH = 75,
     SXB = 76,
     SXD = 77,
-    SXF = 78;
-
-// instructions: arithmetic
-var ADDF = 79,
+    SXF = 78,
+    ADDF = 79,
     SUBF = 80,
     MULF = 81,
     DIVF = 82,
@@ -135,10 +126,8 @@ var ADDF = 79,
     SHLL = 115,
     SHR = 116,
     SHRI = 117,
-    SHRL = 118;
-
-// instructions: logical
-var SRU = 119,
+    SHRL = 118,
+    SRU = 119,
     SRUI = 120,
     SRUL = 121,
     EQ = 122,
@@ -150,10 +139,8 @@ var SRU = 119,
     LTF = 128,
     GE = 129,
     GEU = 130,
-    GEF = 131;
-
-// instructions: conditional
-var BZ = 132,
+    GEF = 131,
+    BZ = 132,
     BZF = 133,
     BNZ = 134,
     BNZF = 135,
@@ -166,16 +153,12 @@ var BZ = 132,
     BLTF = 142,
     BGE = 143,
     BGEU = 144,
-    BGEF = 145;
-
-// instructions: conversion
-var CID = 146,
+    BGEF = 145,
+    CID = 146,
     CUD = 147,
     CDI = 148,
-    CDU = 149;
-
-// instructions: misc
-var CLI = 150,
+    CDU = 149,
+    CLI = 150,
     STI = 151,
     RTI = 152,
     BIN = 153,
@@ -212,10 +195,8 @@ var CLI = 150,
     NET6 = 184,
     NET7 = 185,
     NET8 = 186,
-    NET9 = 187;
-
-// instructions: math
-var POW = 188,
+    NET9 = 187,
+    POW = 188,
     ATN2 = 189,
     FABS = 190,
     ATAN = 191,
@@ -2962,6 +2943,118 @@ function cpu(pc, sp) {
                     iena = 1;
                 }
                 follower = fixpc;
+                return;
+            case IVEC:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                ivec = a;
+                follower = chkpc;
+                return;
+            case PDIR:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                if (a > memsz) {
+                    trap = FMEM;
+                    break;
+                }
+                pdir = a & -4096;
+                flush();
+                fsp = 0;
+                follower = fixpc;
+                return;
+            case SPAG:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                if (a && !pdir) {
+                    trap = FMEM;
+                    break;
+                }
+                paging = a;
+                flush();
+                fsp = 0;
+                follower = fixpc;
+                return;
+            case TIME:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                if (ir >> 8) {
+                    console.log("timer%d=%u timeout=%u\n", ir >> 8, timer, timeout);
+                    follower = chkpc;
+                    return;
+                }
+                timeout = a;
+                follower = chkpc;
+                return;
+            case LVAD:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                a = vadr;
+                follower = chkpc;
+                return;
+            case TRAP:
+                trap = FSYS;
+                break;
+            case LUSP:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                a = usp;
+                follower = chkpc;
+                return;
+            case SUSP:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                usp = a;
+                follower = chkpc;
+                return;
+            case NET1:
+                console.log("NET1 not implemented\n");
+                follower = fatal;
+                return;
+            case NET2:
+                console.log("NET2 not implemented\n");
+                follower = fatal;
+                return;
+            case NET3:
+                console.log("NET3 not implemented\n");
+                follower = fatal;
+                return;
+            case NET4:
+                console.log("NET4 not implemented\n");
+                follower = fatal;
+                return;
+            case NET5:
+                console.log("NET5 not implemented\n");
+                follower = fatal;
+                return;
+            case NET6:
+                console.log("NET6 not implemented\n");
+                follower = fatal;
+                return;
+            case NET7:
+                console.log("NET7 not implemented\n");
+                follower = fatal;
+                return;
+            case NET8:
+                console.log("NET8 not implemented\n");
+                follower = fatal;
+                return;
+            case NET9:
+                console.log("NET9 not implemented\n");
+                follower = fatal;
                 return;
             default:
                 trap = FINST;
