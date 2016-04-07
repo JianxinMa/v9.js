@@ -272,8 +272,13 @@ var verbose = us(0), // chatty option -v
 
 var cmd = "./xem";
 
-function writech(ch) {
-    if (process.stdout.write(ch)) {
+function hex(x) {
+    return ("00000000" + us(x).toString(16)).substr(-8);
+}
+
+function printch(ch) {
+    ch = us(ch & 0x7F);
+    if (process.stdout.write(String.fromCharCode(ch))) {
         return 1;
     }
     return -1;
@@ -283,19 +288,20 @@ var pendkeys = [];
 
 function initkb() {
     keypress(process.stdin);
-    process.stdin.on('keypress', function(ch, key) {
+    process.stdin.on('keypress', function(ch) {
         var c;
 
         c = ch.charCodeAt(0);
         if (0 <= c && c <= 0x7F) {
             pendkeys.push(c);
         }
-        if (key && key.ctrl && key.name === 'c') {
-            process.stdin.pause();
-        }
     });
     process.stdin.setRawMode(true);
     process.stdin.resume();
+}
+
+function shutkb() {
+    process.stdin.pause();
 }
 
 function probekb() {
@@ -311,10 +317,10 @@ function flush() {
     while (tpages) {
         tpages = us(tpages - 1);
         v = tpage.readUInt32LE(us(tpages * 4));
-        trk.writeUInt32LE(0, us(v * 4));
-        twk.writeUInt32LE(0, us(v * 4));
-        tru.writeUInt32LE(0, us(v * 4));
-        twu.writeUInt32LE(0, us(v * 4));
+        trk.writeUInt32LE(us(0), us(v * 4));
+        twk.writeUInt32LE(us(0), us(v * 4));
+        tru.writeUInt32LE(us(0), us(v * 4));
+        twu.writeUInt32LE(us(0), us(v * 4));
     }
 }
 
@@ -388,27 +394,27 @@ function wlook(v) {
     if (!paging) {
         return setpage(v, v, 1, 1);
     }
-    ppde = us(pdir + ((v >>> 22) << 2));
+    ppde = us(pdir + us((v >>> 22) << 2));
     pde = mem.readUInt32LE(ppde);
-    if (pde & PTE_P) {
-        if (!(pde & PTE_A)) {
-            mem.writeUInt32LE(pde | PTE_A, ppde);
+    if (us(pde & PTE_P)) {
+        if (!us(pde & PTE_A)) {
+            mem.writeUInt32LE(us(pde | PTE_A), ppde);
         }
         if (pde >= memsz) {
             trap = FMEM;
             vadr = v;
             return 0;
         }
-        ppte = us((pde & -4096) + ((v >>> 10) & 0xffc));
+        ppte = us(us(pde & -4096) + us((v >>> 10) & 0xffc));
         pte = mem.readUInt32LE(ppte);
-        if (pte & PTE_P) {
-            q = pte & pde;
-            userable = q & PTE_U;
+        if (us(pte & PTE_P)) {
+            q = us(pte & pde);
+            userable = us(q & PTE_U);
             if ((userable || !user) && (q & PTE_W)) {
-                if ((pte & (PTE_D | PTE_A)) !== (PTE_D | PTE_A)) {
-                    mem.writeUInt32LE(pte | (PTE_D | PTE_A), ppte);
+                if (us(pte & (PTE_D | PTE_A)) !== us(PTE_D | PTE_A)) {
+                    mem.writeUInt32LE(us(pte | (PTE_D | PTE_A)), ppte);
                 }
-                return setpage(v, pte, q & PTE_W, userable);
+                return setpage(v, pte, us(q & PTE_W), userable);
             }
         }
     }
@@ -461,7 +467,7 @@ function readhdr(filename) {
         return -1;
     }
     try {
-        st = fs.fstatSync(fd); // How to check if it succeeds or not?
+        st = fs.fstatSync(fd);
     } catch (e) {
         console.log("%s : couldn't stat file %s\n", cmd, filename);
         return -1;
@@ -474,7 +480,7 @@ function readhdr(filename) {
         entry: buf.readUInt32LE(8),
         flags: buf.readUInt32LE(12)
     };
-    if (hdr.magic !== 0xC0DEF00D) {
+    if (hdr.magic !== us(0xC0DEF00D)) {
         console.log("%s : bad hdr.magic\n", cmd);
         return -1;
     }
@@ -512,10 +518,10 @@ function cpu(pc, sp) {
         follower, fatal, exception, interrupt, fixsp, chkpc, fixpc, next, after;
 
     fatal = function() {
-        console.log("processor halted! cycle = %d pc = %08x ir = %08x sp = %08x" +
+        console.log("processor halted! cycle = %d pc = %s ir = %s sp = %s" +
             " a = %d b = %d c = %d trap = %d\n",
-            cycle + Math.floor((xpc - xcycle) / 4), xpc - tpc, ir, xsp - tsp,
-            a, b, c, trap);
+            us(cycle + us(us(xpc - xcycle) / 4)), hex(xpc - tpc), hex(ir),
+            hex(xsp - tsp), a, b, c, trap);
         follower = 0;
     };
     exception = function() {
@@ -529,19 +535,19 @@ function cpu(pc, sp) {
     interrupt = function() {
         var p;
 
-        xsp -= tsp;
-        tsp = 0;
-        fsp = 0;
+        xsp = us(xsp - tsp);
+        tsp = us(0);
+        fsp = us(0);
         if (user) {
             usp = xsp;
             xsp = ssp;
-            user = 0;
+            user = us(0);
             tr = trk;
             tw = twk;
-            trap |= USER;
+            trap = us(trap | USER);
         }
-        xsp -= 8;
-        p = tw.readUInt32LE((xsp >>> 12) * 4);
+        xsp = us(xsp - 8);
+        p = tw.readUInt32LE(us((xsp >>> 12) * 4));
         if (!p) {
             p = wlook(xsp);
             if (!p) {
@@ -550,9 +556,9 @@ function cpu(pc, sp) {
                 return;
             }
         }
-        mem.writeUInt32LE(xpc - tpc, us((xsp ^ p) & -8));
-        xsp -= 8;
-        p = tw.readUInt32LE((xsp >>> 12) * 4);
+        mem.writeUInt32LE(us(xpc - tpc), us(us(xsp ^ p) & -8));
+        xsp = us(xsp - 8);
+        p = tw.readUInt32LE(us(us(xsp >>> 12) * 4));
         if (!p) {
             p = wlook(xsp);
             if (!p) {
@@ -561,20 +567,20 @@ function cpu(pc, sp) {
                 return;
             }
         }
-        mem.writeUInt32LE(trap, us((xsp ^ p) & -8));
-        xcycle += ivec + tpc - xpc;
-        xpc = ivec + tpc;
+        mem.writeUInt32LE(trap, us(us(xsp ^ p) & -8));
+        xcycle = us(xcycle + us(ivec + tpc - xpc));
+        xpc = us(ivec + tpc);
         follower = fixpc;
     };
     fixsp = function() {
         var v, p;
 
-        v = xsp - tsp;
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = us(xsp - tsp);
+        p = tw.readUInt32LE(us((v >>> 12) * 4));
         if (p) {
-            xsp = v ^ (p - 1);
-            tsp = xsp - v;
-            fsp = (4096 - (xsp & 4095)) << 8;
+            xsp = us(v ^ us(p - 1));
+            tsp = us(xsp - v);
+            fsp = us(us(4096 - us(xsp & 4095)) << 8);
         }
         follower = chkpc;
     };
@@ -588,7 +594,7 @@ function cpu(pc, sp) {
     fixpc = function() {
         var v, p;
 
-        v = xpc - tpc;
+        v = us(xpc - tpc);
         p = tr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
             p = rlook(v);
@@ -598,19 +604,19 @@ function cpu(pc, sp) {
                 return;
             }
         }
-        xcycle -= tpc;
-        xpc = v ^ (p - 1);
-        tpc = xpc - v;
-        xcycle += tpc;
-        fpc = (xpc + 4096) & -4096;
+        xcycle = us(xcycle - tpc);
+        xpc = us(v ^ (p - 1));
+        tpc = us(xpc - v);
+        xcycle = us(xcycle + tpc);
+        fpc = us(us(xpc + 4096) & -4096);
         follower = next;
     };
     next = function() {
         var ch;
 
         if (xpc > xcycle) {
-            cycle += delta;
-            xcycle += delta * 4;
+            cycle = us(cycle + us(delta));
+            xcycle = us(xcycle + us(delta * 4));
             if (iena || !(ipend & FKEYBD)) {
                 ch = probekb();
                 if (ch !== -1) {
@@ -627,11 +633,11 @@ function cpu(pc, sp) {
                         follower = interrupt;
                         return;
                     }
-                    ipend |= FKEYBD;
+                    ipend = us(ipend | FKEYBD);
                 }
             }
             if (timeout) {
-                timer += delta;
+                timer = us(timer + us(delta));
                 if (timer >= timeout) {
                     timer = 0;
                     if (iena) {
@@ -640,7 +646,7 @@ function cpu(pc, sp) {
                         follower = interrupt;
                         return;
                     }
-                    ipend |= FTIMER;
+                    ipend = us(ipend | FTIMER);
                 }
             }
         }
@@ -650,7 +656,7 @@ function cpu(pc, sp) {
         var ch, u, v, p, t;
 
         ir = mem.readUInt32LE(xpc);
-        xpc += 4;
+        xpc = us(xpc + us(4));
         switch (ir & 0xFF) {
             case HALT:
                 if (user || verbose) {
@@ -683,9 +689,9 @@ function cpu(pc, sp) {
                         follower = interrupt;
                         return;
                     }
-                    cycle += delta;
+                    cycle = us(cycle + us(delta));
                     if (timeout) {
-                        timer += delta;
+                        timer = us(timer + us(delta));
                         if (timer >= timeout) {
                             timer = 0;
                             trap = FTIMER;
@@ -725,9 +731,9 @@ function cpu(pc, sp) {
                     p = a ^ (p & -2);
                     t = b ^ (t & -2);
                     mem.copy(mem, p, t, t + u);
-                    a += u;
-                    b += u;
-                    c -= u;
+                    a = us(a + us(u));
+                    b = us(b + us(u));
+                    c = us(c - u);
                 }
                 follower = chkpc;
                 return;
@@ -766,13 +772,13 @@ function cpu(pc, sp) {
                     t = mem.slice(p, p + u).compare(mem.slice(t, t + u));
                     if (t) {
                         a = t;
-                        b += c;
+                        b = us(b + us(c));
                         c = 0;
                         break;
                     }
-                    a += u;
-                    b += u;
-                    c -= u;
+                    a = us(a + us(u));
+                    b = us(b + us(u));
+                    c = us(c - u);
                 }
                 follower = chkpc;
                 return;
@@ -797,12 +803,12 @@ function cpu(pc, sp) {
                     v = a ^ (p & -2);
                     t = mem.slice(v, v + u).indexOf(b);
                     if (t !== -1) {
-                        a += t;
+                        a = us(a + us(t));
                         c = 0;
                         break;
                     }
-                    a += u;
-                    c -= u;
+                    a = us(a + us(u));
+                    c = us(c - u);
                 }
                 follower = chkpc;
                 return;
@@ -822,8 +828,8 @@ function cpu(pc, sp) {
                     }
                     v = a ^ (p & -2);
                     mem.fill(b, v, v + u);
-                    a += u;
-                    c -= u;
+                    a = us(a + us(u));
+                    c = us(c - u);
                 }
                 follower = chkpc;
                 return;
@@ -909,12 +915,12 @@ function cpu(pc, sp) {
                 return;
             case ENT:
                 if (fsp) {
-                    fsp -= ir & -256;
+                    fsp = us(fsp - ir) & -256;
                     if (fsp > (4096 << 8)) {
                         fsp = 0;
                     }
                 }
-                xsp += (ir >> 8);
+                xsp = us(xsp + us((ir >> 8)));
                 if (fsp) {
                     follower = chkpc;
                     return;
@@ -937,8 +943,8 @@ function cpu(pc, sp) {
                     t = mem.readUInt32LE((v ^ p) & -8) + tpc;
                     fsp = 0;
                 }
-                xsp += (ir >> 8) + 8;
-                xcycle += t - xpc;
+                xsp = us(xsp + us((ir >> 8) + 8));
+                xcycle = us(xcycle + us(t - xpc));
                 xpc = t;
                 if (xpc - fpc < -4096) {
                     follower = fixpc;
@@ -947,8 +953,8 @@ function cpu(pc, sp) {
                 follower = next;
                 return;
             case JMP:
-                xcycle += (ir >> 8);
-                xpc += (ir >> 10) << 2;
+                xcycle = us(xcycle + us((ir >> 8)));
+                xpc = us(xpc + us((ir >> 10) << 2));
                 if (xpc - fpc < -4096) {
                     follower = fixpc;
                     return;
@@ -965,7 +971,7 @@ function cpu(pc, sp) {
                     }
                 }
                 t = mem.readUInt32LE((v ^ p) & -4);
-                xcycle += t;
+                xcycle = us(xcycle + us(t));
                 xpc = xpc + t;
                 if (xpc - fpc < -4096) {
                     follower = fixpc;
@@ -975,8 +981,8 @@ function cpu(pc, sp) {
                 return;
             case JSR:
                 if (fsp & (4095 << 8)) {
-                    xsp -= 8;
-                    fsp += 8 << 8;
+                    xsp = us(xsp - 8);
+                    fsp = us(fsp + us(8 << 8));
                     mem.writeUInt32LE(xpc - tpc, xsp);
                 } else {
                     v = xsp - tsp - 8;
@@ -989,10 +995,10 @@ function cpu(pc, sp) {
                     }
                     mem.writeUInt32LE(xpc - tpc, (v ^ p) & -8);
                     fsp = 0;
-                    xsp -= 8;
+                    xsp = us(xsp - 8);
                 }
-                xcycle += (ir >> 8);
-                xpc += (ir >> 10) << 2;
+                xcycle = us(xcycle + us((ir >> 8)));
+                xpc = us(xpc + us((ir >> 10) << 2));
                 if (xpc - fpc < -4096) {
                     follower = fixpc;
                     return;
@@ -1001,8 +1007,8 @@ function cpu(pc, sp) {
                 return;
             case JSRA:
                 if (fsp & (4095 << 8)) {
-                    xsp -= 8;
-                    fsp += 8 << 8;
+                    xsp = us(xsp - 8);
+                    fsp = us(fsp + us(8 << 8));
                     mem.writeUInt32LE(xpc - tpc, xsp);
                 } else {
                     v = xsp - tsp - 8;
@@ -1015,9 +1021,9 @@ function cpu(pc, sp) {
                     }
                     mem.writeUInt32LE(xpc - tpc, (v ^ p) & -8);
                     fsp = 0;
-                    xsp -= 8;
+                    xsp = us(xsp - 8);
                 }
-                xcycle += a + tpc - xpc;
+                xcycle = us(xcycle + us(a + tpc - xpc));
                 xpc = a + tpc;
                 if (xpc - fpc < -4096) {
                     follower = fixpc;
@@ -1027,8 +1033,8 @@ function cpu(pc, sp) {
                 return;
             case PSHA:
                 if (fsp & (4095 << 8)) {
-                    xsp -= 8;
-                    fsp += 8 << 8;
+                    xsp = us(xsp - 8);
+                    fsp = us(fsp + us(8 << 8));
                     mem.writeUInt32LE(a, xsp);
                     follower = chkpc;
                     return;
@@ -1042,14 +1048,14 @@ function cpu(pc, sp) {
                     }
                 }
                 mem.writeUInt32LE(a, (v ^ p) & -8);
-                xsp -= 8;
+                xsp = us(xsp - 8);
                 fsp = 0;
                 follower = fixsp;
                 return;
             case PSHB:
                 if (fsp & (4095 << 8)) {
-                    xsp -= 8;
-                    fsp += 8 << 8;
+                    xsp = us(xsp - 8);
+                    fsp = us(fsp + us(8 << 8));
                     mem.writeUInt32LE(b, xsp);
                     follower = chkpc;
                     return;
@@ -1063,14 +1069,14 @@ function cpu(pc, sp) {
                     }
                 }
                 mem.writeUInt32LE(b, (v ^ p) & -8);
-                xsp -= 8;
+                xsp = us(xsp - 8);
                 fsp = 0;
                 follower = fixsp;
                 return;
             case PSHC:
                 if (fsp & (4095 << 8)) {
-                    xsp -= 8;
-                    fsp += 8 << 8;
+                    xsp = us(xsp - 8);
+                    fsp = us(fsp + us(8 << 8));
                     mem.writeUInt32LE(c, xsp);
                     follower = chkpc;
                     return;
@@ -1084,14 +1090,14 @@ function cpu(pc, sp) {
                     }
                 }
                 mem.writeUInt32LE(c, (v ^ p) & -8);
-                xsp -= 8;
+                xsp = us(xsp - 8);
                 fsp = 0;
                 follower = fixsp;
                 return;
             case PSHF:
                 if (fsp & (4095 << 8)) {
-                    xsp -= 8;
-                    fsp += 8 << 8;
+                    xsp = us(xsp - 8);
+                    fsp = us(fsp + us(8 << 8));
                     mem.writeDoubleLE(f, xsp);
                     follower = chkpc;
                     return;
@@ -1105,14 +1111,14 @@ function cpu(pc, sp) {
                     }
                 }
                 mem.writeDoubleLE(f, (v ^ p) & -8);
-                xsp -= 8;
+                xsp = us(xsp - 8);
                 fsp = 0;
                 follower = fixsp;
                 return;
             case PSHG:
                 if (fsp & (4095 << 8)) {
-                    xsp -= 8;
-                    fsp += 8 << 8;
+                    xsp = us(xsp - 8);
+                    fsp = us(fsp + us(8 << 8));
                     mem.writeDoubleLE(g, xsp);
                     follower = chkpc;
                     return;
@@ -1126,14 +1132,14 @@ function cpu(pc, sp) {
                     }
                 }
                 mem.writeDoubleLE(g, (v ^ p) & -8);
-                xsp -= 8;
+                xsp = us(xsp - 8);
                 fsp = 0;
                 follower = fixsp;
                 return;
             case PSHI:
                 if (fsp & (4095 << 8)) {
-                    xsp -= 8;
-                    fsp += 8 << 8;
+                    xsp = us(xsp - 8);
+                    fsp = us(fsp + us(8 << 8));
                     mem.writeInt32LE((ir >> 8), xsp);
                     follower = chkpc;
                     return;
@@ -1147,15 +1153,15 @@ function cpu(pc, sp) {
                     }
                 }
                 mem.writeInt32LE((ir >> 8), (v ^ p) & -8);
-                xsp -= 8;
+                xsp = us(xsp - 8);
                 fsp = 0;
                 follower = fixsp;
                 return;
             case POPA:
                 if (fsp) {
                     a = mem.readUInt32LE(xsp);
-                    xsp += 8;
-                    fsp -= 8 << 8;
+                    xsp = us(xsp + us(8));
+                    fsp = us(fsp - 8) << 8;
                     follower = chkpc;
                     return;
                 }
@@ -1168,14 +1174,14 @@ function cpu(pc, sp) {
                     }
                 }
                 a = mem.readUInt32LE((v ^ p) & -8);
-                xsp += 8;
+                xsp = us(xsp + us(8));
                 follower = fixsp;
                 return;
             case POPB:
                 if (fsp) {
                     b = mem.readUInt32LE(xsp);
-                    xsp += 8;
-                    fsp -= 8 << 8;
+                    xsp = us(xsp + us(8));
+                    fsp = us(fsp - 8) << 8;
                     follower = chkpc;
                     return;
                 }
@@ -1188,14 +1194,14 @@ function cpu(pc, sp) {
                     }
                 }
                 b = mem.readUInt32LE((v ^ p) & -8);
-                xsp += 8;
+                xsp = us(xsp + us(8));
                 follower = fixsp;
                 return;
             case POPC:
                 if (fsp) {
                     c = mem.readUInt32LE(xsp);
-                    xsp += 8;
-                    fsp -= 8 << 8;
+                    xsp = us(xsp + us(8));
+                    fsp = us(fsp - 8) << 8;
                     follower = chkpc;
                     return;
                 }
@@ -1208,14 +1214,14 @@ function cpu(pc, sp) {
                     }
                 }
                 c = mem.readUInt32LE((v ^ p) & -8);
-                xsp += 8;
+                xsp = us(xsp + us(8));
                 follower = fixsp;
                 return;
             case POPF:
                 if (fsp) {
                     f = mem.readDoubleLE(xsp);
-                    xsp += 8;
-                    fsp -= 8 << 8;
+                    xsp = us(xsp + us(8));
+                    fsp = us(fsp - 8) << 8;
                     follower = chkpc;
                     return;
                 }
@@ -1228,14 +1234,14 @@ function cpu(pc, sp) {
                     }
                 }
                 f = mem.readDoubleLE((v ^ p) & -8);
-                xsp += 8;
+                xsp = us(xsp + us(8));
                 follower = fixsp;
                 return;
             case POPG:
                 if (fsp) {
                     g = mem.readDoubleLE(xsp);
-                    xsp += 8;
-                    fsp -= 8 << 8;
+                    xsp = us(xsp + us(8));
+                    fsp = us(fsp - 8) << 8;
                     follower = chkpc;
                     return;
                 }
@@ -1248,7 +1254,7 @@ function cpu(pc, sp) {
                     }
                 }
                 g = mem.readDoubleLE((v ^ p) & -8);
-                xsp += 8;
+                xsp = us(xsp + us(8));
                 follower = fixsp;
                 return;
             case LEA:
@@ -1324,7 +1330,7 @@ function cpu(pc, sp) {
                 return;
             case LLC:
                 if (ir < fsp) {
-                    a = mem.readInt8LE(xsp + (ir >> 8));
+                    a = mem.readInt8(xsp + (ir >> 8));
                     follower = chkpc;
                     return;
                 }
@@ -1336,7 +1342,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                a = mem.readInt8LE(v ^ p & -2); // & precedes ^, what gives?
+                a = mem.readInt8(v ^ p & -2); // & precedes ^
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1345,7 +1351,7 @@ function cpu(pc, sp) {
                 return;
             case LLB:
                 if (ir < fsp) {
-                    a = mem.readUInt8LE(xsp + (ir >> 8));
+                    a = mem.readUInt8(xsp + (ir >> 8));
                     follower = chkpc;
                     return;
                 }
@@ -1357,7 +1363,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                a = mem.readUInt8LE(v ^ p & -2);
+                a = mem.readUInt8(v ^ p & -2);
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1451,7 +1457,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                a = mem.readInt8LE(v ^ p & -2);
+                a = mem.readInt8(v ^ p & -2);
                 follower = chkpc;
                 return;
             case LGB:
@@ -1463,7 +1469,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                a = mem.readUInt8LE(v ^ p & -2);
+                a = mem.readUInt8(v ^ p & -2);
                 follower = chkpc;
                 return;
             case LGD:
@@ -1535,7 +1541,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                a = mem.readInt8LE(v ^ p & -2);
+                a = mem.readInt8(v ^ p & -2);
                 follower = chkpc;
                 return;
             case LXB:
@@ -1547,7 +1553,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                a = mem.readUInt8LE(v ^ p & -2);
+                a = mem.readUInt8(v ^ p & -2);
                 follower = chkpc;
                 return;
             case LXD:
@@ -1651,7 +1657,7 @@ function cpu(pc, sp) {
                 return;
             case LBLC:
                 if (ir < fsp) {
-                    b = mem.readInt8LE(xsp + (ir >> 8));
+                    b = mem.readInt8(xsp + (ir >> 8));
                     follower = chkpc;
                     return;
                 }
@@ -1663,7 +1669,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                b = mem.readInt8LE(v ^ p & -2);
+                b = mem.readInt8(v ^ p & -2);
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1672,7 +1678,7 @@ function cpu(pc, sp) {
                 return;
             case LBLB:
                 if (ir < fsp) {
-                    b = mem.readUInt8LE(xsp + (ir >> 8));
+                    b = mem.readUInt8(xsp + (ir >> 8));
                     follower = chkpc;
                     return;
                 }
@@ -1684,7 +1690,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                b = mem.readUInt8LE(v ^ p & -2);
+                b = mem.readUInt8(v ^ p & -2);
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1778,7 +1784,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                b = mem.readInt8LE(v ^ p & -2);
+                b = mem.readInt8(v ^ p & -2);
                 follower = chkpc;
                 return;
             case LBGB:
@@ -1790,7 +1796,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                b = mem.readUInt8LE(v ^ p & -2);
+                b = mem.readUInt8(v ^ p & -2);
                 follower = chkpc;
                 return;
             case LBGD:
@@ -1862,7 +1868,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                b = mem.readInt8LE(v ^ p & -2);
+                b = mem.readInt8(v ^ p & -2);
                 follower = chkpc;
                 return;
             case LBXB:
@@ -1874,7 +1880,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                b = mem.readUInt8LE(v ^ p & -2);
+                b = mem.readUInt8(v ^ p & -2);
                 follower = chkpc;
                 return;
             case LBXD:
@@ -1990,7 +1996,7 @@ function cpu(pc, sp) {
                 return;
             case SLB:
                 if (ir < fsp) {
-                    mem.writeUInt8LE(a, xsp + (ir >> 8));
+                    mem.writeUInt8(a, xsp + (ir >> 8));
                     follower = chkpc;
                     return;
                 }
@@ -2002,7 +2008,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                mem.writeUInt8LE(a, v ^ p & -2);
+                mem.writeUInt8(a, v ^ p & -2);
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2084,7 +2090,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                mem.writeUInt8LE(a, v ^ p & -2);
+                mem.writeUInt8(a, v ^ p & -2);
                 follower = chkpc;
                 return;
             case SGD:
@@ -2144,7 +2150,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                mem.writeUInt8LE(a, v ^ p & -2);
+                mem.writeUInt8(a, v ^ p & -2);
                 follower = chkpc;
                 return;
             case SXD:
@@ -2172,11 +2178,11 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case ADDF:
-                f += g;
+                f = us(f + us(g));
                 follower = chkpc;
                 return;
             case SUBF:
-                f -= g;
+                f = us(f - g);
                 follower = chkpc;
                 return;
             case MULF:
@@ -2192,16 +2198,16 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case ADD:
-                a += b;
+                a = us(a + us(b));
                 follower = chkpc;
                 return;
             case ADDI:
-                a += (ir >> 8);
+                a = us(a + us((ir >> 8)));
                 follower = chkpc;
                 return;
             case ADDL:
                 if (ir < fsp) {
-                    a += mem.readUInt32LE(xsp + (ir >> 8));
+                    a = us(a + us(mem.readUInt32LE(xsp + (ir >> 8))));
                     follower = chkpc;
                     return;
                 }
@@ -2213,7 +2219,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                a += mem.readUInt32LE((v ^ p) & -4);
+                a = us(a + us(mem.readUInt32LE((v ^ p) & -4)));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2221,7 +2227,7 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case SUB:
-                a -= b;
+                a = us(a - b);
                 follower = chkpc;
                 return;
             case SUBI:
@@ -2230,7 +2236,7 @@ function cpu(pc, sp) {
                 return;
             case SUBL:
                 if (ir < fsp) {
-                    a -= mem.readUInt32LE(xsp + (ir >> 8));
+                    a = us(a - mem.readUInt32LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
@@ -2242,7 +2248,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                a -= mem.readUInt32LE((v ^ p) & -4);
+                a = us(a - mem.readUInt32LE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2462,17 +2468,17 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case OR:
-                a |= b;
+                a = us(a | b);
                 follower = chkpc;
                 return;
             case ORI:
-                a |= ir >> 8;
+                a = us(a | ir) >> 8;
                 follower = chkpc;
                 return;
 
             case ORL:
                 if (ir < fsp) {
-                    a |= mem.readUInt32LE(xsp + (ir >> 8));
+                    a = us(a | mem.readUInt32LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
@@ -2484,7 +2490,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                a |= mem.readUInt32LE((v ^ p) & -4);
+                a = us(a | mem.readUInt32LE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2649,8 +2655,8 @@ function cpu(pc, sp) {
                 return;
             case BZ:
                 if (!a) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2662,8 +2668,8 @@ function cpu(pc, sp) {
                 return;
             case BZF:
                 if (!f) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2675,8 +2681,8 @@ function cpu(pc, sp) {
                 return;
             case BNZ:
                 if (a) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2688,8 +2694,8 @@ function cpu(pc, sp) {
                 return;
             case BNZF:
                 if (f) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2701,8 +2707,8 @@ function cpu(pc, sp) {
                 return;
             case BE:
                 if (a === b) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2714,8 +2720,8 @@ function cpu(pc, sp) {
                 return;
             case BEF:
                 if (f === g) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2727,8 +2733,8 @@ function cpu(pc, sp) {
                 return;
             case BNE:
                 if (a !== b) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2740,8 +2746,8 @@ function cpu(pc, sp) {
                 return;
             case BNEF:
                 if (f !== g) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2753,8 +2759,8 @@ function cpu(pc, sp) {
                 return;
             case BLT:
                 if (a < b) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2766,8 +2772,8 @@ function cpu(pc, sp) {
                 return;
             case BLTU:
                 if (a < b) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2779,8 +2785,8 @@ function cpu(pc, sp) {
                 return;
             case BLTF:
                 if (f < g) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2792,8 +2798,8 @@ function cpu(pc, sp) {
                 return;
             case BGE:
                 if (a >= b) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2805,8 +2811,8 @@ function cpu(pc, sp) {
                 return;
             case BGEU:
                 if (a >= b) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2818,8 +2824,8 @@ function cpu(pc, sp) {
                 return;
             case BGEF:
                 if (f >= g) {
-                    xcycle += ir >> 8;
-                    xpc += (ir >> 10) << 2;
+                    xcycle = us(xcycle + us(ir >> 8));
+                    xpc = us(xpc + us((ir >> 10) << 2));
                     if (xpc - fpc < -4096) {
                         follower = fixpc;
                         return;
@@ -2865,7 +2871,7 @@ function cpu(pc, sp) {
                     return;
                 }
                 ch = b;
-                a = writech(ch);
+                a = printch(ch);
                 follower = chkpc;
                 return;
             case SSP:
@@ -2918,7 +2924,7 @@ function cpu(pc, sp) {
                     trap = FPRIV;
                     break;
                 }
-                xsp -= tsp;
+                xsp = us(xsp - tsp);
                 tsp = 0;
                 fsp = 0;
                 p = tr.readUInt32LE((xsp >> 12) * 4);
@@ -2931,7 +2937,7 @@ function cpu(pc, sp) {
                     }
                 }
                 t = mem.readUInt32LE((xsp ^ p) & -8);
-                xsp += 8;
+                xsp = us(xsp + us(8));
                 p = tr.readUInt32LE((xsp >> 12) * 4);
                 if (!p) {
                     p = rlook(xsp);
@@ -2942,8 +2948,8 @@ function cpu(pc, sp) {
                     }
                 }
                 pc = mem.readUInt32LE((xsp ^ p) & -8) + tpc;
-                xcycle += pc - xpc;
-                xsp += 8;
+                xcycle = us(xcycle + us(pc - xpc));
+                xsp = us(xsp + us(8));
                 xpc = pc;
                 if (t & USER) {
                     ssp = xsp;
@@ -3096,7 +3102,7 @@ function main(argv) {
     }
     verbose = argv.hasOwnProperty("v");
     if (argv.hasOwnProperty("m")) {
-        memsz = Number(argv.m) * 1024 * 1024;
+        memsz = us(Number(argv.m) * 1024 * 1024);
     } else {
         memsz = MEM_SZ;
     }
@@ -3124,6 +3130,7 @@ function main(argv) {
     }
     initkb();
     cpu(hdr.entry, memsz - FS_SZ);
+    shutkb();
     return 0;
 }
 
