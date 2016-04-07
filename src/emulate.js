@@ -283,7 +283,7 @@ var verbose = 0, // chatty option -v
 var cmd = "./xem";
 
 function signed(x) {
-    return x >> 0;
+    return x | 0;
 }
 
 function unsigned(x) {
@@ -301,6 +301,13 @@ function shr(x, n) {
 function probekb() {
     assert(false);
     ///
+    return -1;
+}
+
+function writech(ch) {
+    if (process.stdout.write(ch)) {
+        return 1;
+    }
     return -1;
 }
 
@@ -2403,6 +2410,558 @@ function cpu(pc, sp) {
             case MDUI:
                 a %= sar(ir, 8);
                 follower = chkpc;
+                return;
+            case MDUL:
+                if (ir < fsp) {
+                    a %= mem.readUInt32LE(xsp + (ir >> 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + (ir >> 8);
+                p = tr.readUInt32LE((v >> 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a %= mem.readUInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case AND:
+                a &= b;
+                follower = chkpc;
+                return;
+            case ANDI:
+                a &= ir >> 8;
+                follower = chkpc;
+                return;
+            case ANDL:
+                if (ir < fsp) {
+                    a &= mem.readUInt32LE(xsp + (ir >> 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + (ir >> 8);
+                p = tr.readUInt32LE((v >> 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a &= mem.readUInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case OR:
+                a |= b;
+                follower = chkpc;
+                return;
+            case ORI:
+                a |= ir >> 8;
+                follower = chkpc;
+                return;
+
+            case ORL:
+                if (ir < fsp) {
+                    a |= mem.readUInt32LE(xsp + (ir >> 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + (ir >> 8);
+                p = tr.readUInt32LE((v >> 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a |= mem.readUInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case XOR:
+                a ^= b;
+                follower = chkpc;
+                return;
+            case XORI:
+                a ^= ir >> 8;
+                follower = chkpc;
+                return;
+            case XORL:
+                if (ir < fsp) {
+                    a ^= mem.readUInt32LE(xsp + (ir >> 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + (ir >> 8);
+                p = tr.readUInt32LE((v >> 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a ^= mem.readUInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case SHL:
+                a <<= b;
+                follower = chkpc;
+                return;
+            case SHLI:
+                a <<= ir >> 8;
+                follower = chkpc;
+                return;
+            case SHLL:
+                if (ir < fsp) {
+                    a <<= mem.readUInt32LE(xsp + (ir >> 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + (ir >> 8);
+                p = tr.readUInt32LE((v >> 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a <<= mem.readUInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case SHR:
+                a = a >> b;
+                follower = chkpc;
+                return;
+            case SHRI:
+                a = a >> (ir >> 8);
+                follower = chkpc;
+                return;
+            case SHRL:
+                if (ir < fsp) {
+                    a = a >> mem.readUInt32LE(xsp + (ir >> 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + (ir >> 8);
+                p = tr.readUInt32LE((v >> 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a = a >> mem.readUInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case SRU:
+                a >>= b;
+                follower = chkpc;
+                return;
+            case SRUI:
+                a >>= ir >> 8;
+                follower = chkpc;
+                return;
+            case SRUL:
+                if (ir < fsp) {
+                    a = a >> mem.readUInt32LE(xsp + (ir >> 8));
+                    follower = chkpc;
+                    return;
+                }
+                v = xsp - tsp + (ir >> 8);
+                p = tr.readUInt32LE((v >> 12) * 4);
+                if (!p) {
+                    p = rlook(v);
+                    if (!p) {
+                        break;
+                    }
+                }
+                a = a >> mem.readUInt32LE((v ^ p) & -4);
+                if (fsp || (v ^ (xsp - tsp)) & -4096) {
+                    follower = chkpc;
+                    return;
+                }
+                follower = fixsp;
+                return;
+            case EQ:
+                a = a === b;
+                follower = chkpc;
+                return;
+            case EQF:
+                a = f === g;
+                follower = chkpc;
+                return;
+            case NE:
+                a = a !== b;
+                follower = chkpc;
+                return;
+            case NEF:
+                a = f !== g;
+                follower = chkpc;
+                return;
+            case LT:
+                a = a < b;
+                follower = chkpc;
+                return;
+            case LTU:
+                a = a < b;
+                follower = chkpc;
+                return;
+            case LTF:
+                a = f < g;
+                follower = chkpc;
+                return;
+            case GE:
+                a = a >= b;
+                follower = chkpc;
+                return;
+            case GEU:
+                a = a >= b;
+                follower = chkpc;
+                return;
+            case GEF:
+                a = f >= g;
+                follower = chkpc;
+                return;
+            case BZ:
+                if (!a) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BZF:
+                if (!f) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BNZ:
+                if (a) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BNZF:
+                if (f) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BE:
+                if (a === b) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BEF:
+                if (f === g) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BNE:
+                if (a !== b) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BNEF:
+                if (f !== g) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BLT:
+                if (a < b) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BLTU:
+                if (a < b) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BLTF:
+                if (f < g) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BGE:
+                if (a >= b) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BGEU:
+                if (a >= b) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case BGEF:
+                if (f >= g) {
+                    xcycle += ir >> 8;
+                    xpc += (ir >> 10) << 2;
+                    if (xpc - fpc < -4096) {
+                        follower = fixpc;
+                        return;
+                    }
+                    follower = next;
+                    return;
+                }
+                follower = chkpc;
+                return;
+            case CID:
+                f = a;
+                follower = chkpc;
+                return;
+            case CUD:
+                f = a;
+                follower = chkpc;
+                return;
+            case CDI:
+                a = f;
+                follower = chkpc;
+                return;
+            case CDU:
+                a = f;
+                follower = chkpc;
+                return;
+            case BIN:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                a = kbchar;
+                kbchar = -1;
+                follower = chkpc;
+                return;
+            case BOUT:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                if (a !== 1) {
+                    console.log("bad write a=%d\n", a);
+                    follower = 0;
+                    return;
+                }
+                ch = b;
+                a = writech(ch);
+                follower = chkpc;
+                return;
+            case SSP:
+                xsp = a;
+                tsp = 0;
+                fsp = 0;
+                follower = fixsp;
+                return;
+            case NOP:
+                follower = chkpc;
+                return;
+            case CYC:
+                a = cycle + Math.floor((xpc - xcycle) / 4);
+                follower = chkpc;
+                return;
+            case MSIZ:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                a = memsz;
+                follower = chkpc;
+                return;
+            case CLI:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                a = iena;
+                iena = 0;
+                follower = chkpc;
+                return;
+            case STI:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                if (ipend) {
+                    trap = ipend & -ipend;
+                    ipend ^= trap;
+                    iena = 0;
+                    follower = interrupt;
+                    return;
+                }
+                iena = 1;
+                follower = chkpc;
+                return;
+            case RTI:
+                if (user) {
+                    trap = FPRIV;
+                    break;
+                }
+                xsp -= tsp;
+                tsp = 0;
+                fsp = 0;
+                p = tr.readUInt32LE((xsp >> 12) * 4);
+                if (!p) {
+                    p = rlook(xsp);
+                    if (!p) {
+                        console.log("RTI kstack fault\n");
+                        follower = fatal;
+                        return;
+                    }
+                }
+                t = mem.readUInt32LE((xsp ^ p) & -8);
+                xsp += 8;
+                p = tr.readUInt32LE((xsp >> 12) * 4);
+                if (!p) {
+                    p = rlook(xsp);
+                    if (!p) {
+                        console.log("RTI kstack fault\n");
+                        follower = fatal;
+                        return;
+                    }
+                }
+                pc = mem.readUInt32LE((xsp ^ p) & -8) + tpc;
+                xcycle += pc - xpc;
+                xsp += 8;
+                xpc = pc;
+                if (t & USER) {
+                    ssp = xsp;
+                    xsp = usp;
+                    user = 1;
+                    tr = tru;
+                    tw = twu;
+                }
+                if (!iena) {
+                    if (ipend) {
+                        trap = ipend & -ipend;
+                        ipend ^= trap;
+                        follower = interrupt;
+                        return;
+                    }
+                    iena = 1;
+                }
+                follower = fixpc;
                 return;
             default:
                 trap = FINST;
