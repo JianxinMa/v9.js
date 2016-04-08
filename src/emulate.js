@@ -895,12 +895,12 @@ function cpu(pc, sp) {
                 return;
             case ENT:
                 if (fsp) {
-                    fsp = (fsp - ir) & -256;
-                    if (fsp > (4096 << 8)) {
+                    fsp = fsp - (ir & -256);
+                    if (fsp < 0 || fsp > (4096 << 8)) {
                         fsp = 0;
                     }
                 }
-                xsp = (xsp + (ir >> 8));
+                xsp = xsp + (ir >> 8);
                 if (fsp) {
                     follower = chkpc;
                     return;
@@ -909,22 +909,22 @@ function cpu(pc, sp) {
                 return;
             case LEV:
                 if (ir < fsp) {
-                    t = (mem.readUInt32LE(xsp + (ir >> 8)) + tpc);
-                    fsp = (fsp - ((ir + 0x800) & -256));
+                    t = mem.readUInt32LE(xsp + (ir >> 8)) + tpc;
+                    fsp = fsp - ((ir + (8 << 8)) & -256);
                 } else {
-                    v = (xsp - tsp + (ir >> 8));
-                    p = (tr.readUInt32LE(((v >>> 12) * 4)));
+                    v = xsp - tsp + (ir >> 8);
+                    p = tr.readUInt32LE((v >>> 12) * 4);
                     if (!p) {
-                        p = (rlook(v));
+                        p = rlook(v);
                         if (!p) {
                             break;
                         }
                     }
-                    t = (mem.readUInt32LE((v ^ p) & -8) + tpc);
+                    t = mem.readUInt32LE((v ^ p) & -8) + tpc;
                     fsp = 0;
                 }
-                xsp = (xsp + ((ir >> 8) + 8));
-                xcycle = (xcycle + (t - xpc));
+                xsp = xsp + ((ir >> 8) + 8);
+                xcycle = xcycle + t - xpc;
                 xpc = t;
                 if (xpc >= fpc || xpc < fpc - 4096) {
                     follower = fixpc;
@@ -933,8 +933,8 @@ function cpu(pc, sp) {
                 follower = chkio;
                 return;
             case JMP:
-                xcycle = (xcycle + (ir >> 8));
-                xpc = (xpc + ((ir >> 10) << 2));
+                xcycle = xcycle + (ir >> 8);
+                xpc = xpc + ((ir >> 10) << 2);
                 if (xpc >= fpc || xpc < fpc - 4096) {
                     follower = fixpc;
                     return;
@@ -945,7 +945,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8) + (a << 2));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1148,7 +1148,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp);
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1168,7 +1168,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp);
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1188,7 +1188,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp);
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1208,7 +1208,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp);
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1228,7 +1228,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp);
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1254,7 +1254,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1275,7 +1275,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1296,7 +1296,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1317,7 +1317,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1338,7 +1338,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1359,7 +1359,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1380,7 +1380,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1396,7 +1396,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1408,7 +1408,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1420,7 +1420,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1432,7 +1432,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1444,7 +1444,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1456,7 +1456,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1468,7 +1468,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1480,7 +1480,7 @@ function cpu(pc, sp) {
                 v = (a + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1492,7 +1492,7 @@ function cpu(pc, sp) {
                 v = (a + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1504,7 +1504,7 @@ function cpu(pc, sp) {
                 v = (a + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1516,7 +1516,7 @@ function cpu(pc, sp) {
                 v = (a + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1528,7 +1528,7 @@ function cpu(pc, sp) {
                 v = (a + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1540,7 +1540,7 @@ function cpu(pc, sp) {
                 v = (a + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1552,7 +1552,7 @@ function cpu(pc, sp) {
                 v = (a + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1581,7 +1581,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1602,7 +1602,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1623,7 +1623,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1644,7 +1644,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1665,7 +1665,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1686,7 +1686,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1707,7 +1707,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1723,7 +1723,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1735,7 +1735,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1747,7 +1747,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1759,7 +1759,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1771,7 +1771,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1783,7 +1783,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1795,7 +1795,7 @@ function cpu(pc, sp) {
                 v = (xpc - tpc + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1807,7 +1807,7 @@ function cpu(pc, sp) {
                 v = (b + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1819,7 +1819,7 @@ function cpu(pc, sp) {
                 v = (b + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1831,7 +1831,7 @@ function cpu(pc, sp) {
                 v = (b + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1843,7 +1843,7 @@ function cpu(pc, sp) {
                 v = (b + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1855,7 +1855,7 @@ function cpu(pc, sp) {
                 v = (b + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1867,7 +1867,7 @@ function cpu(pc, sp) {
                 v = (b + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1879,7 +1879,7 @@ function cpu(pc, sp) {
                 v = (b + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -1908,7 +1908,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2194,7 +2194,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2223,7 +2223,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2252,7 +2252,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2295,7 +2295,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2343,7 +2343,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2377,7 +2377,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2406,7 +2406,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2435,7 +2435,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2465,7 +2465,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2494,7 +2494,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2523,7 +2523,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2552,7 +2552,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
@@ -2581,7 +2581,7 @@ function cpu(pc, sp) {
                 v = (xsp - tsp + (ir >> 8));
                 p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = (rlook(v));
+                    p = rlook(v);
                     if (!p) {
                         break;
                     }
