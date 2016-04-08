@@ -492,6 +492,7 @@ uint rlook(uint v) {
     return setpage(v, v, 1, 1);
   }
   pde = *(ppde = (uint *)(pdir + (v >> 22 << 2))); // page directory entry
+  if (1) dprintf(2, "pde = %u\n", pde);
   if (pde & PTE_P) {
     if (!(pde & PTE_A)) {
       *ppde = pde | PTE_A;
@@ -580,7 +581,8 @@ void cpu(uint pc, uint sp) {
   auto void fatal();
 
   void fatal() {
-    dprintf(2, "fatal <\n");
+    if (1)
+      dprintf(2, "fatal <\n");
     dprintf(2, "processor halted! cycle = %u pc = %08x ir = %08x sp = %08x a = "
                "%d b = %d c = %d trap = %u\n",
             cycle + (int)((uint)xpc - xcycle) / 4, (uint)xpc - tpc, ir,
@@ -590,7 +592,8 @@ void cpu(uint pc, uint sp) {
   }
 
   void exception() {
-    dprintf(2, "exception <\n");
+    if (1)
+      dprintf(2, "exception <\n");
     if (!iena) {
       dprintf(2, "exception in interrupt handler\n");
       follower = &fatal;
@@ -601,7 +604,8 @@ void cpu(uint pc, uint sp) {
   }
 
   void interrupt() {
-    dprintf(2, "interrupt <\n");
+    if (1)
+      dprintf(2, "interrupt <\n");
     xsp -= tsp;
     tsp = fsp = 0;
     if (user) {
@@ -633,7 +637,8 @@ void cpu(uint pc, uint sp) {
   }
 
   void fixsp() {
-    dprintf(2, "fixsp <\n");
+    if (1)
+      dprintf(2, "fixsp <\n");
     if (p = tw[(v = xsp - tsp) >> 12]) {
       tsp = (xsp = v ^ (p - 1)) - v;
       fsp = (4096 - (xsp & 4095)) << 8;
@@ -643,7 +648,8 @@ void cpu(uint pc, uint sp) {
   }
 
   void chkpc() {
-    dprintf(2, "chkpc <\n");
+    if (1)
+      dprintf(2, "chkpc <\n");
     if ((uint)xpc == fpc) {
       follower = &fixpc;
       return;
@@ -654,7 +660,8 @@ void cpu(uint pc, uint sp) {
   }
 
   void fixpc() {
-    dprintf(2, "fixpc <\n");
+    if (1)
+      dprintf(2, "fixpc <\n");
     if (!(p = tr[(v = (uint)xpc - tpc) >> 12]) && !(p = rlook(v))) {
       trap = FIPAGE;
       follower = &exception;
@@ -668,7 +675,8 @@ void cpu(uint pc, uint sp) {
   }
 
   void next() {
-    dprintf(2, "chkio <\n");
+    if (1)
+      dprintf(2, "chkio <\n");
     if ((uint)xpc > xcycle) {
       cycle += delta;
       xcycle += delta * 4;
@@ -716,7 +724,8 @@ void cpu(uint pc, uint sp) {
   void after() {
     ir = *((int *)xpc);
     xpc += 4;
-    dprintf(2, "ASM #%d : %u\n", ir & 0xFF, (uint)ir);
+    if (1)
+      dprintf(2, "ASM #%d : %u\n", ir & 0xFF, (uint)ir);
     switch ((uchar)(ir)) {
     case HALT:
       if (user || verbose)
@@ -2845,10 +2854,11 @@ void cpu(uint pc, uint sp) {
 
   follower = &fixpc;
   while (follower != 0) {
-    dprintf(2, "cycle = %u pc = %08x ir = %08x sp = %08x a = "
-            "%u b = %u c = %u trap = %u\n",
-            cycle + (int)((uint)xpc - xcycle) / 4, (uint)xpc - tpc, ir,
-            xsp - tsp, a, b, c, trap);
+    if (1)
+      dprintf(2, "cycle = %u pc = %08x ir = %08x sp = %08x a = "
+                 "%u b = %u c = %u trap = %u paging = %d\n",
+              cycle + (int)((uint)xpc - xcycle) / 4, (uint)xpc - tpc, ir,
+              xsp - tsp, a, b, c, trap, paging);
     (*follower)();
   }
 }

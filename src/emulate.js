@@ -272,28 +272,8 @@ function printch(ch) {
     return -1;
 }
 
-var pendkeys = [];
-
-function initkb() {
-    keypress(process.stdin);
-    process.stdin.on('keypress', function(c) {
-        c = c.charCodeAt(0);
-        if (0 <= c && c <= 0x7F) {
-            pendkeys.push(c);
-        }
-    });
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-}
-
-function shutkb() {
-    process.stdin.pause();
-}
-
 function probekb() {
-    if (pendkeys.length > 0) {
-        return pendkeys.shift();
-    }
+    // TODO: Need to figure out how to poll & read in JS.
     return -1;
 }
 
@@ -340,6 +320,7 @@ function rlook(v) {
     }
     ppde = pdir + ((v >>> 22) << 2);
     pde = mem.readUInt32LE(ppde);
+    if (1) { console.log("pde = %d", pde>>>0); }
     if (pde & PTE_P) {
         if (!(pde & PTE_A)) {
             mem.writeUInt32LE(pde | PTE_A, ppde);
@@ -497,7 +478,7 @@ function cpu(pc, sp) {
         follower, fatal, exception, interrupt, fixsp, chkpc, fixpc, chkio, decode;
 
     fatal = function() {
-        if (0) {
+        if (1) {
             console.log("fatal <");
         }
         console.log("processor halted! cycle = %d pc = %s ir = %s sp = %s" +
@@ -507,7 +488,7 @@ function cpu(pc, sp) {
         follower = 0;
     };
     exception = function() {
-        if (0) {
+        if (1) {
             console.log("exception <");
         }
         if (!iena) {
@@ -520,7 +501,7 @@ function cpu(pc, sp) {
     interrupt = function() {
         var p;
 
-        if (0) {
+        if (1) {
             console.log("interrupt <");
         }
         xsp = xsp - tsp;
@@ -563,7 +544,7 @@ function cpu(pc, sp) {
     fixsp = function() {
         var v, p;
 
-        if (0) {
+        if (1) {
             console.log("fixsp <");
         }
         v = xsp - tsp;
@@ -576,7 +557,7 @@ function cpu(pc, sp) {
         follower = chkpc;
     };
     chkpc = function() {
-        if (0) {
+        if (1) {
             console.log("chkpc <");
         }
         if (xpc === fpc) {
@@ -588,7 +569,7 @@ function cpu(pc, sp) {
     fixpc = function() {
         var v, p;
 
-        if (0) {
+        if (1) {
             console.log("fixpc <");
         }
         v = xpc - tpc;
@@ -611,7 +592,7 @@ function cpu(pc, sp) {
     chkio = function() {
         var ch;
 
-        if (0) {
+        if (1) {
             console.log("chkio <");
         }
         if (xpc > xcycle) {
@@ -657,7 +638,7 @@ function cpu(pc, sp) {
 
         ir = mem.readUInt32LE(xpc);
         xpc = xpc + 4;
-        if (0) {
+        if (1) {
             console.log("ASM #%d : %d", ir & 0xFF, ir >>> 0);
         }
         switch (ir & 0xFF) {
@@ -1588,7 +1569,7 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case LHI:
-                a = (a << 24) | (ir >> 8);
+                a = (a << 24) | (ir >>> 8);
                 follower = chkpc;
                 return;
             case LIF:
@@ -3074,11 +3055,11 @@ function cpu(pc, sp) {
         xcycle >>>= 0;
         timer >>>= 0;
         timeout >>>= 0;
-        if (0) {
+        if (1) {
             console.log("cycle = %d pc = %s ir = %s sp = %s" +
-                " a = %d b = %d c = %d trap = %d",
+                " a = %d b = %d c = %d trap = %d paging = %d",
                 cycle + (xpc - xcycle) / 4, hex(xpc - tpc), hex(ir),
-                hex(xsp - tsp), a, b, c, trap);
+                hex(xsp - tsp), a, b, c, trap, paging);
         }
         follower();
     }
@@ -3119,9 +3100,7 @@ function main(argv) {
     if (verbose) {
         console.log("./xem : emulating %s\n", argv._[0]);
     }
-    initkb();
     cpu(hdr.entry, memsz - FS_SZ);
-    shutkb();
     return 0;
 }
 
