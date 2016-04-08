@@ -694,7 +694,7 @@ function cpu(pc, sp) {
                     }
                     p = tw.readUInt32LE((a >>> 12) * 4);
                     if (!p) {
-                        p = (wlook(a));
+                        p = wlook(a);
                         if (!p) {
                             follower = exception;
                             return;
@@ -708,12 +708,12 @@ function cpu(pc, sp) {
                     if (u > v) {
                         u = v;
                     }
-                    p = (a ^ (p & -2));
-                    t = (b ^ (t & -2));
+                    p = a ^ (p & -2);
+                    t = b ^ (t & -2);
                     mem.copy(mem, p, t, t + u);
                     a = a + u;
                     b = b + u;
-                    c = (c - u);
+                    c = c - u;
                 }
                 follower = chkpc;
                 return;
@@ -723,9 +723,9 @@ function cpu(pc, sp) {
                         a = 0;
                         break;
                     }
-                    t = (tr.readUInt32LE(((b >>> 12) * 4)));
+                    t = tr.readUInt32LE((b >>> 12) * 4);
                     if (!t) {
-                        t = (rlook(b));
+                        t = rlook(b);
                         if (!t) {
                             follower = exception;
                             return;
@@ -733,7 +733,7 @@ function cpu(pc, sp) {
                     }
                     p = tr.readUInt32LE((a >>> 12) * 4);
                     if (!p) {
-                        p = (rlook(a));
+                        p = rlook(a);
                         if (!p) {
                             follower = exception;
                             return;
@@ -747,9 +747,9 @@ function cpu(pc, sp) {
                     if (u > v) {
                         u = v;
                     }
-                    p = (a ^ (p & -2));
-                    t = (b ^ (t & -2));
-                    t = (mem.slice(p, p + u).compare(mem.slice(t, t + u)));
+                    p = a ^ (p & -2);
+                    t = b ^ (t & -2);
+                    t = mem.slice(p, p + u).compare(mem.slice(t, t + u));
                     if (t) {
                         a = t;
                         b = b + c;
@@ -758,7 +758,7 @@ function cpu(pc, sp) {
                     }
                     a = a + u;
                     b = b + u;
-                    c = (c - u);
+                    c = c - u;
                 }
                 follower = chkpc;
                 return;
@@ -770,7 +770,7 @@ function cpu(pc, sp) {
                     }
                     p = tr.readUInt32LE((a >>> 12) * 4);
                     if (!p) {
-                        p = (rlook(a));
+                        p = rlook(a);
                         if (!p) {
                             follower = exception;
                             return;
@@ -780,15 +780,15 @@ function cpu(pc, sp) {
                     if (u > c) {
                         u = c;
                     }
-                    v = (a ^ (p & -2));
-                    t = (mem.slice(v, v + u).indexOf(b));
+                    v = a ^ (p & -2);
+                    t = mem.slice(v, v + u).indexOf(b);
                     if (t !== -1) {
                         a = a + t;
                         c = 0;
                         break;
                     }
                     a = a + u;
-                    c = (c - u);
+                    c = c - u;
                 }
                 follower = chkpc;
                 return;
@@ -796,7 +796,7 @@ function cpu(pc, sp) {
                 while (c > 0) {
                     p = tw.readUInt32LE((a >>> 12) * 4);
                     if (!p) {
-                        p = (wlook(a));
+                        p = wlook(a);
                         if (!p) {
                             follower = exception;
                             return;
@@ -806,10 +806,10 @@ function cpu(pc, sp) {
                     if (u > c) {
                         u = c;
                     }
-                    v = (a ^ (p & -2));
+                    v = a ^ (p & -2);
                     mem.fill(b, v, v + u);
                     a = a + u;
-                    c = (c - u);
+                    c = c - u;
                 }
                 follower = chkpc;
                 return;
@@ -951,8 +951,8 @@ function cpu(pc, sp) {
                     }
                 }
                 t = (mem.readUInt32LE((v ^ p) & -4));
-                xcycle = (xcycle + (t));
-                xpc = (xpc + t);
+                xcycle = xcycle + t;
+                xpc = xpc + t;
                 if (xpc >= fpc || xpc < fpc - 4096) {
                     follower = fixpc;
                     return;
