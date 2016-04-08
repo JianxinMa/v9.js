@@ -492,7 +492,11 @@ uint rlook(uint v) {
     return setpage(v, v, 1, 1);
   }
   pde = *(ppde = (uint *)(pdir + (v >> 22 << 2))); // page directory entry
-  if (1) dprintf(2, "pde = %u\n", pde);
+  if (1)
+    dprintf(2, "pde = %u\n", pde);
+  if (1) {
+    dprintf(2, "rlook #1\n");
+  }
   if (pde & PTE_P) {
     if (!(pde & PTE_A)) {
       *ppde = pde | PTE_A;
@@ -502,8 +506,17 @@ uint rlook(uint v) {
       vadr = v;
       return 0;
     }
+    if (1) {
+      dprintf(2, "rlook #2\n");
+    }
     pte = *(ppte = (uint *)(mem + (pde & -4096) +
                             ((v >> 10) & 0xffc))); // page table entry
+
+    if (1) {
+      if (pte & PTE_P) {
+        dprintf(2, "rlook #3\n");
+      }
+    }
     if ((pte & PTE_P) && ((userable = (q = pte & pde) & PTE_U) || !user)) {
       if (!(pte & PTE_A)) {
         *ppte = pte | PTE_A;
@@ -514,6 +527,9 @@ uint rlook(uint v) {
     }
   }
   trap = FRPAGE;
+  if (1) {
+    dprintf(2, "rlook trap = %d\n", trap);
+  }
   vadr = v;
   return 0;
 }
@@ -2856,9 +2872,9 @@ void cpu(uint pc, uint sp) {
   while (follower != 0) {
     if (1)
       dprintf(2, "cycle = %u pc = %08x ir = %08x sp = %08x a = "
-                 "%u b = %u c = %u trap = %u paging = %d\n",
+                 "%u b = %u c = %u trap = %u paging = %d vadr = %u\n",
               cycle + (int)((uint)xpc - xcycle) / 4, (uint)xpc - tpc, ir,
-              xsp - tsp, a, b, c, trap, paging);
+              xsp - tsp, a, b, c, trap, paging, vadr);
     (*follower)();
   }
 }

@@ -320,7 +320,12 @@ function rlook(v) {
     }
     ppde = pdir + ((v >>> 22) << 2);
     pde = mem.readUInt32LE(ppde);
-    if (1) { console.log("pde = %d", pde>>>0); }
+    if (1) {
+        console.log("pde = %d", pde >>> 0);
+    }
+    if (1) {
+        console.log("rlook #1");
+    }
     if (pde & PTE_P) {
         if (!(pde & PTE_A)) {
             mem.writeUInt32LE(pde | PTE_A, ppde);
@@ -330,9 +335,15 @@ function rlook(v) {
             vadr = v;
             return 0;
         }
+        if (1) {
+            console.log("rlook #2");
+        }
         ppte = (pde & -4096) + ((v >>> 10) & 0xffc);
         pte = mem.readUInt32LE(ppte);
         if (pte & PTE_P) {
+            if (1) {
+                console.log("rlook #3");
+            }
             q = pte & pde;
             userable = q & PTE_U;
             if (userable || !user) {
@@ -344,6 +355,9 @@ function rlook(v) {
         }
     }
     trap = FRPAGE;
+    if (1) {
+        console.log("rlook trap = %d", trap);
+    }
     vadr = v;
     return 0;
 }
@@ -465,7 +479,6 @@ function cpu(pc, sp) {
         xsp = sp,
         tsp = 0,
         fsp = 0,
-        trap = 0,
         delta = 4096,
         cycle = 4096,
         xcycle = delta * 4,
@@ -3057,9 +3070,9 @@ function cpu(pc, sp) {
         timeout >>>= 0;
         if (1) {
             console.log("cycle = %d pc = %s ir = %s sp = %s" +
-                " a = %d b = %d c = %d trap = %d paging = %d",
+                " a = %d b = %d c = %d trap = %d paging = %d vadr = %d",
                 cycle + (xpc - xcycle) / 4, hex(xpc - tpc), hex(ir),
-                hex(xsp - tsp), a, b, c, trap, paging);
+                hex(xsp - tsp), a, b, c, trap, paging, vadr >>> 0);
         }
         follower();
     }
