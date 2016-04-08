@@ -5,279 +5,267 @@
 "use strict";
 
 var minimist = require("minimist"),
-    assert = require("assert"),
     fs = require("fs"),
     keypress = require('keypress');
 
-function sg(x) {
-    return x | 0;
-}
+var HALT = 0,
+    ENT = 1,
+    LEV = 2,
+    JMP = 3,
+    JMPI = 4,
+    JSR = 5,
+    JSRA = 6,
+    LEA = 7,
+    LEAG = 8,
+    CYC = 9,
+    MCPY = 10,
+    MCMP = 11,
+    MCHR = 12,
+    MSET = 13,
+    LL = 14,
+    LLS = 15,
+    LLH = 16,
+    LLC = 17,
+    LLB = 18,
+    LLD = 19,
+    LLF = 20,
+    LG = 21,
+    LGS = 22,
+    LGH = 23,
+    LGC = 24,
+    LGB = 25,
+    LGD = 26,
+    LGF = 27,
+    LX = 28,
+    LXS = 29,
+    LXH = 30,
+    LXC = 31,
+    LXB = 32,
+    LXD = 33,
+    LXF = 34,
+    LI = 35,
+    LHI = 36,
+    LIF = 37,
+    LBL = 38,
+    LBLS = 39,
+    LBLH = 40,
+    LBLC = 41,
+    LBLB = 42,
+    LBLD = 43,
+    LBLF = 44,
+    LBG = 45,
+    LBGS = 46,
+    LBGH = 47,
+    LBGC = 48,
+    LBGB = 49,
+    LBGD = 50,
+    LBGF = 51,
+    LBX = 52,
+    LBXS = 53,
+    LBXH = 54,
+    LBXC = 55,
+    LBXB = 56,
+    LBXD = 57,
+    LBXF = 58,
+    LBI = 59,
+    LBHI = 60,
+    LBIF = 61,
+    LBA = 62,
+    LBAD = 63,
+    SL = 64,
+    SLH = 65,
+    SLB = 66,
+    SLD = 67,
+    SLF = 68,
+    SG = 69,
+    SGH = 70,
+    SGB = 71,
+    SGD = 72,
+    SGF = 73,
+    SX = 74,
+    SXH = 75,
+    SXB = 76,
+    SXD = 77,
+    SXF = 78,
+    ADDF = 79,
+    SUBF = 80,
+    MULF = 81,
+    DIVF = 82,
+    ADD = 83,
+    ADDI = 84,
+    ADDL = 85,
+    SUB = 86,
+    SUBI = 87,
+    SUBL = 88,
+    MUL = 89,
+    MULI = 90,
+    MULL = 91,
+    DIV = 92,
+    DIVI = 93,
+    DIVL = 94,
+    DVU = 95,
+    DVUI = 96,
+    DVUL = 97,
+    MOD = 98,
+    MODI = 99,
+    MODL = 100,
+    MDU = 101,
+    MDUI = 102,
+    MDUL = 103,
+    AND = 104,
+    ANDI = 105,
+    ANDL = 106,
+    OR = 107,
+    ORI = 108,
+    ORL = 109,
+    XOR = 110,
+    XORI = 111,
+    XORL = 112,
+    SHL = 113,
+    SHLI = 114,
+    SHLL = 115,
+    SHR = 116,
+    SHRI = 117,
+    SHRL = 118,
+    SRU = 119,
+    SRUI = 120,
+    SRUL = 121,
+    EQ = 122,
+    EQF = 123,
+    NE = 124,
+    NEF = 125,
+    LT = 126,
+    LTU = 127,
+    LTF = 128,
+    GE = 129,
+    GEU = 130,
+    GEF = 131,
+    BZ = 132,
+    BZF = 133,
+    BNZ = 134,
+    BNZF = 135,
+    BE = 136,
+    BEF = 137,
+    BNE = 138,
+    BNEF = 139,
+    BLT = 140,
+    BLTU = 141,
+    BLTF = 142,
+    BGE = 143,
+    BGEU = 144,
+    BGEF = 145,
+    CID = 146,
+    CUD = 147,
+    CDI = 148,
+    CDU = 149,
+    CLI = 150,
+    STI = 151,
+    RTI = 152,
+    BIN = 153,
+    BOUT = 154,
+    NOP = 155,
+    SSP = 156,
+    PSHA = 157,
+    PSHI = 158,
+    PSHF = 159,
+    PSHB = 160,
+    POPB = 161,
+    POPF = 162,
+    POPA = 163,
+    IVEC = 164,
+    PDIR = 165,
+    SPAG = 166,
+    TIME = 167,
+    LVAD = 168,
+    TRAP = 169,
+    LUSP = 170,
+    SUSP = 171,
+    LCL = 172,
+    LCA = 173,
+    PSHC = 174,
+    POPC = 175,
+    MSIZ = 176,
+    PSHG = 177,
+    POPG = 178,
+    NET1 = 179,
+    NET2 = 180,
+    NET3 = 181,
+    NET4 = 182,
+    NET5 = 183,
+    NET6 = 184,
+    NET7 = 185,
+    NET8 = 186,
+    NET9 = 187,
+    POW = 188,
+    ATN2 = 189,
+    FABS = 190,
+    ATAN = 191,
+    LOG = 192,
+    LOGT = 193,
+    EXP = 194,
+    FLOR = 195,
+    CEIL = 196,
+    HYPO = 197,
+    SIN = 198,
+    COS = 199,
+    TAN = 200,
+    ASIN = 201,
+    ACOS = 202,
+    SINH = 203,
+    COSH = 204,
+    TANH = 205,
+    SQRT = 206,
+    FMOD = 207,
+    IDLE = 208;
 
-function us(x) {
-    return x >>> 0;
-}
+var MEM_SZ = 128 * 1024 * 1024, // default memory size of vm (128M)
+    TB_SZ = 1024 * 1024, // page translation buffer size (4G / page_sz)
+    FS_SZ = 4 * 1024 * 1024, // ram file system size (4M)
+    TPAGES = 4096; // maximum cached page translations
 
-var HALT = us(0),
-    ENT = us(1),
-    LEV = us(2),
-    JMP = us(3),
-    JMPI = us(4),
-    JSR = us(5),
-    JSRA = us(6),
-    LEA = us(7),
-    LEAG = us(8),
-    CYC = us(9),
-    MCPY = us(10),
-    MCMP = us(11),
-    MCHR = us(12),
-    MSET = us(13),
-    LL = us(14),
-    LLS = us(15),
-    LLH = us(16),
-    LLC = us(17),
-    LLB = us(18),
-    LLD = us(19),
-    LLF = us(20),
-    LG = us(21),
-    LGS = us(22),
-    LGH = us(23),
-    LGC = us(24),
-    LGB = us(25),
-    LGD = us(26),
-    LGF = us(27),
-    LX = us(28),
-    LXS = us(29),
-    LXH = us(30),
-    LXC = us(31),
-    LXB = us(32),
-    LXD = us(33),
-    LXF = us(34),
-    LI = us(35),
-    LHI = us(36),
-    LIF = us(37),
-    LBL = us(38),
-    LBLS = us(39),
-    LBLH = us(40),
-    LBLC = us(41),
-    LBLB = us(42),
-    LBLD = us(43),
-    LBLF = us(44),
-    LBG = us(45),
-    LBGS = us(46),
-    LBGH = us(47),
-    LBGC = us(48),
-    LBGB = us(49),
-    LBGD = us(50),
-    LBGF = us(51),
-    LBX = us(52),
-    LBXS = us(53),
-    LBXH = us(54),
-    LBXC = us(55),
-    LBXB = us(56),
-    LBXD = us(57),
-    LBXF = us(58),
-    LBI = us(59),
-    LBHI = us(60),
-    LBIF = us(61),
-    LBA = us(62),
-    LBAD = us(63),
-    SL = us(64),
-    SLH = us(65),
-    SLB = us(66),
-    SLD = us(67),
-    SLF = us(68),
-    SG = us(69),
-    SGH = us(70),
-    SGB = us(71),
-    SGD = us(72),
-    SGF = us(73),
-    SX = us(74),
-    SXH = us(75),
-    SXB = us(76),
-    SXD = us(77),
-    SXF = us(78),
-    ADDF = us(79),
-    SUBF = us(80),
-    MULF = us(81),
-    DIVF = us(82),
-    ADD = us(83),
-    ADDI = us(84),
-    ADDL = us(85),
-    SUB = us(86),
-    SUBI = us(87),
-    SUBL = us(88),
-    MUL = us(89),
-    MULI = us(90),
-    MULL = us(91),
-    DIV = us(92),
-    DIVI = us(93),
-    DIVL = us(94),
-    DVU = us(95),
-    DVUI = us(96),
-    DVUL = us(97),
-    MOD = us(98),
-    MODI = us(99),
-    MODL = us(100),
-    MDU = us(101),
-    MDUI = us(102),
-    MDUL = us(103),
-    AND = us(104),
-    ANDI = us(105),
-    ANDL = us(106),
-    OR = us(107),
-    ORI = us(108),
-    ORL = us(109),
-    XOR = us(110),
-    XORI = us(111),
-    XORL = us(112),
-    SHL = us(113),
-    SHLI = us(114),
-    SHLL = us(115),
-    SHR = us(116),
-    SHRI = us(117),
-    SHRL = us(118),
-    SRU = us(119),
-    SRUI = us(120),
-    SRUL = us(121),
-    EQ = us(122),
-    EQF = us(123),
-    NE = us(124),
-    NEF = us(125),
-    LT = us(126),
-    LTU = us(127),
-    LTF = us(128),
-    GE = us(129),
-    GEU = us(130),
-    GEF = us(131),
-    BZ = us(132),
-    BZF = us(133),
-    BNZ = us(134),
-    BNZF = us(135),
-    BE = us(136),
-    BEF = us(137),
-    BNE = us(138),
-    BNEF = us(139),
-    BLT = us(140),
-    BLTU = us(141),
-    BLTF = us(142),
-    BGE = us(143),
-    BGEU = us(144),
-    BGEF = us(145),
-    CID = us(146),
-    CUD = us(147),
-    CDI = us(148),
-    CDU = us(149),
-    CLI = us(150),
-    STI = us(151),
-    RTI = us(152),
-    BIN = us(153),
-    BOUT = us(154),
-    NOP = us(155),
-    SSP = us(156),
-    PSHA = us(157),
-    PSHI = us(158),
-    PSHF = us(159),
-    PSHB = us(160),
-    POPB = us(161),
-    POPF = us(162),
-    POPA = us(163),
-    IVEC = us(164),
-    PDIR = us(165),
-    SPAG = us(166),
-    TIME = us(167),
-    LVAD = us(168),
-    TRAP = us(169),
-    LUSP = us(170),
-    SUSP = us(171),
-    LCL = us(172),
-    LCA = us(173),
-    PSHC = us(174),
-    POPC = us(175),
-    MSIZ = us(176),
-    PSHG = us(177),
-    POPG = us(178),
-    NET1 = us(179),
-    NET2 = us(180),
-    NET3 = us(181),
-    NET4 = us(182),
-    NET5 = us(183),
-    NET6 = us(184),
-    NET7 = us(185),
-    NET8 = us(186),
-    NET9 = us(187),
-    POW = us(188),
-    ATN2 = us(189),
-    FABS = us(190),
-    ATAN = us(191),
-    LOG = us(192),
-    LOGT = us(193),
-    EXP = us(194),
-    FLOR = us(195),
-    CEIL = us(196),
-    HYPO = us(197),
-    SIN = us(198),
-    COS = us(199),
-    TAN = us(200),
-    ASIN = us(201),
-    ACOS = us(202),
-    SINH = us(203),
-    COSH = us(204),
-    TANH = us(205),
-    SQRT = us(206),
-    FMOD = us(207),
-    IDLE = us(208);
+var PTE_P = 0x001, // present
+    PTE_W = 0x002, // writable
+    PTE_U = 0x004, // user
+    PTE_A = 0x020, // accessed
+    PTE_D = 0x040; // dirty
 
-var MEM_SZ = us(128 * 1024 * 1024), // default memory size of vm (128M)
-    TB_SZ = us(1024 * 1024), // page translation buffer size (4G / page_sz)
-    FS_SZ = us(4 * 1024 * 1024), // ram file system size (4M)
-    TPAGES = us(4096); // maximum cached page translations
+var FMEM = 0, // bad physical address
+    FTIMER = 1, // timer interrupt
+    FKEYBD = 2, // keyboard interrupt
+    FPRIV = 3, // privileged instruction
+    FINST = 4, // illegal instruction
+    FSYS = 5, // software trap
+    FARITH = 6, // arithmetic trap
+    FIPAGE = 7, // page fault on opcode fetch
+    FWPAGE = 8, // page fault on write
+    FRPAGE = 9, // page fault on read
+    USER = 16; // user mode exception (16)
 
-var PTE_P = us(0x001), // present
-    PTE_W = us(0x002), // writeable
-    PTE_U = us(0x004), // user
-    PTE_A = us(0x020), // accessed
-    PTE_D = us(0x040); // dirty
-
-var FMEM = us(0), // bad physical address
-    FTIMER = us(1), // timer interrupt
-    FKEYBD = us(2), // keyboard interrupt
-    FPRIV = us(3), // privileged instruction
-    FINST = us(4), // illegal instruction
-    FSYS = us(5), // software trap
-    FARITH = us(6), // arithmetic trap
-    FIPAGE = us(7), // page fault on opcode fetch
-    FWPAGE = us(8), // page fault on write
-    FRPAGE = us(9), // page fault on read
-    USER = us(16); // user mode exception (16)
-
-var verbose = us(0), // chatty option -v
-    mem = us(0), // physical memory
-    memsz = us(0), // physical memory size
-    user = us(0), // user mode
-    iena = us(0), // interrupt enable
-    ipend = us(0), // interrupt pending
-    trap = us(0), // fault code
-    ivec = us(0), // interrupt vector
-    vadr = us(0), // bad virtual address
-    paging = us(0), // virtual memory enabled
-    pdir = us(0), // page directory
-    tpage = Buffer.alloc(us(TPAGES * 4)), // valid page translations
-    tpages = us(0), // number of cached page translations
-    trk = us(0), // kernel read page translation tables
-    twk = us(0), // kernel write page translation tables
-    tru = us(0), // user read page translation tables
-    twu = us(0), // user write page translation tables
-    tr = us(0), // current read page translation tables
-    tw = us(0); // current write page translation tables
-
-var cmd = "./xem";
+var verbose = 0, // chatty option -v
+    mem = 0, // physical memory
+    memsz = 0, // physical memory size
+    user = 0, // user mode
+    iena = 0, // interrupt enable
+    ipend = 0, // interrupt pending
+    trap = 0, // fault code
+    ivec = 0, // interrupt vector
+    vadr = 0, // bad virtual address
+    paging = 0, // virtual memory enabled
+    pdir = 0, // page directory
+    tpage = Buffer.alloc(TPAGES * 4), // valid page translations
+    tpages = 0, // number of cached page translations
+    trk = 0, // kernel read page translation tables
+    twk = 0, // kernel write page translation tables
+    tru = 0, // user read page translation tables
+    twu = 0, // user write page translation tables
+    tr = 0, // current read page translation tables
+    tw = 0; // current write page translation tables
 
 function hex(x) {
-    return ("00000000" + us(x).toString(16)).substr(-8);
+    return ("00000000" + (x >>> 0).toString(16)).substr(-8);
 }
 
 function printch(ch) {
-    ch = us(ch & 0x7F);
     if (process.stdout.write(String.fromCharCode(ch))) {
         return 1;
     }
@@ -288,10 +276,8 @@ var pendkeys = [];
 
 function initkb() {
     keypress(process.stdin);
-    process.stdin.on('keypress', function(ch) {
-        var c;
-
-        c = ch.charCodeAt(0);
+    process.stdin.on('keypress', function(c) {
+        c = c.charCodeAt(0);
         if (0 <= c && c <= 0x7F) {
             pendkeys.push(c);
         }
@@ -311,78 +297,72 @@ function probekb() {
     return -1;
 }
 
-function flush() {
+function cleartlb() {
     var v;
 
     while (tpages) {
-        tpages = us(tpages - 1);
-        v = us(tpage.readUInt32LE(us(tpages * 4)));
-        trk.writeUInt32LE(us(0), us(v * 4));
-        twk.writeUInt32LE(us(0), us(v * 4));
-        tru.writeUInt32LE(us(0), us(v * 4));
-        twu.writeUInt32LE(us(0), us(v * 4));
+        tpages = tpages - 1;
+        v = tpage.readUInt32LE(tpages * 4);
+        trk.writeUInt32LE(0, v * 4);
+        twk.writeUInt32LE(0, v * 4);
+        tru.writeUInt32LE(0, v * 4);
+        twu.writeUInt32LE(0, v * 4);
     }
 }
 
-function setpage(v, p, writable, userable) {
-    v = us(v);
-    p = us(p);
-    writable = us(writable);
-    userable = us(userable);
+function pushtlb(v, p, writable, userable) {
     if (p >= memsz) {
-        trap = us(FMEM);
+        trap = FMEM;
         vadr = v;
         return 0;
     }
-    p = us(us(us(v ^ p) & -4096) + 1);
-    v = us(v >>> 12);
-    if (!trk.readUInt32LE(us(v * 4))) {
+    v = v >>> 12;
+    if (!trk.readUInt32LE(v * 4)) {
         if (tpages >= TPAGES) {
-            flush();
+            cleartlb();
         }
-        tpage.writeUInt32LE(v, us(tpages * 4));
-        tpages = us(tpages + 1);
+        tpage.writeUInt32LE(v, tpages * 4);
+        tpages = tpages + 1;
     }
-    trk.writeUInt32LE(us(p), us(v * 4));
-    twk.writeUInt32LE(us(writable ? p : 0), us(v * 4));
-    tru.writeUInt32LE(us(userable ? p : 0), us(v * 4));
-    twu.writeUInt32LE(us((userable && writable) ? p : 0), us(v * 4));
+    p = ((v ^ p) & -4096) + 1;
+    trk.writeUInt32LE(p, v * 4);
+    twk.writeUInt32LE((writable ? p : 0), v * 4);
+    tru.writeUInt32LE((userable ? p : 0), v * 4);
+    twu.writeUInt32LE(((userable && writable) ? p : 0), v * 4);
     return p;
 }
 
 function rlook(v) {
     var pde, ppde, pte, ppte, q, userable;
 
-    v = us(v);
     if (!paging) {
-        return setpage(v, v, 1, 1);
+        return pushtlb(v, v, 1, 1);
     }
-    ppde = us(pdir + us((v >>> 22) << 2));
-    pde = us(mem.readUInt32LE(ppde));
-    if (us(pde & PTE_P)) {
-        if (!us(pde & PTE_A)) {
-            mem.writeUInt32LE(us(pde | PTE_A), ppde);
+    ppde = pdir + ((v >>> 22) << 2);
+    pde = mem.readUInt32LE(ppde);
+    if (pde & PTE_P) {
+        if (!(pde & PTE_A)) {
+            mem.writeUInt32LE(pde | PTE_A, ppde);
         }
         if (pde >= memsz) {
-            trap = us(FMEM);
+            trap = FMEM;
             vadr = v;
             return 0;
         }
-        ppte = us(us(pde & -4096) + us((v >>> 10) & 0xffc));
-        pte = us(mem.readUInt32LE(ppte));
-        if (us(pte & PTE_P)) {
-            q = us(pte & pde);
-            userable = us(q & PTE_U);
+        ppte = (pde & -4096) + ((v >>> 10) & 0xffc);
+        pte = mem.readUInt32LE(ppte);
+        if (pte & PTE_P) {
+            q = pte & pde;
+            userable = q & PTE_U;
             if (userable || !user) {
-                if (!us(pte & PTE_A)) {
-                    mem.writeUInt32LE(us(pte | PTE_A), ppte);
+                if (!(pte & PTE_A)) {
+                    mem.writeUInt32LE(pte | PTE_A, ppte);
                 }
-                // check PTE_D here because the dirty bit should be set by wlook
-                return setpage(v, pte, us(us(pte & PTE_D) && us(q & PTE_W)), userable);
+                return pushtlb(v, pte, (pte & PTE_D) && (q & PTE_W), userable);
             }
         }
     }
-    trap = us(FRPAGE);
+    trap = FRPAGE;
     vadr = v;
     return 0;
 }
@@ -390,35 +370,34 @@ function rlook(v) {
 function wlook(v) {
     var pde, ppde, pte, ppte, q, userable;
 
-    v = us(v);
     if (!paging) {
-        return setpage(v, v, 1, 1);
+        return pushtlb(v, v, 1, 1);
     }
-    ppde = us(pdir + us((v >>> 22) << 2));
-    pde = us(mem.readUInt32LE(ppde));
-    if (us(pde & PTE_P)) {
-        if (!us(pde & PTE_A)) {
-            mem.writeUInt32LE(us(pde | PTE_A), ppde);
+    ppde = pdir + ((v >>> 22) << 2);
+    pde = mem.readUInt32LE(ppde);
+    if (pde & PTE_P) {
+        if (!(pde & PTE_A)) {
+            mem.writeUInt32LE(pde | PTE_A, ppde);
         }
         if (pde >= memsz) {
-            trap = us(FMEM);
+            trap = FMEM;
             vadr = v;
             return 0;
         }
-        ppte = us(us(pde & -4096) + us((v >>> 10) & 0xffc));
-        pte = us(mem.readUInt32LE(ppte));
-        if (us(pte & PTE_P)) {
-            q = us(pte & pde);
-            userable = us(q & PTE_U);
+        ppte = (pde & -4096) + ((v >>> 10) & 0xffc);
+        pte = mem.readUInt32LE(ppte);
+        if (pte & PTE_P) {
+            q = pte & pde;
+            userable = q & PTE_U;
             if ((userable || !user) && (q & PTE_W)) {
-                if (us(pte & (PTE_D | PTE_A)) !== us(PTE_D | PTE_A)) {
-                    mem.writeUInt32LE(us(pte | (PTE_D | PTE_A)), ppte);
+                if ((pte & (PTE_D | PTE_A)) !== (PTE_D | PTE_A)) {
+                    mem.writeUInt32LE(pte | (PTE_D | PTE_A), ppte);
                 }
-                return setpage(v, pte, us(q & PTE_W), userable);
+                return pushtlb(v, pte, q & PTE_W, userable);
             }
         }
     }
-    trap = us(FWPAGE);
+    trap = FWPAGE;
     vadr = v;
     return 0;
 }
@@ -435,23 +414,23 @@ function readfs(filename) {
     var fd, st, i;
 
     if (verbose) {
-        console.log("%s : loading ram file system %s\n", cmd, filename);
+        console.log("./xem : loading ram file system %s\n", filename);
     }
     fd = fs.openSync(filename, "r");
     if (fd < 0) {
-        console.log("%s : couldn't open file system %s\n", cmd, filename);
+        console.log("./xem : couldn't open file system %s\n", filename);
         return -1;
     }
     try {
         st = fs.fstatSync(fd);
     } catch (e) {
-        console.log("%s : couldn't stat file system %s\n", cmd, filename);
+        console.log("./xem : couldn't stat file system %s\n", filename);
         return -1;
     }
     i = fs.readSync(fd, mem, memsz - FS_SZ, st.size);
     if (i !== st.size) {
-        console.log("%s : failed to read filesystem size %d returned %d\n",
-            cmd, st.size, i);
+        console.log("./xem : failed to read filesystem size %d returned %d\n",
+            st.size, i);
         return -1;
     }
     fs.closeSync(fd);
@@ -463,30 +442,30 @@ function readhdr(filename) {
 
     fd = fs.openSync(filename, "r");
     if (fd < 0) {
-        console.log("%s : couldn't open %s\n", cmd, filename);
+        console.log("./xem : couldn't open %s\n", filename);
         return -1;
     }
     try {
         st = fs.fstatSync(fd);
     } catch (e) {
-        console.log("%s : couldn't stat file %s\n", cmd, filename);
+        console.log("./xem : couldn't stat file %s\n", filename);
         return -1;
     }
     buf = Buffer.alloc(16);
     fs.readSync(fd, buf, 0, 16);
     hdr = {
-        magic: buf.readUInt32LE(0),
+        magic: buf.readUInt32LE0,
         bss: buf.readUInt32LE(4),
         entry: buf.readUInt32LE(8),
         flags: buf.readUInt32LE(12)
     };
-    if (hdr.magic !== us(0xC0DEF00D)) {
-        console.log("%s : bad hdr.magic\n", cmd);
+    if (hdr.magic !== 0xC0DEF00D) {
+        console.log("./xem : bad hdr.magic\n");
         return -1;
     }
     i = fs.readSync(fd, mem, 0, st.size - 16);
     if (i !== st.size - 16) {
-        console.log("%s : failed to read file %s\n", cmd, filename);
+        console.log("./xem : failed to read file %s\n", filename);
         return -1;
     }
     fs.closeSync(fd);
@@ -494,33 +473,34 @@ function readhdr(filename) {
 }
 
 function cpu(pc, sp) {
-    var a = us(0),
-        b = us(0),
-        c = us(0),
-        ssp = us(0),
-        usp = us(0),
-        xpc = us(0),
-        tpc = us(-pc),
-        fpc = us(0),
-        xsp = us(sp),
-        tsp = us(0),
-        fsp = us(0),
-        trap = us(0),
-        delta = us(4096),
-        cycle = us(4096),
-        xcycle = us(delta * 4),
-        timer = us(0),
-        timeout = us(0),
-        ir = sg(0),
-        kbchar = sg(-1),
+    var a = 0,
+        b = 0,
+        c = 0,
+        ssp = 0,
+        usp = 0,
+        xpc = 0,
+        tpc = -pc,
+        fpc = 0,
+        xsp = sp,
+        tsp = 0,
+        fsp = 0,
+        trap = 0,
+        delta = 4096,
+        cycle = 4096,
+        xcycle = delta * 4,
+        timer = 0,
+        timeout = 0,
+        ir = 0,
+        kbchar = -1,
         f = 0.0,
         g = 0.0,
         follower, fatal, exception, interrupt, fixsp, chkpc, fixpc, chkio, decode;
 
     fatal = function() {
+        /// sign?
         console.log("processor halted! cycle = %d pc = %s ir = %s sp = %s" +
             " a = %d b = %d c = %d trap = %d\n",
-            us(cycle + us(us(xpc - xcycle) / 4)), hex(xpc - tpc), hex(ir),
+            cycle + (xpc - xcycle) / 4, hex(xpc - tpc), hex(ir),
             hex(xsp - tsp), a, b, c, trap);
         follower = 0;
     };
@@ -535,52 +515,52 @@ function cpu(pc, sp) {
     interrupt = function() {
         var p;
 
-        xsp = us(xsp - tsp);
-        tsp = us(0);
-        fsp = us(0);
+        xsp = xsp - tsp;
+        tsp = 0;
+        fsp = 0;
         if (user) {
-            usp = us(xsp);
-            xsp = us(ssp);
-            user = us(0);
+            usp = xsp;
+            xsp = ssp;
+            user = 0;
             tr = trk;
             tw = twk;
-            trap = us(trap | USER);
+            trap = trap | USER;
         }
-        xsp = us(xsp - 8);
-        p = us(tw.readUInt32LE(us((xsp >>> 12) * 4)));
+        xsp = xsp - 8;
+        p = tw.readUInt32LE((xsp >>> 12) * 4);
         if (!p) {
-            p = us(wlook(xsp));
+            p = wlook(xsp);
             if (!p) {
                 console.log("kstack fault!\n");
                 follower = fatal;
                 return;
             }
         }
-        mem.writeUInt32LE(us(xpc - tpc), us(us(xsp ^ p) & -8));
-        xsp = us(xsp - 8);
-        p = us(tw.readUInt32LE(us(us(xsp >>> 12) * 4)));
+        mem.writeUInt32LE(xpc - tpc, (xsp ^ p) & -8);
+        xsp = xsp - 8;
+        p = tw.readUInt32LE((xsp >>> 12) * 4);
         if (!p) {
-            p = us(wlook(xsp));
+            p = wlook(xsp);
             if (!p) {
                 console.log("kstack fault\n");
                 follower = fatal;
                 return;
             }
         }
-        mem.writeUInt32LE(trap, us(us(xsp ^ p) & -8));
-        xcycle = us(xcycle + us(ivec + tpc - xpc));
-        xpc = us(ivec + tpc);
+        mem.writeUInt32LE(trap, (xsp ^ p) & -8);
+        xcycle = xcycle + ivec + tpc - xpc;
+        xpc = ivec + tpc;
         follower = fixpc;
     };
     fixsp = function() {
         var v, p;
 
-        v = us(xsp - tsp);
-        p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+        v = xsp - tsp;
+        p = tw.readUInt32LE((v >>> 12) * 4);
         if (p) {
-            xsp = us(v ^ us(p - 1));
-            tsp = us(xsp - v);
-            fsp = us(us(4096 - us(xsp & 4095)) << 8);
+            xsp = v ^ (p - 1);
+            tsp = xsp - v;
+            fsp = (4096 - (xsp & 4095)) << 8;
         }
         follower = chkpc;
     };
@@ -594,59 +574,59 @@ function cpu(pc, sp) {
     fixpc = function() {
         var v, p;
 
-        v = us(xpc - tpc);
-        p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+        v = xpc - tpc;
+        p = tr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = us(rlook(v));
+            p = rlook(v);
             if (!p) {
-                trap = us(FIPAGE);
+                trap = FIPAGE;
                 follower = exception;
                 return;
             }
         }
-        xcycle = us(xcycle - tpc);
-        xpc = us(v ^ (p - 1));
-        tpc = us(xpc - v);
-        xcycle = us(xcycle + tpc);
-        fpc = us(us(xpc + 4096) & -4096);
+        xcycle = xcycle - tpc;
+        xpc = v ^ (p - 1);
+        tpc = xpc - v;
+        xcycle = xcycle + tpc;
+        fpc = (xpc + 4096) & -4096;
         follower = chkio;
     };
     chkio = function() {
         var ch;
 
         if (xpc > xcycle) {
-            cycle = us(cycle + us(delta));
-            xcycle = us(xcycle + us(delta * 4));
-            if (iena || !us(ipend & FKEYBD)) {
+            cycle = cycle + delta;
+            xcycle = xcycle + delta * 4;
+            if (iena || !(ipend & FKEYBD)) {
                 ch = probekb();
                 if (ch !== -1) {
                     kbchar = ch;
                     if (kbchar === '`'.charCodeAt(0)) {
                         console.log("ungraceful exit. cycle = %d\n",
-                            us(cycle + us(us(xpc - xcycle) / 4)));
+                            cycle + (xpc - xcycle) / 4);
                         follower = 0;
                         return;
                     }
                     if (iena) {
-                        trap = us(FKEYBD);
-                        iena = us(0);
+                        trap = FKEYBD;
+                        iena = 0;
                         follower = interrupt;
                         return;
                     }
-                    ipend = us(ipend | FKEYBD);
+                    ipend = ipend | FKEYBD;
                 }
             }
             if (timeout) {
-                timer = us(timer + delta);
+                timer = timer + delta;
                 if (timer >= timeout) {
-                    timer = us(0);
+                    timer = 0;
                     if (iena) {
-                        trap = us(FTIMER);
-                        iena = us(0);
+                        trap = FTIMER;
+                        iena = 0;
                         follower = interrupt;
                         return;
                     }
-                    ipend = us(ipend | FTIMER);
+                    ipend = ipend | FTIMER;
                 }
             }
         }
@@ -656,22 +636,22 @@ function cpu(pc, sp) {
         var ch, u, v, p, t;
 
         ir = mem.readUInt32LE(xpc);
-        xpc = us(xpc + 4);
-        switch (us(ir & 0xFF)) {
+        xpc = xpc + 4;
+        switch (ir & 0xFF) {
             case HALT:
                 if (user || verbose) {
                     console.log("halt(%d) cycle = %d\n",
-                        a, us(cycle + us(us(xpc - xcycle) / 4)));
+                        a, cycle + (xpc - xcycle) / 4);
                 }
                 follower = 0;
                 return;
             case IDLE:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
                 if (!iena) {
-                    trap = us(FINST);
+                    trap = FINST;
                     break;
                 }
                 while (true) {
@@ -680,22 +660,22 @@ function cpu(pc, sp) {
                         kbchar = ch;
                         if (kbchar === '`'.charCodeAt(0)) {
                             console.log("ungraceful exit. cycle = %d\n",
-                                us(cycle + us(us(xpc - xcycle) / 4)));
+                                cycle + (xpc - xcycle) / 4);
                             follower = 0;
                             return;
                         }
-                        trap = us(FKEYBD);
-                        iena = us(0);
+                        trap = FKEYBD;
+                        iena = 0;
                         follower = interrupt;
                         return;
                     }
-                    cycle = us(cycle + delta);
+                    cycle = cycle + delta;
                     if (timeout) {
-                        timer = us(timer + delta);
+                        timer = timer + delta;
                         if (timer >= timeout) {
                             timer = 0;
-                            trap = us(FTIMER);
-                            iena = us(0);
+                            trap = FTIMER;
+                            iena = 0;
                             follower = interrupt;
                             return;
                         }
@@ -704,132 +684,132 @@ function cpu(pc, sp) {
                 break;
             case MCPY:
                 while (c) {
-                    t = us(tr.readUInt32LE(us((b >>> 12) * 4)));
+                    t = tr.readUInt32LE((b >>> 12) * 4);
                     if (!t) {
-                        t = us(rlook(b));
+                        t = rlook(b);
                         if (!t) {
                             follower = exception;
                             return;
                         }
                     }
-                    p = us(tw.readUInt32LE(us((a >>> 12) * 4)));
+                    p = tw.readUInt32LE((a >>> 12) * 4);
                     if (!p) {
-                        p = us(wlook(a));
+                        p = (wlook(a));
                         if (!p) {
                             follower = exception;
                             return;
                         }
                     }
-                    v = us(4096 - (a & 4095));
+                    v = 4096 - (a & 4096);
                     if (v > c) {
-                        v = us(c);
+                        v = c;
                     }
-                    u = us(4096 - (b & 4095));
+                    u = 4096 - (b & 4096);
                     if (u > v) {
-                        u = us(v);
+                        u = v;
                     }
-                    p = us(a ^ (p & -2));
-                    t = us(b ^ (t & -2));
+                    p = (a ^ (p & -2));
+                    t = (b ^ (t & -2));
                     mem.copy(mem, p, t, t + u);
-                    a = us(a + us(u));
-                    b = us(b + us(u));
-                    c = us(c - u);
+                    a = a + u;
+                    b = b + u;
+                    c = (c - u);
                 }
                 follower = chkpc;
                 return;
             case MCMP:
                 while (true) {
                     if (!c) {
-                        a = us(0);
+                        a = 0;
                         break;
                     }
-                    t = us(tr.readUInt32LE(us((b >>> 12) * 4)));
+                    t = (tr.readUInt32LE(((b >>> 12) * 4)));
                     if (!t) {
-                        t = us(rlook(b));
+                        t = (rlook(b));
                         if (!t) {
                             follower = exception;
                             return;
                         }
                     }
-                    p = us(tr.readUInt32LE(us((a >>> 12) * 4)));
+                    p = tr.readUInt32LE((a >>> 12) * 4);
                     if (!p) {
-                        p = us(rlook(a));
+                        p = (rlook(a));
                         if (!p) {
                             follower = exception;
                             return;
                         }
                     }
-                    v = us(4096 - (a & 4095));
+                    v = 4096 - (a & 4096);
                     if (v > c) {
-                        v = us(c);
+                        v = c;
                     }
-                    u = us(4096 - (b & 4095));
+                    u = 4096 - (b & 4096);
                     if (u > v) {
-                        u = us(v);
+                        u = v;
                     }
-                    p = us(a ^ (p & -2));
-                    t = us(b ^ (t & -2));
-                    t = us(mem.slice(p, p + u).compare(mem.slice(t, t + u)));
+                    p = (a ^ (p & -2));
+                    t = (b ^ (t & -2));
+                    t = (mem.slice(p, p + u).compare(mem.slice(t, t + u)));
                     if (t) {
-                        a = us(t);
-                        b = us(b + us(c));
-                        c = us(0);
+                        a = t;
+                        b = b + c;
+                        c = 0;
                         break;
                     }
-                    a = us(a + us(u));
-                    b = us(b + us(u));
-                    c = us(c - u);
+                    a = a + u;
+                    b = b + u;
+                    c = (c - u);
                 }
                 follower = chkpc;
                 return;
             case MCHR:
                 while (true) {
                     if (c === 0) {
-                        a = us(0);
+                        a = 0;
                         break;
                     }
-                    p = us(tr.readUInt32LE(us((a >>> 12) * 4)));
+                    p = tr.readUInt32LE((a >>> 12) * 4);
                     if (!p) {
-                        p = us(rlook(a));
+                        p = (rlook(a));
                         if (!p) {
                             follower = exception;
                             return;
                         }
                     }
-                    u = us(4096 - (a & 4095));
+                    u = 4096 - (a & 4096);
                     if (u > c) {
-                        u = us(c);
+                        u = c;
                     }
-                    v = us(a ^ (p & -2));
-                    t = us(mem.slice(v, v + u).indexOf(b));
+                    v = (a ^ (p & -2));
+                    t = (mem.slice(v, v + u).indexOf(b));
                     if (t !== -1) {
-                        a = us(a + us(t));
-                        c = us(0);
+                        a = a + t;
+                        c = 0;
                         break;
                     }
-                    a = us(a + us(u));
-                    c = us(c - u);
+                    a = a + u;
+                    c = (c - u);
                 }
                 follower = chkpc;
                 return;
             case MSET:
                 while (c > 0) {
-                    p = us(tw.readUInt32LE(us((a >>> 12) * 4)));
+                    p = tw.readUInt32LE((a >>> 12) * 4);
                     if (!p) {
-                        p = us(wlook(a));
+                        p = (wlook(a));
                         if (!p) {
                             follower = exception;
                             return;
                         }
                     }
-                    u = us(4096 - (a & 4095));
+                    u = 4096 - (a & 4096);
                     if (u > c) {
-                        u = us(c);
+                        u = c;
                     }
-                    v = us(a ^ (p & -2));
+                    v = (a ^ (p & -2));
                     mem.fill(b, v, v + u);
-                    a = us(a + us(u));
-                    c = us(c - u);
+                    a = a + u;
+                    c = (c - u);
                 }
                 follower = chkpc;
                 return;
@@ -915,12 +895,12 @@ function cpu(pc, sp) {
                 return;
             case ENT:
                 if (fsp) {
-                    fsp = us(fsp - ir) & -256;
+                    fsp = (fsp - ir) & -256;
                     if (fsp > (4096 << 8)) {
-                        fsp = us(0);
+                        fsp = 0;
                     }
                 }
-                xsp = us(xsp + us((ir >> 8)));
+                xsp = (xsp + (ir >> 8));
                 if (fsp) {
                     follower = chkpc;
                     return;
@@ -929,51 +909,51 @@ function cpu(pc, sp) {
                 return;
             case LEV:
                 if (ir < fsp) {
-                    t = us(mem.readUInt32LE(xsp + (ir >> 8)) + tpc);
-                    fsp = us(fsp - ((ir + 0x800) & -256));
+                    t = (mem.readUInt32LE(xsp + (ir >> 8)) + tpc);
+                    fsp = (fsp - ((ir + 0x800) & -256));
                 } else {
-                    v = us(xsp - tsp + (ir >> 8));
-                    p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                    v = (xsp - tsp + (ir >> 8));
+                    p = (tr.readUInt32LE(((v >>> 12) * 4)));
                     if (!p) {
-                        p = us(rlook(v));
+                        p = (rlook(v));
                         if (!p) {
                             break;
                         }
                     }
-                    t = us(mem.readUInt32LE((v ^ p) & -8) + tpc);
-                    fsp = us(0);
+                    t = (mem.readUInt32LE((v ^ p) & -8) + tpc);
+                    fsp = 0;
                 }
-                xsp = us(xsp + us((ir >> 8) + 8));
-                xcycle = us(xcycle + us(t - xpc));
-                xpc = us(t);
-                if (xpc - fpc < -4096) {
+                xsp = (xsp + ((ir >> 8) + 8));
+                xcycle = (xcycle + (t - xpc));
+                xpc = t;
+                if (xpc >= fpc || xpc < fpc - 4096) {
                     follower = fixpc;
                     return;
                 }
                 follower = chkio;
                 return;
             case JMP:
-                xcycle = us(xcycle + us((ir >> 8)));
-                xpc = us(xpc + us((ir >> 10) << 2));
-                if (xpc - fpc < -4096) {
+                xcycle = (xcycle + (ir >> 8));
+                xpc = (xpc + ((ir >> 10) << 2));
+                if (xpc >= fpc || xpc < fpc - 4096) {
                     follower = fixpc;
                     return;
                 }
                 follower = chkio;
                 return;
             case JMPI:
-                v = us(xpc - tpc + (ir >> 8) + (a << 2));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8) + (a << 2));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                t = us(mem.readUInt32LE((v ^ p) & -4));
-                xcycle = us(xcycle + us(t));
-                xpc = us(xpc + t);
-                if (xpc - fpc < -4096) {
+                t = (mem.readUInt32LE((v ^ p) & -4));
+                xcycle = (xcycle + (t));
+                xpc = (xpc + t);
+                if (xpc >= fpc || xpc < fpc - 4096) {
                     follower = fixpc;
                     return;
                 }
@@ -981,25 +961,25 @@ function cpu(pc, sp) {
                 return;
             case JSR:
                 if (fsp & (4095 << 8)) {
-                    xsp = us(xsp - 8);
-                    fsp = us(fsp + us(8 << 8));
+                    xsp = (xsp - 8);
+                    fsp = (fsp + (8 << 8));
                     mem.writeUInt32LE(xpc - tpc, xsp);
                 } else {
-                    v = us(xsp - tsp - 8);
-                    p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                    v = (xsp - tsp - 8);
+                    p = (tw.readUInt32LE(((v >>> 12) * 4)));
                     if (!p) {
-                        p = us(wlook(v));
+                        p = (wlook(v));
                         if (!p) {
                             break;
                         }
                     }
                     mem.writeUInt32LE(xpc - tpc, (v ^ p) & -8);
-                    fsp = us(0);
-                    xsp = us(xsp - 8);
+                    fsp = 0;
+                    xsp = (xsp - 8);
                 }
-                xcycle = us(xcycle + us((ir >> 8)));
-                xpc = us(xpc + us((ir >> 10) << 2));
-                if (xpc - fpc < -4096) {
+                xcycle = (xcycle + (ir >> 8));
+                xpc = (xpc + ((ir >> 10) << 2));
+                if (xpc >= fpc || xpc < fpc - 4096) {
                     follower = fixpc;
                     return;
                 }
@@ -1007,25 +987,25 @@ function cpu(pc, sp) {
                 return;
             case JSRA:
                 if (fsp & (4095 << 8)) {
-                    xsp = us(xsp - 8);
-                    fsp = us(fsp + us(8 << 8));
+                    xsp = (xsp - 8);
+                    fsp = (fsp + (8 << 8));
                     mem.writeUInt32LE(xpc - tpc, xsp);
                 } else {
-                    v = us(xsp - tsp - 8);
-                    p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                    v = (xsp - tsp - 8);
+                    p = (tw.readUInt32LE(((v >>> 12) * 4)));
                     if (!p) {
-                        p = us(wlook(v));
+                        p = (wlook(v));
                         if (!p) {
                             break;
                         }
                     }
                     mem.writeUInt32LE(xpc - tpc, (v ^ p) & -8);
-                    fsp = us(0);
-                    xsp = us(xsp - 8);
+                    fsp = 0;
+                    xsp = (xsp - 8);
                 }
-                xcycle = us(xcycle + us(a + tpc - xpc));
-                xpc = us(a + tpc);
-                if (xpc - fpc < -4096) {
+                xcycle = (xcycle + (a + tpc - xpc));
+                xpc = (a + tpc);
+                if (xpc >= fpc || xpc < fpc - 4096) {
                     follower = fixpc;
                     return;
                 }
@@ -1033,253 +1013,253 @@ function cpu(pc, sp) {
                 return;
             case PSHA:
                 if (fsp & (4095 << 8)) {
-                    xsp = us(xsp - 8);
-                    fsp = us(fsp + us(8 << 8));
+                    xsp = (xsp - 8);
+                    fsp = (fsp + (8 << 8));
                     mem.writeUInt32LE(a, xsp);
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp - 8);
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp - 8);
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
                 }
                 mem.writeUInt32LE(a, (v ^ p) & -8);
-                xsp = us(xsp - 8);
-                fsp = us(0);
+                xsp = (xsp - 8);
+                fsp = 0;
                 follower = fixsp;
                 return;
             case PSHB:
                 if (fsp & (4095 << 8)) {
-                    xsp = us(xsp - 8);
-                    fsp = us(fsp + us(8 << 8));
+                    xsp = (xsp - 8);
+                    fsp = (fsp + (8 << 8));
                     mem.writeUInt32LE(b, xsp);
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp - 8);
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp - 8);
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
                 }
                 mem.writeUInt32LE(b, (v ^ p) & -8);
-                xsp = us(xsp - 8);
-                fsp = us(0);
+                xsp = (xsp - 8);
+                fsp = 0;
                 follower = fixsp;
                 return;
             case PSHC:
                 if (fsp & (4095 << 8)) {
-                    xsp = us(xsp - 8);
-                    fsp = us(fsp + us(8 << 8));
+                    xsp = (xsp - 8);
+                    fsp = (fsp + (8 << 8));
                     mem.writeUInt32LE(c, xsp);
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp - 8);
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp - 8);
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
                 }
                 mem.writeUInt32LE(c, (v ^ p) & -8);
-                xsp = us(xsp - 8);
-                fsp = us(0);
+                xsp = (xsp - 8);
+                fsp = 0;
                 follower = fixsp;
                 return;
             case PSHF:
                 if (fsp & (4095 << 8)) {
-                    xsp = us(xsp - 8);
-                    fsp = us(fsp + us(8 << 8));
+                    xsp = (xsp - 8);
+                    fsp = (fsp + (8 << 8));
                     mem.writeDoubleLE(f, xsp);
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp - 8);
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp - 8);
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
                 }
                 mem.writeDoubleLE(f, (v ^ p) & -8);
-                xsp = us(xsp - 8);
-                fsp = us(0);
+                xsp = (xsp - 8);
+                fsp = 0;
                 follower = fixsp;
                 return;
             case PSHG:
                 if (fsp & (4095 << 8)) {
-                    xsp = us(xsp - 8);
-                    fsp = us(fsp + us(8 << 8));
+                    xsp = (xsp - 8);
+                    fsp = (fsp + (8 << 8));
                     mem.writeDoubleLE(g, xsp);
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp - 8);
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp - 8);
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
                 }
                 mem.writeDoubleLE(g, (v ^ p) & -8);
-                xsp = us(xsp - 8);
-                fsp = us(0);
+                xsp = (xsp - 8);
+                fsp = 0;
                 follower = fixsp;
                 return;
             case PSHI:
                 if (fsp & (4095 << 8)) {
-                    xsp = us(xsp - 8);
-                    fsp = us(fsp + us(8 << 8));
+                    xsp = (xsp - 8);
+                    fsp = (fsp + (8 << 8));
                     mem.writeInt32LE((ir >> 8), xsp);
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp - 8);
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp - 8);
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
                 }
                 mem.writeInt32LE((ir >> 8), (v ^ p) & -8);
-                xsp = us(xsp - 8);
-                fsp = us(0);
+                xsp = (xsp - 8);
+                fsp = 0;
                 follower = fixsp;
                 return;
             case POPA:
                 if (fsp) {
-                    a = us(mem.readUInt32LE(xsp));
-                    xsp = us(xsp + us(8));
-                    fsp = us(fsp - 8) << 8;
+                    a = (mem.readUInt32LE(xsp));
+                    xsp = (xsp + (8));
+                    fsp = (fsp - 8) << 8;
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp);
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp);
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readUInt32LE((v ^ p) & -8));
-                xsp = us(xsp + us(8));
+                a = (mem.readUInt32LE((v ^ p) & -8));
+                xsp = (xsp + (8));
                 follower = fixsp;
                 return;
             case POPB:
                 if (fsp) {
-                    b = us(mem.readUInt32LE(xsp));
-                    xsp = us(xsp + us(8));
-                    fsp = us(fsp - 8) << 8;
+                    b = (mem.readUInt32LE(xsp));
+                    xsp = (xsp + (8));
+                    fsp = (fsp - 8) << 8;
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp);
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp);
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readUInt32LE((v ^ p) & -8));
-                xsp = us(xsp + us(8));
+                b = (mem.readUInt32LE((v ^ p) & -8));
+                xsp = (xsp + (8));
                 follower = fixsp;
                 return;
             case POPC:
                 if (fsp) {
-                    c = us(mem.readUInt32LE(xsp));
-                    xsp = us(xsp + us(8));
-                    fsp = us(fsp - 8) << 8;
+                    c = (mem.readUInt32LE(xsp));
+                    xsp = (xsp + (8));
+                    fsp = (fsp - 8) << 8;
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp);
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp);
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                c = us(mem.readUInt32LE((v ^ p) & -8));
-                xsp = us(xsp + us(8));
+                c = (mem.readUInt32LE((v ^ p) & -8));
+                xsp = (xsp + (8));
                 follower = fixsp;
                 return;
             case POPF:
                 if (fsp) {
                     f = mem.readDoubleLE(xsp);
-                    xsp = us(xsp + us(8));
-                    fsp = us(fsp - 8) << 8;
+                    xsp = (xsp + (8));
+                    fsp = (fsp - 8) << 8;
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp);
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp);
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
                 f = mem.readDoubleLE((v ^ p) & -8);
-                xsp = us(xsp + us(8));
+                xsp = (xsp + (8));
                 follower = fixsp;
                 return;
             case POPG:
                 if (fsp) {
                     g = mem.readDoubleLE(xsp);
-                    xsp = us(xsp + us(8));
-                    fsp = us(fsp - 8) << 8;
+                    xsp = (xsp + (8));
+                    fsp = (fsp - 8) << 8;
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp);
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp);
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
                 g = mem.readDoubleLE((v ^ p) & -8);
-                xsp = us(xsp + us(8));
+                xsp = (xsp + (8));
                 follower = fixsp;
                 return;
             case LEA:
-                a = us(xsp - tsp + (ir >> 8));
+                a = (xsp - tsp + (ir >> 8));
                 follower = chkpc;
                 return;
             case LEAG:
-                a = us(xpc - tpc + (ir >> 8));
+                a = (xpc - tpc + (ir >> 8));
                 follower = chkpc;
                 return;
             case LL:
                 if (ir < fsp) {
-                    a = us(mem.readUInt32LE(xsp + (ir >> 8)));
+                    a = (mem.readUInt32LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readUInt32LE((v ^ p) & -4));
+                a = (mem.readUInt32LE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1288,19 +1268,19 @@ function cpu(pc, sp) {
                 return;
             case LLS:
                 if (ir < fsp) {
-                    a = us(mem.readInt16LE(xsp + (ir >> 8)));
+                    a = (mem.readInt16LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readInt16LE((v ^ p) & -2));
+                a = (mem.readInt16LE((v ^ p) & -2));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1309,19 +1289,19 @@ function cpu(pc, sp) {
                 return;
             case LLH:
                 if (ir < fsp) {
-                    a = us(mem.readUInt16LE(xsp + (ir >> 8)));
+                    a = (mem.readUInt16LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readUInt16LE((v ^ p) & -2));
+                a = (mem.readUInt16LE((v ^ p) & -2));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1330,19 +1310,19 @@ function cpu(pc, sp) {
                 return;
             case LLC:
                 if (ir < fsp) {
-                    a = us(mem.readInt8(xsp + (ir >> 8)));
+                    a = (mem.readInt8(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readInt8(v ^ p & -2)); // & precedes ^
+                a = (mem.readInt8(v ^ p & -2)); // & precedes ^
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1351,19 +1331,19 @@ function cpu(pc, sp) {
                 return;
             case LLB:
                 if (ir < fsp) {
-                    a = us(mem.readUInt8(xsp + (ir >> 8)));
+                    a = (mem.readUInt8(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readUInt8(v ^ p & -2));
+                a = (mem.readUInt8(v ^ p & -2));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1376,10 +1356,10 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -1397,10 +1377,10 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -1413,70 +1393,70 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case LG:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readUInt32LE((v ^ p) & -4));
+                a = (mem.readUInt32LE((v ^ p) & -4));
                 follower = chkpc;
                 return;
             case LGS:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readInt16LE((v ^ p) & -2));
+                a = (mem.readInt16LE((v ^ p) & -2));
                 follower = chkpc;
                 return;
             case LGH:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readUInt16LE((v ^ p) & -2));
+                a = (mem.readUInt16LE((v ^ p) & -2));
                 follower = chkpc;
                 return;
             case LGC:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readInt8(v ^ p & -2));
+                a = (mem.readInt8(v ^ p & -2));
                 follower = chkpc;
                 return;
             case LGB:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readUInt8(v ^ p & -2));
+                a = (mem.readUInt8(v ^ p & -2));
                 follower = chkpc;
                 return;
             case LGD:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -1485,10 +1465,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case LGF:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -1497,70 +1477,70 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case LX:
-                v = us(a + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (a + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readUInt32LE((v ^ p) & -4));
+                a = (mem.readUInt32LE((v ^ p) & -4));
                 follower = chkpc;
                 return;
             case LXS:
-                v = us(a + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (a + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readInt16LE((v ^ p) & -2));
+                a = (mem.readInt16LE((v ^ p) & -2));
                 follower = chkpc;
                 return;
             case LXH:
-                v = us(a + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (a + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readUInt16LE((v ^ p) & -2));
+                a = (mem.readUInt16LE((v ^ p) & -2));
                 follower = chkpc;
                 return;
             case LXC:
-                v = us(a + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (a + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readInt8(v ^ p & -2));
+                a = (mem.readInt8(v ^ p & -2));
                 follower = chkpc;
                 return;
             case LXB:
-                v = us(a + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (a + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(mem.readUInt8(v ^ p & -2));
+                a = (mem.readUInt8(v ^ p & -2));
                 follower = chkpc;
                 return;
             case LXD:
-                v = us(a + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (a + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -1569,10 +1549,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case LXF:
-                v = us(a + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (a + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -1581,11 +1561,11 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case LI:
-                a = us((ir >> 8));
+                a = (ir >> 8);
                 follower = chkpc;
                 return;
             case LHI:
-                a = us(a << 24 | (ir >> 8));
+                a = (a << 24 | (ir >> 8));
                 follower = chkpc;
                 return;
             case LIF:
@@ -1594,19 +1574,19 @@ function cpu(pc, sp) {
                 return;
             case LBL:
                 if (ir < fsp) {
-                    b = us(mem.readUInt32LE(xsp + (ir >> 8)));
+                    b = (mem.readUInt32LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readUInt32LE((v ^ p) & -4));
+                b = (mem.readUInt32LE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1615,19 +1595,19 @@ function cpu(pc, sp) {
                 return;
             case LBLS:
                 if (ir < fsp) {
-                    b = us(mem.readInt16LE(xsp + (ir >> 8)));
+                    b = (mem.readInt16LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readInt16LE((v ^ p) & -2));
+                b = (mem.readInt16LE((v ^ p) & -2));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1636,19 +1616,19 @@ function cpu(pc, sp) {
                 return;
             case LBLH:
                 if (ir < fsp) {
-                    b = us(mem.readUInt16LE(xsp + (ir >> 8)));
+                    b = (mem.readUInt16LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readUInt16LE((v ^ p) & -2));
+                b = (mem.readUInt16LE((v ^ p) & -2));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1657,19 +1637,19 @@ function cpu(pc, sp) {
                 return;
             case LBLC:
                 if (ir < fsp) {
-                    b = us(mem.readInt8(xsp + (ir >> 8)));
+                    b = (mem.readInt8(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readInt8(v ^ p & -2));
+                b = (mem.readInt8(v ^ p & -2));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1678,19 +1658,19 @@ function cpu(pc, sp) {
                 return;
             case LBLB:
                 if (ir < fsp) {
-                    b = us(mem.readUInt8(xsp + (ir >> 8)));
+                    b = (mem.readUInt8(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readUInt8(v ^ p & -2));
+                b = (mem.readUInt8(v ^ p & -2));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1703,15 +1683,15 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readDoubleLE((v ^ p) & -8));
+                b = (mem.readDoubleLE((v ^ p) & -8));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1724,15 +1704,15 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readFloatLE((v ^ p) & -4));
+                b = (mem.readFloatLE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1740,70 +1720,70 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case LBG:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readUInt32LE((v ^ p) & -4));
+                b = (mem.readUInt32LE((v ^ p) & -4));
                 follower = chkpc;
                 return;
             case LBGS:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readInt16LE((v ^ p) & -2));
+                b = (mem.readInt16LE((v ^ p) & -2));
                 follower = chkpc;
                 return;
             case LBGH:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readUInt16LE((v ^ p) & -2));
+                b = (mem.readUInt16LE((v ^ p) & -2));
                 follower = chkpc;
                 return;
             case LBGC:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readInt8(v ^ p & -2));
+                b = (mem.readInt8(v ^ p & -2));
                 follower = chkpc;
                 return;
             case LBGB:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readUInt8(v ^ p & -2));
+                b = (mem.readUInt8(v ^ p & -2));
                 follower = chkpc;
                 return;
             case LBGD:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -1812,10 +1792,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case LBGF:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -1824,70 +1804,70 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case LBX:
-                v = us(b + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readUInt32LE((v ^ p) & -4));
+                b = (mem.readUInt32LE((v ^ p) & -4));
                 follower = chkpc;
                 return;
             case LBXS:
-                v = us(b + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readInt16LE((v ^ p) & -2));
+                b = (mem.readInt16LE((v ^ p) & -2));
                 follower = chkpc;
                 return;
             case LBXH:
-                v = us(b + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readUInt16LE((v ^ p) & -2));
+                b = (mem.readUInt16LE((v ^ p) & -2));
                 follower = chkpc;
                 return;
             case LBXC:
-                v = us(b + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readInt8(v ^ p & -2));
+                b = (mem.readInt8(v ^ p & -2));
                 follower = chkpc;
                 return;
             case LBXB:
-                v = us(b + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                b = us(mem.readUInt8(v ^ p & -2));
+                b = (mem.readUInt8(v ^ p & -2));
                 follower = chkpc;
                 return;
             case LBXD:
-                v = us(b + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -1896,10 +1876,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case LBXF:
-                v = us(b + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -1908,11 +1888,11 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case LBI:
-                b = us((ir >> 8));
+                b = (ir >> 8);
                 follower = chkpc;
                 return;
             case LBHI:
-                b = us(b << 24 | (ir >> 8));
+                b = (b << 24 | (ir >> 8));
                 follower = chkpc;
                 return;
             case LBIF:
@@ -1921,19 +1901,19 @@ function cpu(pc, sp) {
                 return;
             case LCL:
                 if (ir < fsp) {
-                    c = us(mem.readUInt32LE(xsp + (ir >> 8)));
+                    c = (mem.readUInt32LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                c = us(mem.readUInt32LE((v ^ p) & -4));
+                c = (mem.readUInt32LE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -1941,11 +1921,11 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case LBA:
-                b = us(a);
+                b = a;
                 follower = chkpc;
                 return;
             case LCA:
-                c = us(a);
+                c = a;
                 follower = chkpc;
                 return;
             case LBAD:
@@ -1958,10 +1938,10 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -1979,10 +1959,10 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2000,10 +1980,10 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2021,10 +2001,10 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2042,10 +2022,10 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2058,10 +2038,10 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case SG:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2070,10 +2050,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case SGH:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2082,10 +2062,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case SGB:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2094,10 +2074,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case SGD:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2106,10 +2086,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case SGF:
-                v = us(xpc - tpc + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xpc - tpc + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2118,10 +2098,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case SX:
-                v = us(b + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2130,10 +2110,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case SXH:
-                v = us(b + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2142,10 +2122,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case SXB:
-                v = us(b + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2154,10 +2134,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case SXD:
-                v = us(b + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2166,10 +2146,10 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case SXF:
-                v = us(b + (ir >> 8));
-                p = us(tw.readUInt32LE(us((v >>> 12) * 4)));
+                v = (b + (ir >> 8));
+                p = (tw.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(wlook(v));
+                    p = (wlook(v));
                     if (!p) {
                         break;
                     }
@@ -2178,11 +2158,11 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case ADDF:
-                f = us(f + us(g));
+                f = f + g;
                 follower = chkpc;
                 return;
             case SUBF:
-                f = us(f - g);
+                f = (f - g);
                 follower = chkpc;
                 return;
             case MULF:
@@ -2191,35 +2171,35 @@ function cpu(pc, sp) {
                 return;
             case DIVF:
                 if (g === 0.0) {
-                    trap = us(FARITH);
+                    trap = FARITH;
                     break;
                 }
                 f /= g;
                 follower = chkpc;
                 return;
             case ADD:
-                a = us(a + us(b));
+                a = a + b;
                 follower = chkpc;
                 return;
             case ADDI:
-                a = us(a + us((ir >> 8)));
+                a = (a + (ir >> 8));
                 follower = chkpc;
                 return;
             case ADDL:
                 if (ir < fsp) {
-                    a = us(a + us(mem.readUInt32LE(xsp + (ir >> 8))));
+                    a = (a + (mem.readUInt32LE(xsp + (ir >> 8))));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(a + us(mem.readUInt32LE((v ^ p) & -4)));
+                a = (a + (mem.readUInt32LE((v ^ p) & -4)));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2227,28 +2207,28 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case SUB:
-                a = us(a - b);
+                a = (a - b);
                 follower = chkpc;
                 return;
             case SUBI:
-                a = us(a - (ir >> 8));
+                a = (a - (ir >> 8));
                 follower = chkpc;
                 return;
             case SUBL:
                 if (ir < fsp) {
-                    a = us(a - mem.readUInt32LE(xsp + (ir >> 8)));
+                    a = (a - mem.readUInt32LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(a - mem.readUInt32LE((v ^ p) & -4));
+                a = (a - mem.readUInt32LE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2256,28 +2236,28 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case MUL:
-                a = us(a * b);
+                a = (a * b);
                 follower = chkpc;
                 return;
             case MULI:
-                a = us(a * (ir >> 8));
+                a = (a * (ir >> 8));
                 follower = chkpc;
                 return;
             case MULL:
                 if (ir < fsp) {
-                    a = us(a * mem.readInt32LE(xsp + (ir >> 8)));
+                    a = (a * mem.readInt32LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(a * mem.readInt32LE((v ^ p) & -4));
+                a = (a * mem.readInt32LE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2286,46 +2266,46 @@ function cpu(pc, sp) {
                 return;
             case DIV:
                 if (!b) {
-                    trap = us(FARITH);
+                    trap = FARITH;
                     break;
                 }
-                a = us(Math.floor(a / b));
+                a = (Math.floor(a / b));
                 follower = chkpc;
                 return;
             case DIVI:
-                t = us((ir >> 8));
+                t = (ir >> 8);
                 if (!t) {
-                    trap = us(FARITH);
+                    trap = FARITH;
                     break;
                 }
-                a = us(Math.floor(a / t));
+                a = (Math.floor(a / t));
                 follower = chkpc;
                 return;
             case DIVL:
                 if (ir < fsp) {
-                    t = us(mem.readUInt32LE(xsp + (ir >> 8)));
+                    t = (mem.readUInt32LE(xsp + (ir >> 8)));
                     if (!t) {
-                        trap = us(FARITH);
+                        trap = FARITH;
                         break;
                     }
-                    a = us(Math.floor(a / t));
+                    a = (Math.floor(a / t));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                t = us(mem.readUInt32LE((v ^ p) & -4));
+                t = (mem.readUInt32LE((v ^ p) & -4));
                 if (!t) {
-                    trap = us(FARITH);
+                    trap = FARITH;
                     break;
                 }
-                a = us(Math.floor(a / t));
+                a = (Math.floor(a / t));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2334,46 +2314,46 @@ function cpu(pc, sp) {
                 return;
             case DVU:
                 if (!b) {
-                    trap = us(FARITH);
+                    trap = FARITH;
                     break;
                 }
-                a = us(Math.floor(a / b));
+                a = (Math.floor(a / b));
                 follower = chkpc;
                 return;
             case DVUI:
-                t = us((ir >> 8));
+                t = (ir >> 8);
                 if (!t) {
-                    trap = us(FARITH);
+                    trap = FARITH;
                     break;
                 }
-                a = us(Math.floor(a / t));
+                a = (Math.floor(a / t));
                 follower = chkpc;
                 return;
             case DVUL:
                 if (ir < fsp) {
-                    t = us(mem.readUInt32LE(xsp + (ir >> 8)));
+                    t = (mem.readUInt32LE(xsp + (ir >> 8)));
                     if (!t) {
-                        trap = us(FARITH);
+                        trap = FARITH;
                         break;
                     }
-                    a = us(Math.floor(a / t));
+                    a = (Math.floor(a / t));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                t = us(mem.readUInt32LE((v ^ p) & -4));
+                t = (mem.readUInt32LE((v ^ p) & -4));
                 if (!t) {
-                    trap = us(FARITH);
+                    trap = FARITH;
                     break;
                 }
-                a = us(Math.floor(a / t));
+                a = (Math.floor(a / t));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2381,28 +2361,28 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case MOD:
-                a = us(a % b);
+                a = (a % b);
                 follower = chkpc;
                 return;
             case MODI:
-                a = us(a % (ir >> 8));
+                a = (a % (ir >> 8));
                 follower = chkpc;
                 return;
             case MODL:
                 if (ir < fsp) {
-                    a = us(a % mem.readUInt32LE(xsp + (ir >> 8)));
+                    a = (a % mem.readUInt32LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE(us((v >>> 12) * 4)));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE(((v >>> 12) * 4)));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(a % mem.readUInt32LE((v ^ p) & -4));
+                a = (a % mem.readUInt32LE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2423,10 +2403,10 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE((v >> 12) * 4));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -2452,10 +2432,10 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE((v >> 12) * 4));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -2468,29 +2448,29 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case OR:
-                a = us(a | b);
+                a = (a | b);
                 follower = chkpc;
                 return;
             case ORI:
-                a = us(a | ir) >> 8;
+                a = (a | ir) >> 8;
                 follower = chkpc;
                 return;
 
             case ORL:
                 if (ir < fsp) {
-                    a = us(a | mem.readUInt32LE(xsp + (ir >> 8)));
+                    a = (a | mem.readUInt32LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE((v >> 12) * 4));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(a | mem.readUInt32LE((v ^ p) & -4));
+                a = (a | mem.readUInt32LE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2511,10 +2491,10 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE((v >> 12) * 4));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -2540,10 +2520,10 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE((v >> 12) * 4));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
@@ -2556,28 +2536,28 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case SHR:
-                a = us(a >> b);
+                a = (a >> b);
                 follower = chkpc;
                 return;
             case SHRI:
-                a = us(a >> (ir >> 8));
+                a = (a >> (ir >> 8));
                 follower = chkpc;
                 return;
             case SHRL:
                 if (ir < fsp) {
-                    a = us(a >> mem.readUInt32LE(xsp + (ir >> 8)));
+                    a = (a >> mem.readUInt32LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE((v >> 12) * 4));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(a >> mem.readUInt32LE((v ^ p) & -4));
+                a = (a >> mem.readUInt32LE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2594,19 +2574,19 @@ function cpu(pc, sp) {
                 return;
             case SRUL:
                 if (ir < fsp) {
-                    a = us(a >> mem.readUInt32LE(xsp + (ir >> 8)));
+                    a = (a >> mem.readUInt32LE(xsp + (ir >> 8)));
                     follower = chkpc;
                     return;
                 }
-                v = us(xsp - tsp + (ir >> 8));
-                p = us(tr.readUInt32LE((v >> 12) * 4));
+                v = (xsp - tsp + (ir >> 8));
+                p = (tr.readUInt32LE((v >>> 12) * 4));
                 if (!p) {
-                    p = us(rlook(v));
+                    p = (rlook(v));
                     if (!p) {
                         break;
                     }
                 }
-                a = us(a >> mem.readUInt32LE((v ^ p) & -4));
+                a = (a >> mem.readUInt32LE((v ^ p) & -4));
                 if (fsp || (v ^ (xsp - tsp)) & -4096) {
                     follower = chkpc;
                     return;
@@ -2614,50 +2594,50 @@ function cpu(pc, sp) {
                 follower = fixsp;
                 return;
             case EQ:
-                a = us(a === b);
+                a = (a === b);
                 follower = chkpc;
                 return;
             case EQF:
-                a = us(f === g);
+                a = (f === g);
                 follower = chkpc;
                 return;
             case NE:
-                a = us(a !== b);
+                a = (a !== b);
                 follower = chkpc;
                 return;
             case NEF:
-                a = us(f !== g);
+                a = (f !== g);
                 follower = chkpc;
                 return;
             case LT:
-                a = us(a < b);
+                a = (a < b);
                 follower = chkpc;
                 return;
             case LTU:
-                a = us(a < b);
+                a = (a < b);
                 follower = chkpc;
                 return;
             case LTF:
-                a = us(f < g);
+                a = (f < g);
                 follower = chkpc;
                 return;
             case GE:
-                a = us(a >= b);
+                a = (a >= b);
                 follower = chkpc;
                 return;
             case GEU:
-                a = us(a >= b);
+                a = (a >= b);
                 follower = chkpc;
                 return;
             case GEF:
-                a = us(f >= g);
+                a = (f >= g);
                 follower = chkpc;
                 return;
             case BZ:
                 if (!a) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2668,9 +2648,9 @@ function cpu(pc, sp) {
                 return;
             case BZF:
                 if (!f) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2681,9 +2661,9 @@ function cpu(pc, sp) {
                 return;
             case BNZ:
                 if (a) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2694,9 +2674,9 @@ function cpu(pc, sp) {
                 return;
             case BNZF:
                 if (f) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2707,9 +2687,9 @@ function cpu(pc, sp) {
                 return;
             case BE:
                 if (a === b) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2720,9 +2700,9 @@ function cpu(pc, sp) {
                 return;
             case BEF:
                 if (f === g) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2733,9 +2713,9 @@ function cpu(pc, sp) {
                 return;
             case BNE:
                 if (a !== b) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2746,9 +2726,9 @@ function cpu(pc, sp) {
                 return;
             case BNEF:
                 if (f !== g) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2759,9 +2739,9 @@ function cpu(pc, sp) {
                 return;
             case BLT:
                 if (a < b) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2772,9 +2752,9 @@ function cpu(pc, sp) {
                 return;
             case BLTU:
                 if (a < b) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2785,9 +2765,9 @@ function cpu(pc, sp) {
                 return;
             case BLTF:
                 if (f < g) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2798,9 +2778,9 @@ function cpu(pc, sp) {
                 return;
             case BGE:
                 if (a >= b) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2811,9 +2791,9 @@ function cpu(pc, sp) {
                 return;
             case BGEU:
                 if (a >= b) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2824,9 +2804,9 @@ function cpu(pc, sp) {
                 return;
             case BGEF:
                 if (f >= g) {
-                    xcycle = us(xcycle + us(ir >> 8));
-                    xpc = us(xpc + us((ir >> 10) << 2));
-                    if (xpc - fpc < -4096) {
+                    xcycle = (xcycle + (ir >> 8));
+                    xpc = (xpc + ((ir >> 10) << 2));
+                    if (xpc >= fpc || xpc < fpc - 4096) {
                         follower = fixpc;
                         return;
                     }
@@ -2844,25 +2824,25 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case CDI:
-                a = us(f);
+                a = f;
                 follower = chkpc;
                 return;
             case CDU:
-                a = us(f);
+                a = f;
                 follower = chkpc;
                 return;
             case BIN:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
-                a = us(kbchar);
+                a = kbchar;
                 kbchar = -1;
                 follower = chkpc;
                 return;
             case BOUT:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
                 if (a !== 1) {
@@ -2870,89 +2850,89 @@ function cpu(pc, sp) {
                     follower = 0;
                     return;
                 }
-                ch = us(b);
-                a = us(printch(ch));
+                ch = b;
+                a = (printch(ch));
                 follower = chkpc;
                 return;
             case SSP:
-                xsp = us(a);
-                tsp = us(0);
-                fsp = us(0);
+                xsp = a;
+                tsp = 0;
+                fsp = 0;
                 follower = fixsp;
                 return;
             case NOP:
                 follower = chkpc;
                 return;
             case CYC:
-                a = us(cycle + Math.floor((xpc - xcycle) / 4));
+                a = (cycle + Math.floor((xpc - xcycle) / 4));
                 follower = chkpc;
                 return;
             case MSIZ:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
-                a = us(memsz);
+                a = memsz;
                 follower = chkpc;
                 return;
             case CLI:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
-                a = us(iena);
-                iena = us(0);
+                a = iena;
+                iena = 0;
                 follower = chkpc;
                 return;
             case STI:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
                 if (ipend) {
-                    trap = us(ipend & -ipend);
+                    trap = (ipend & -ipend);
                     ipend ^= trap;
-                    iena = us(0);
+                    iena = 0;
                     follower = interrupt;
                     return;
                 }
-                iena = us(1);
+                iena = (1);
                 follower = chkpc;
                 return;
             case RTI:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
-                xsp = us(xsp - tsp);
-                tsp = us(0);
-                fsp = us(0);
-                p = us(tr.readUInt32LE((xsp >> 12) * 4));
+                xsp = (xsp - tsp);
+                tsp = 0;
+                fsp = 0;
+                p = (tr.readUInt32LE((xsp >>> 12) * 4));
                 if (!p) {
-                    p = us(rlook(xsp));
+                    p = (rlook(xsp));
                     if (!p) {
                         console.log("RTI kstack fault\n");
                         follower = fatal;
                         return;
                     }
                 }
-                t = us(mem.readUInt32LE((xsp ^ p) & -8));
-                xsp = us(xsp + us(8));
-                p = us(tr.readUInt32LE((xsp >> 12) * 4));
+                t = (mem.readUInt32LE((xsp ^ p) & -8));
+                xsp = (xsp + (8));
+                p = (tr.readUInt32LE((xsp >>> 12) * 4));
                 if (!p) {
-                    p = us(rlook(xsp));
+                    p = (rlook(xsp));
                     if (!p) {
                         console.log("RTI kstack fault\n");
                         follower = fatal;
                         return;
                     }
                 }
-                pc = us(mem.readUInt32LE((xsp ^ p) & -8) + tpc);
-                xcycle = us(xcycle + us(pc - xpc));
-                xsp = us(xsp + us(8));
-                xpc = us(pc);
+                pc = (mem.readUInt32LE((xsp ^ p) & -8) + tpc);
+                xcycle = (xcycle + (pc - xpc));
+                xsp = (xsp + (8));
+                xpc = pc;
                 if (t & USER) {
-                    ssp = us(xsp);
+                    ssp = xsp;
                     xsp = usp;
                     user = 1;
                     tr = tru;
@@ -2960,54 +2940,54 @@ function cpu(pc, sp) {
                 }
                 if (!iena) {
                     if (ipend) {
-                        trap = us(ipend & -ipend);
+                        trap = (ipend & -ipend);
                         ipend ^= trap;
                         follower = interrupt;
                         return;
                     }
-                    iena = us(1);
+                    iena = (1);
                 }
                 follower = fixpc;
                 return;
             case IVEC:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
-                ivec = us(a);
+                ivec = a;
                 follower = chkpc;
                 return;
             case PDIR:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
                 if (a > memsz) {
-                    trap = us(FMEM);
+                    trap = FMEM;
                     break;
                 }
                 pdir = a & -4096;
-                flush();
-                fsp = us(0);
+                cleartlb();
+                fsp = 0;
                 follower = fixpc;
                 return;
             case SPAG:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
                 if (a && !pdir) {
-                    trap = us(FMEM);
+                    trap = FMEM;
                     break;
                 }
                 paging = a;
-                flush();
-                fsp = us(0);
+                cleartlb();
+                fsp = 0;
                 follower = fixpc;
                 return;
             case TIME:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
                 if (ir >> 8) {
@@ -3015,23 +2995,23 @@ function cpu(pc, sp) {
                     follower = chkpc;
                     return;
                 }
-                timeout = us(a);
+                timeout = a;
                 follower = chkpc;
                 return;
             case LVAD:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
-                a = us(vadr);
+                a = vadr;
                 follower = chkpc;
                 return;
             case TRAP:
-                trap = us(FSYS);
+                trap = FSYS;
                 break;
             case LUSP:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
                 a = usp;
@@ -3039,50 +3019,14 @@ function cpu(pc, sp) {
                 return;
             case SUSP:
                 if (user) {
-                    trap = us(FPRIV);
+                    trap = FPRIV;
                     break;
                 }
-                usp = us(a);
+                usp = a;
                 follower = chkpc;
                 return;
-            case NET1:
-                console.log("NET1 not implemented\n");
-                follower = fatal;
-                return;
-            case NET2:
-                console.log("NET2 not implemented\n");
-                follower = fatal;
-                return;
-            case NET3:
-                console.log("NET3 not implemented\n");
-                follower = fatal;
-                return;
-            case NET4:
-                console.log("NET4 not implemented\n");
-                follower = fatal;
-                return;
-            case NET5:
-                console.log("NET5 not implemented\n");
-                follower = fatal;
-                return;
-            case NET6:
-                console.log("NET6 not implemented\n");
-                follower = fatal;
-                return;
-            case NET7:
-                console.log("NET7 not implemented\n");
-                follower = fatal;
-                return;
-            case NET8:
-                console.log("NET8 not implemented\n");
-                follower = fatal;
-                return;
-            case NET9:
-                console.log("NET9 not implemented\n");
-                follower = fatal;
-                return;
             default:
-                trap = us(FINST);
+                trap = FINST;
                 break;
         }
         follower = exception;
@@ -3102,12 +3046,12 @@ function main(argv) {
     }
     verbose = argv.hasOwnProperty("v");
     if (argv.hasOwnProperty("m")) {
-        memsz = us(Number(argv.m) * 1024 * 1024);
+        memsz = Number(argv.m) * 1024 * 1024;
     } else {
-        memsz = us(MEM_SZ);
+        memsz = MEM_SZ;
     }
     if (verbose) {
-        console.log("mem size = us(%d\n", memsz);
+        console.log("mem size = (%d\n", memsz);
     }
     mem = Buffer.alloc(memsz);
     if (argv.hasOwnProperty("f")) {
@@ -3126,7 +3070,7 @@ function main(argv) {
     tr = trk;
     tw = twk;
     if (verbose) {
-        console.log("%s : emulating %s\n", cmd, argv._[0]);
+        console.log("./xem : emulating %s\n", argv._[0]);
     }
     initkb();
     cpu(hdr.entry, memsz - FS_SZ);
