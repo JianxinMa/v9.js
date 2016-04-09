@@ -241,7 +241,7 @@ var FMEM = 0, // bad physical address
     FRPAGE = 9, // page fault on read
     USER = 16; // user mode exception (16)
 
-var verbose = 0, // chatty option -v
+var logging = 0, // logging option
     mem = 0, // physical memory
     memsz = 0, // physical memory size
     user = 0, // user mode
@@ -337,10 +337,10 @@ function rlook(v) {
     }
     ppde = pdir + ((v >>> 22) << 2);
     pde = mem.readUInt32LE(ppde);
-    if (1) {
+    if (logging) {
         console.log("pde = %d", pde >>> 0);
     }
-    if (1) {
+    if (logging) {
         console.log("rlook #1");
     }
     if (pde & PTE_P) {
@@ -352,13 +352,13 @@ function rlook(v) {
             vadr = v;
             return 0;
         }
-        if (1) {
+        if (logging) {
             console.log("rlook #2");
         }
         ppte = (pde & -4096) + ((v >>> 10) & 0xffc);
         pte = mem.readUInt32LE(ppte);
         if (pte & PTE_P) {
-            if (1) {
+            if (logging) {
                 console.log("rlook #3");
             }
             q = pte & pde;
@@ -372,7 +372,7 @@ function rlook(v) {
         }
     }
     trap = FRPAGE;
-    if (1) {
+    if (logging) {
         console.log("rlook trap = %d", trap);
     }
     vadr = v;
@@ -417,7 +417,7 @@ function wlook(v) {
 function usage() {
     console.log("USAGE: node emulate.js [options] <file>");
     console.log("OPTIONS:");
-    console.log("  -v");
+    console.log("  -l");
     console.log("  -m <memsize>");
     console.log("  -f <filesys>");
 }
@@ -425,9 +425,6 @@ function usage() {
 function readfs(filename) {
     var fd, st, i;
 
-    if (verbose) {
-        console.log("./xem : loading ram file system %s\n", filename);
-    }
     fd = fs.openSync(filename, "r");
     if (fd < 0) {
         console.log("./xem : couldn't open file system %s\n", filename);
@@ -508,7 +505,7 @@ function cpu(pc, sp) {
         follower, fatal, exception, interrupt, fixsp, chkpc, fixpc, chkio, decode;
 
     fatal = function() {
-        if (1) {
+        if (logging) {
             console.log("fatal <");
         }
         console.log("processor halted! cycle = %d pc = %s ir = %s sp = %s" +
@@ -518,7 +515,7 @@ function cpu(pc, sp) {
         follower = 0;
     };
     exception = function() {
-        if (1) {
+        if (logging) {
             console.log("exception <");
         }
         if (!iena) {
@@ -531,7 +528,7 @@ function cpu(pc, sp) {
     interrupt = function() {
         var p;
 
-        if (1) {
+        if (logging) {
             console.log("interrupt <");
         }
         xsp = xsp - tsp;
@@ -574,7 +571,7 @@ function cpu(pc, sp) {
     fixsp = function() {
         var v, p;
 
-        if (1) {
+        if (logging) {
             console.log("fixsp <");
         }
         v = xsp - tsp;
@@ -587,7 +584,7 @@ function cpu(pc, sp) {
         follower = chkpc;
     };
     chkpc = function() {
-        if (1) {
+        if (logging) {
             console.log("chkpc <");
         }
         if (xpc === fpc) {
@@ -599,7 +596,7 @@ function cpu(pc, sp) {
     fixpc = function() {
         var v, p;
 
-        if (1) {
+        if (logging) {
             console.log("fixpc <");
         }
         v = xpc - tpc;
@@ -622,7 +619,7 @@ function cpu(pc, sp) {
     chkio = function() {
         var ch;
 
-        if (1) {
+        if (logging) {
             console.log("chkio <");
         }
         if (xpc > xcycle) {
@@ -668,12 +665,12 @@ function cpu(pc, sp) {
 
         ir = mem.readUInt32LE(xpc);
         xpc = xpc + 4;
-        if (1) {
+        if (logging) {
             console.log("ASM #%d : %d", ir & 0xFF, ir >>> 0);
         }
         switch (ir & 0xFF) {
             case HALT:
-                if (user || verbose) {
+                if (user) {
                     console.log("halt(%d) cycle = %d\n",
                         a, (cycle + ((xpc - xcycle) | 0) / 4) >>> 0);
                 }
@@ -1024,7 +1021,7 @@ function cpu(pc, sp) {
                 if (fsp & (4095 << 8)) {
                     xsp = xsp - 8;
                     fsp = fsp + (8 << 8);
-                    mem.writeUInt32LE(xpc - tpc, xsp);
+                    mem.writeUInt32LE((xpc - tpc) >>> 0, xsp);
                 } else {
                     v = xsp - tsp - 8;
                     p = tw.readUInt32LE((v >>> 12) * 4);
@@ -1034,7 +1031,7 @@ function cpu(pc, sp) {
                             break;
                         }
                     }
-                    mem.writeUInt32LE(xpc - tpc, (v ^ p) & -8);
+                    mem.writeUInt32LE((xpc - tpc) >>> 0, (v ^ p) & -8);
                     fsp = 0;
                     xsp = xsp - 8;
                 }
@@ -3086,7 +3083,7 @@ function cpu(pc, sp) {
         xcycle >>>= 0;
         timer >>>= 0;
         timeout >>>= 0;
-        if (1) {
+        if (logging) {
             console.log("cycle = %d pc = %s ir = %s sp = %s" +
                 " a = %d b = %d c = %d trap = %d paging = %d vadr = %d" +
                 " uf = %d ug = %d sf = %d sg = %d",
@@ -3105,14 +3102,11 @@ function main(argv) {
         usage();
         return -1;
     }
-    verbose = argv.hasOwnProperty("v");
+    logging = argv.hasOwnProperty("l");
     if (argv.hasOwnProperty("m")) {
         memsz = Number(argv.m) * 1024 * 1024;
     } else {
         memsz = MEM_SZ;
-    }
-    if (verbose) {
-        console.log("mem size = (%d\n", memsz);
     }
     mem = Buffer.alloc(memsz);
     if (argv.hasOwnProperty("f")) {
@@ -3130,9 +3124,6 @@ function main(argv) {
     twu = Buffer.alloc(TB_SZ * 4);
     tr = trk;
     tw = twk;
-    if (verbose) {
-        console.log("./xem : emulating %s\n", argv._[0]);
-    }
     cpu(hdr.entry, memsz - FS_SZ);
     return 0;
 }
