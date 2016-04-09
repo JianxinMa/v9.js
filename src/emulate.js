@@ -261,6 +261,37 @@ var logging = 0, // logging option
     tr = 0, // current read page translation tables
     tw = 0; // current write page translation tables
 
+var a = 0,
+    b = 0,
+    c = 0,
+    ssp = 0,
+    usp = 0,
+    xpc = 0,
+    tpc = 0,
+    fpc = 0,
+    xsp = 0,
+    tsp = 0,
+    fsp = 0,
+    delta = 0,
+    cycle = 0,
+    xcycle = 0,
+    timer = 0,
+    timeout = 0,
+    ir = 0,
+    kbchar = 0,
+    f = 0,
+    g = 0;
+
+var follower = 0,
+    fatal = 0,
+    exception = 0,
+    interrupt = 0,
+    fixsp = 0,
+    chkpc = 0,
+    fixpc = 0,
+    chkio = 0,
+    decode = 0;
+
 function hex(x) {
     return ("00000000" + (x >>> 0).toString(16)).substr(-8);
 }
@@ -481,29 +512,7 @@ function readhdr(filename) {
     return hdr;
 }
 
-function cpu(pc, sp) {
-    var a = 0,
-        b = 0,
-        c = 0,
-        ssp = 0,
-        usp = 0,
-        xpc = 0,
-        tpc = -pc,
-        fpc = 0,
-        xsp = sp,
-        tsp = 0,
-        fsp = 0,
-        delta = 4096,
-        cycle = 4096,
-        xcycle = delta * 4,
-        timer = 0,
-        timeout = 0,
-        ir = 0,
-        kbchar = -1,
-        f = 0.0,
-        g = 0.0,
-        follower, fatal, exception, interrupt, fixsp, chkpc, fixpc, chkio, decode;
-
+function initcpu(pc, sp) {
     fatal = function() {
         if (logging) {
             console.log("fatal <");
@@ -3064,8 +3073,31 @@ function cpu(pc, sp) {
         }
         follower = exception;
     };
+    a = 0;
+    b = 0;
+    c = 0;
+    ssp = 0;
+    usp = 0;
+    xpc = 0;
+    tpc = -pc;
+    fpc = 0;
+    xsp = sp;
+    tsp = 0;
+    fsp = 0;
+    delta = 4096;
+    cycle = 4096;
+    xcycle = delta * 4;
+    timer = 0;
+    timeout = 0;
+    ir = 0;
+    kbchar = -1;
+    f = 0.0;
+    g = 0.0;
     follower = fixpc;
-    while (follower !== 0) {
+}
+
+function tickcpu() {
+    if (follower !== 0) {
         a >>>= 0;
         b >>>= 0;
         c >>>= 0;
@@ -3124,7 +3156,9 @@ function main(argv) {
     twu = Buffer.alloc(TB_SZ * 4);
     tr = trk;
     tw = twk;
-    cpu(hdr.entry, memsz - FS_SZ);
+    initcpu(hdr.entry, memsz - FS_SZ);
+    while (true)
+        tickcpu();
     return 0;
 }
 
