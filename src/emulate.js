@@ -308,11 +308,30 @@ function printch(ch) {
 
 var pendkeys = [];
 
+function initio() {
+    pendkeys = [];
+    keypress(process.stdin);
+    process.stdin.on('keypress', function(ch) {
+        var c;
+
+        c = ch.charCodeAt(0);
+        if (0 <= c && c <= 0xFF) {
+            pendkeys.push(c);
+        }
+    });
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+}
+
 function probekb() {
     if (pendkeys[0]) {
         return pendkeys.shift();
     }
     return -1;
+}
+
+function shutio() {
+    process.stdin.pause();
 }
 
 function memcmp(a, b) {
@@ -518,44 +537,6 @@ function readhdr(filename) {
     }
     fs.closeSync(fd);
     return hdr;
-}
-
-function tickcpu() {
-    var i;
-
-    for (i = 0; i < (1 << 20); i = i + 1) {
-        if (follower !== 0) {
-            a >>>= 0;
-            b >>>= 0;
-            c >>>= 0;
-            ssp >>>= 0;
-            usp >>>= 0;
-            xpc >>>= 0;
-            tpc >>>= 0;
-            fpc >>>= 0;
-            xsp >>>= 0;
-            tsp >>>= 0;
-            fsp >>>= 0;
-            trap >>>= 0;
-            delta >>>= 0;
-            cycle >>>= 0;
-            xcycle >>>= 0;
-            timer >>>= 0;
-            timeout >>>= 0;
-            if (logging) {
-                console.log("cycle = %d pc = %s ir = %s sp = %s" +
-                    " a = %d b = %d c = %d trap = %d paging = %d vadr = %d" +
-                    " uf = %d ug = %d sf = %d sg = %d",
-                    (cycle + ((xpc - xcycle) | 0) / 4) >>> 0, hex(xpc - tpc),
-                    hex(ir), hex(xsp - tsp), a, b, c, trap, paging, vadr >>> 0,
-                    f >>> 0, g >>> 0, f | 0, g | 0);
-            }
-            follower();
-        } else {
-            clearInterval(cpu);
-            break;
-        }
-    }
 }
 
 function execHALT() {
@@ -3658,6 +3639,45 @@ function execDefault() {
     return;
 }
 
+function tickcpu() {
+    var i;
+
+    for (i = 0; i < (1 << 18); i = i + 1) {
+        if (follower !== 0) {
+            a >>>= 0;
+            b >>>= 0;
+            c >>>= 0;
+            ssp >>>= 0;
+            usp >>>= 0;
+            xpc >>>= 0;
+            tpc >>>= 0;
+            fpc >>>= 0;
+            xsp >>>= 0;
+            tsp >>>= 0;
+            fsp >>>= 0;
+            trap >>>= 0;
+            delta >>>= 0;
+            cycle >>>= 0;
+            xcycle >>>= 0;
+            timer >>>= 0;
+            timeout >>>= 0;
+            if (logging) {
+                console.log("cycle = %d pc = %s ir = %s sp = %s" +
+                    " a = %d b = %d c = %d trap = %d paging = %d vadr = %d" +
+                    " uf = %d ug = %d sf = %d sg = %d",
+                    (cycle + ((xpc - xcycle) | 0) / 4) >>> 0, hex(xpc - tpc),
+                    hex(ir), hex(xsp - tsp), a, b, c, trap, paging, vadr >>> 0,
+                    f >>> 0, g >>> 0, f | 0, g | 0);
+            }
+            follower();
+        } else {
+            clearInterval(cpu);
+            shutio();
+            break;
+        }
+    }
+}
+
 function firecpu(pc, sp) {
     var i;
 
@@ -4050,7 +4070,7 @@ function firecpu(pc, sp) {
     f = 0.0;
     g = 0.0;
     follower = fixpc;
-    cpu = setInterval(tickcpu, 1);
+    cpu = setInterval(tickcpu, 10);
 }
 
 function main(argv) {
@@ -4082,6 +4102,7 @@ function main(argv) {
     twu = Buffer.alloc(TB_SZ * 4);
     tr = trk;
     tw = twk;
+    initio();
     firecpu(hdr.entry, memsz - FS_SZ);
     return 0;
 }
