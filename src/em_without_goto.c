@@ -426,7 +426,7 @@ enum {      // processor fault codes (some can be masked together)
   USER = 16 // user mode exception
 };
 
-uint verbose,      // chatty option -v
+uint logging,      // chatty option -v
     mem, memsz,    // physical memory
     user,          // user mode
     iena,          // interrupt enable
@@ -457,7 +457,6 @@ void flush() {
   uint v;
   //  static int xx; if (tpages >= xx) { xx = tpages; dprintf(2,"******
   //  flush(%d)\n",tpages); }
-  //  if (verbose) printf("F(%d)",tpages);
   while (tpages) {
     v = tpage[--tpages];
     trk[v] = twk[v] = tru[v] = twu[v] = 0;
@@ -477,7 +476,6 @@ uint setpage(uint v, uint p, uint writable, uint userable) {
     }
     tpage[tpages++] = v;
   }
-  //  if (verbose) printf(".");
   trk[v] = p;
   twk[v] = writable ? p : 0;
   tru[v] = userable ? p : 0;
@@ -492,9 +490,9 @@ uint rlook(uint v) {
     return setpage(v, v, 1, 1);
   }
   pde = *(ppde = (uint *)(pdir + (v >> 22 << 2))); // page directory entry
-  if (1)
+  if (logging)
     dprintf(2, "pde = %u\n", pde);
-  if (1) {
+  if (logging) {
     dprintf(2, "rlook #1\n");
   }
   if (pde & PTE_P) {
@@ -506,13 +504,13 @@ uint rlook(uint v) {
       vadr = v;
       return 0;
     }
-    if (1) {
+    if (logging) {
       dprintf(2, "rlook #2\n");
     }
     pte = *(ppte = (uint *)(mem + (pde & -4096) +
                             ((v >> 10) & 0xffc))); // page table entry
 
-    if (1) {
+    if (logging) {
       if (pte & PTE_P) {
         dprintf(2, "rlook #3\n");
       }
@@ -527,7 +525,7 @@ uint rlook(uint v) {
     }
   }
   trap = FRPAGE;
-  if (1) {
+  if (logging) {
     dprintf(2, "rlook trap = %d\n", trap);
   }
   vadr = v;
@@ -597,7 +595,7 @@ void cpu(uint pc, uint sp) {
   auto void fatal();
 
   void fatal() {
-    if (1)
+    if (logging)
       dprintf(2, "fatal <\n");
     dprintf(2, "processor halted! cycle = %u pc = %08x ir = %08x sp = %08x a = "
                "%d b = %d c = %d trap = %u\n",
@@ -608,7 +606,7 @@ void cpu(uint pc, uint sp) {
   }
 
   void exception() {
-    if (1)
+    if (logging)
       dprintf(2, "exception <\n");
     if (!iena) {
       dprintf(2, "exception in interrupt handler\n");
@@ -620,7 +618,7 @@ void cpu(uint pc, uint sp) {
   }
 
   void interrupt() {
-    if (1)
+    if (logging)
       dprintf(2, "interrupt <\n");
     xsp -= tsp;
     tsp = fsp = 0;
@@ -653,7 +651,7 @@ void cpu(uint pc, uint sp) {
   }
 
   void fixsp() {
-    if (1)
+    if (logging)
       dprintf(2, "fixsp <\n");
     if (p = tw[(v = xsp - tsp) >> 12]) {
       tsp = (xsp = v ^ (p - 1)) - v;
@@ -664,7 +662,7 @@ void cpu(uint pc, uint sp) {
   }
 
   void chkpc() {
-    if (1)
+    if (logging)
       dprintf(2, "chkpc <\n");
     if ((uint)xpc == fpc) {
       follower = &fixpc;
@@ -676,7 +674,7 @@ void cpu(uint pc, uint sp) {
   }
 
   void fixpc() {
-    if (1)
+    if (logging)
       dprintf(2, "fixpc <\n");
     if (!(p = tr[(v = (uint)xpc - tpc) >> 12]) && !(p = rlook(v))) {
       trap = FIPAGE;
@@ -691,7 +689,7 @@ void cpu(uint pc, uint sp) {
   }
 
   void next() {
-    if (1)
+    if (logging)
       dprintf(2, "chkio <\n");
     if ((uint)xpc > xcycle) {
       cycle += delta;
@@ -740,11 +738,11 @@ void cpu(uint pc, uint sp) {
   void after() {
     ir = *((int *)xpc);
     xpc += 4;
-    if (1)
+    if (logging)
       dprintf(2, "ASM #%d : %u\n", ir & 0xFF, (uint)ir);
     switch ((uchar)(ir)) {
     case HALT:
-      if (user || verbose)
+      if (user)
         dprintf(2, "halt(%d) cycle = %u\n", a,
                 cycle + (int)((uint)xpc - xcycle) / 4);
       follower = 0;
@@ -2870,18 +2868,19 @@ void cpu(uint pc, uint sp) {
 
   follower = &fixpc;
   while (follower != 0) {
-    if (1)
-      dprintf(2, "cycle = %u pc = %08x ir = %08x sp = %08x a = "
-              "%u b = %u c = %u trap = %u paging = %d vadr = %u uf = %u ug = %u"
-              " sf = %d sg = %d\n",
-              cycle + (int)((uint)xpc - xcycle) / 4, (uint)xpc - tpc, ir,
-              xsp - tsp, a, b, c, trap, paging, vadr, (uint)f, (uint)g, (int)f, (int)g);
+    if (logging)
+      dprintf(
+          2, "cycle = %u pc = %08x ir = %08x sp = %08x a = "
+             "%u b = %u c = %u trap = %u paging = %d vadr = %u uf = %u ug = %u"
+             " sf = %d sg = %d\n",
+          cycle + (int)((uint)xpc - xcycle) / 4, (uint)xpc - tpc, ir, xsp - tsp,
+          a, b, c, trap, paging, vadr, (uint)f, (uint)g, (int)f, (int)g);
     (*follower)();
   }
 }
 
 void usage() {
-  dprintf(2, "%s : usage: %s [-v] [-m memsize] [-f filesys] file\n", cmd, cmd);
+  dprintf(2, "%s : usage: %s [-l] [-m memsize] [-f filesys] file\n", cmd, cmd);
   exit(-1);
 }
 
@@ -2902,8 +2901,8 @@ int main(int argc, char *argv[]) {
   fs = 0;
   while (--argc && *file == '-') {
     switch (file[1]) {
-    case 'v':
-      verbose = 1;
+    case 'l':
+      logging = 1;
       break;
     case 'm':
       memsz = atoi(*++argv) * (1024 * 1024);
@@ -2919,15 +2918,9 @@ int main(int argc, char *argv[]) {
     file = *++argv;
   }
 
-  if (verbose) {
-    dprintf(2, "mem size = %u\n", memsz);
-  }
   mem = (((int)new (memsz + 4096)) + 4095) & -4096;
 
   if (fs) {
-    if (verbose) {
-      dprintf(2, "%s : loading ram file system %s\n", cmd, fs);
-    }
     if ((f = open(fs, O_RDONLY)) < 0) {
       dprintf(2, "%s : couldn't open file system %s\n", cmd, fs);
       return -1;
@@ -2967,9 +2960,6 @@ int main(int argc, char *argv[]) {
   }
   close(f);
 
-  //  if (verbose) dprintf(2,"entry = %u text = %u data = %u bss = %u\n",
-  //  hdr.entry, hdr.text, hdr.data, hdr.bss);
-
   // setup virtual memory
   trk = (uint *)new (TB_SZ * sizeof(uint)); // kernel read table
   twk = (uint *)new (TB_SZ * sizeof(uint)); // kernel write table
@@ -2978,9 +2968,6 @@ int main(int argc, char *argv[]) {
   tr = trk;
   tw = twk;
 
-  if (verbose) {
-    dprintf(2, "%s : emulating %s\n", cmd, file);
-  }
   cpu(hdr.entry, memsz - FS_SZ);
   return 0;
 }

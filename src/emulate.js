@@ -1,5 +1,6 @@
 /*jslint
-    bitwise: true, node: true, stupid: true, nomen: true, white: true
+     bitwise: true, node: true, stupid: true,
+     nomen: true, white: true, maxlen: 80
  */
 
 "use strict";
@@ -282,7 +283,8 @@ var a = 0,
     f = 0,
     g = 0;
 
-var follower = 0,
+var cpu = 0,
+    follower = 0,
     fatal = 0,
     exception = 0,
     interrupt = 0,
@@ -303,8 +305,12 @@ function printch(ch) {
     return -1;
 }
 
+var pendkeys = [];
+
 function probekb() {
-    // TODO: Need to figure out how to poll & read in JS.
+    if (pendkeys.length > 0) {
+        return pendkeys.shift();
+    }
     return -1;
 }
 
@@ -512,7 +518,45 @@ function readhdr(filename) {
     return hdr;
 }
 
-function initcpu(pc, sp) {
+function tickcpu() {
+    var i;
+
+    for (i = 0; i < (1 << 15); i++) {
+        if (follower !== 0) {
+            a >>>= 0;
+            b >>>= 0;
+            c >>>= 0;
+            ssp >>>= 0;
+            usp >>>= 0;
+            xpc >>>= 0;
+            tpc >>>= 0;
+            fpc >>>= 0;
+            xsp >>>= 0;
+            tsp >>>= 0;
+            fsp >>>= 0;
+            trap >>>= 0;
+            delta >>>= 0;
+            cycle >>>= 0;
+            xcycle >>>= 0;
+            timer >>>= 0;
+            timeout >>>= 0;
+            if (logging) {
+                console.log("cycle = %d pc = %s ir = %s sp = %s" +
+                    " a = %d b = %d c = %d trap = %d paging = %d vadr = %d" +
+                    " uf = %d ug = %d sf = %d sg = %d",
+                    (cycle + ((xpc - xcycle) | 0) / 4) >>> 0, hex(xpc - tpc),
+                    hex(ir), hex(xsp - tsp), a, b, c, trap, paging, vadr >>> 0,
+                    f >>> 0, g >>> 0, f | 0, g | 0);
+            }
+            follower();
+        } else {
+            clearInterval(cpu);
+            break;
+        }
+    }
+}
+
+function firecpu(pc, sp) {
     fatal = function() {
         if (logging) {
             console.log("fatal <");
@@ -789,7 +833,6 @@ function initcpu(pc, sp) {
                     }
                     p = a ^ (p & -2);
                     t = b ^ (t & -2);
-                    // incorrect: t = mem.slice(p, p + u).compare(mem.slice(t, t + u));
                     t = memcmp(mem.slice(p, p + u), mem.slice(t, t + u));
                     if (t) {
                         a = t;
@@ -3032,7 +3075,8 @@ function initcpu(pc, sp) {
                     break;
                 }
                 if (ir >> 8) {
-                    console.log("timer%d=%u timeout=%u\n", ir >> 8, timer, timeout);
+                    console.log("timer%d=%d timeout=%d\n",
+                        ir >> 8, timer, timeout);
                     follower = chkpc;
                     return;
                 }
@@ -3094,37 +3138,7 @@ function initcpu(pc, sp) {
     f = 0.0;
     g = 0.0;
     follower = fixpc;
-}
-
-function tickcpu() {
-    if (follower !== 0) {
-        a >>>= 0;
-        b >>>= 0;
-        c >>>= 0;
-        ssp >>>= 0;
-        usp >>>= 0;
-        xpc >>>= 0;
-        tpc >>>= 0;
-        fpc >>>= 0;
-        xsp >>>= 0;
-        tsp >>>= 0;
-        fsp >>>= 0;
-        trap >>>= 0;
-        delta >>>= 0;
-        cycle >>>= 0;
-        xcycle >>>= 0;
-        timer >>>= 0;
-        timeout >>>= 0;
-        if (logging) {
-            console.log("cycle = %d pc = %s ir = %s sp = %s" +
-                " a = %d b = %d c = %d trap = %d paging = %d vadr = %d" +
-                " uf = %d ug = %d sf = %d sg = %d",
-                (cycle + ((xpc - xcycle) | 0) / 4) >>> 0, hex(xpc - tpc), hex(ir),
-                hex(xsp - tsp), a, b, c, trap, paging, vadr >>> 0, f >>> 0, g >>> 0,
-                f | 0, g | 0);
-        }
-        follower();
-    }
+    cpu = setInterval(tickcpu, 5);
 }
 
 function main(argv) {
@@ -3156,9 +3170,7 @@ function main(argv) {
     twu = Buffer.alloc(TB_SZ * 4);
     tr = trk;
     tw = twk;
-    initcpu(hdr.entry, memsz - FS_SZ);
-    while (true)
-        tickcpu();
+    firecpu(hdr.entry, memsz - FS_SZ);
     return 0;
 }
 
