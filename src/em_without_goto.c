@@ -2872,9 +2872,10 @@ void cpu(uint pc, uint sp) {
   while (follower != 0) {
     if (1)
       dprintf(2, "cycle = %u pc = %08x ir = %08x sp = %08x a = "
-                 "%u b = %u c = %u trap = %u paging = %d vadr = %u\n",
+              "%u b = %u c = %u trap = %u paging = %d vadr = %u uf = %u ug = %u"
+              " sf = %d sg = %d\n",
               cycle + (int)((uint)xpc - xcycle) / 4, (uint)xpc - tpc, ir,
-              xsp - tsp, a, b, c, trap, paging, vadr);
+              xsp - tsp, a, b, c, trap, paging, vadr, (uint)f, (uint)g, (int)f, (int)g);
     (*follower)();
   }
 }

@@ -2117,7 +2117,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                mem.writeDoubleLE(a, (v ^ p) & -8);
+                mem.writeDoubleLE(f, (v ^ p) & -8);
                 follower = chkpc;
                 return;
             case SGF:
@@ -2129,7 +2129,7 @@ function cpu(pc, sp) {
                         break;
                     }
                 }
-                mem.writeFloatLE(a, (v ^ p) & -4);
+                mem.writeFloatLE(f, (v ^ p) & -4);
                 follower = chkpc;
                 return;
             case SX:
@@ -3088,9 +3088,11 @@ function cpu(pc, sp) {
         timeout >>>= 0;
         if (1) {
             console.log("cycle = %d pc = %s ir = %s sp = %s" +
-                " a = %d b = %d c = %d trap = %d paging = %d vadr = %d",
+                " a = %d b = %d c = %d trap = %d paging = %d vadr = %d" +
+                " uf = %d ug = %d sf = %d sg = %d",
                 (cycle + ((xpc - xcycle) | 0) / 4) >>> 0, hex(xpc - tpc), hex(ir),
-                hex(xsp - tsp), a, b, c, trap, paging, vadr >>> 0);
+                hex(xsp - tsp), a, b, c, trap, paging, vadr >>> 0, f >>> 0, g >>> 0,
+                f | 0, g | 0);
         }
         follower();
     }
