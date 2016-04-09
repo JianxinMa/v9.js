@@ -308,7 +308,7 @@ function printch(ch) {
 var pendkeys = [];
 
 function probekb() {
-    if (pendkeys.length > 0) {
+    if (pendkeys[0]) {
         return pendkeys.shift();
     }
     return -1;
@@ -318,8 +318,9 @@ function memcmp(a, b) {
     var i, j, x, y;
 
     j = a.length;
-    if (j > b.length) {
-        j = b.length;
+    i = b.length;
+    if (j > i) {
+        j = i;
     }
     for (i = 0; i < j; i = i + 1) {
         x = a.readUInt8(i);
