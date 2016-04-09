@@ -277,6 +277,23 @@ function probekb() {
     return -1;
 }
 
+function memcmp(a, b) {
+    var i, j, x, y;
+
+    j = a.length;
+    if (j > b.length) {
+        j = b.length;
+    }
+    for (i = 0; i < j; i = i + 1) {
+        x = a.readUInt8(i);
+        y = b.readUInt8(i);
+        if (x !== y) {
+            return x - y;
+        }
+    }
+    return 0;
+}
+
 function cleartlb() {
     var v;
 
@@ -496,7 +513,7 @@ function cpu(pc, sp) {
         }
         console.log("processor halted! cycle = %d pc = %s ir = %s sp = %s" +
             " a = %d b = %d c = %d trap = %d\n",
-            cycle + (xpc - xcycle) / 4, hex(xpc - tpc), hex(ir),
+            (cycle + ((xpc - xcycle) | 0) / 4) >>> 0, hex(xpc - tpc), hex(ir),
             hex(xsp - tsp), a, b, c, trap);
         follower = 0;
     };
@@ -617,7 +634,7 @@ function cpu(pc, sp) {
                     kbchar = ch;
                     if (kbchar === '`'.charCodeAt(0)) {
                         console.log("ungraceful exit. cycle = %d\n",
-                            cycle + (xpc - xcycle) / 4);
+                            (cycle + ((xpc - xcycle) | 0) / 4) >>> 0);
                         follower = 0;
                         return;
                     }
@@ -658,7 +675,7 @@ function cpu(pc, sp) {
             case HALT:
                 if (user || verbose) {
                     console.log("halt(%d) cycle = %d\n",
-                        a, cycle + (xpc - xcycle) / 4);
+                        a, (cycle + ((xpc - xcycle) | 0) / 4) >>> 0);
                 }
                 follower = 0;
                 return;
@@ -677,7 +694,7 @@ function cpu(pc, sp) {
                         kbchar = ch;
                         if (kbchar === '`'.charCodeAt(0)) {
                             console.log("ungraceful exit. cycle = %d\n",
-                                cycle + (xpc - xcycle) / 4);
+                                (cycle + ((xpc - xcycle) | 0) / 4) >>> 0);
                             follower = 0;
                             return;
                         }
@@ -766,7 +783,8 @@ function cpu(pc, sp) {
                     }
                     p = a ^ (p & -2);
                     t = b ^ (t & -2);
-                    t = mem.slice(p, p + u).compare(mem.slice(t, t + u));
+                    // incorrect: t = mem.slice(p, p + u).compare(mem.slice(t, t + u));
+                    t = memcmp(mem.slice(p, p + u), mem.slice(t, t + u));
                     if (t) {
                         a = t;
                         b = b + c;
@@ -2833,19 +2851,19 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case CID:
-                f = a;
+                f = a | 0;
                 follower = chkpc;
                 return;
             case CUD:
-                f = a;
+                f = a >>> 0;
                 follower = chkpc;
                 return;
             case CDI:
-                a = f;
+                a = f | 0;
                 follower = chkpc;
                 return;
             case CDU:
-                a = f;
+                a = f >>> 0;
                 follower = chkpc;
                 return;
             case BIN:
@@ -2881,7 +2899,7 @@ function cpu(pc, sp) {
                 follower = chkpc;
                 return;
             case CYC:
-                a = (cycle + Math.floor((xpc - xcycle) / 4));
+                a = (cycle + ((xpc - xcycle) | 0) / 4) >>> 0;
                 follower = chkpc;
                 return;
             case MSIZ:
@@ -3071,7 +3089,7 @@ function cpu(pc, sp) {
         if (1) {
             console.log("cycle = %d pc = %s ir = %s sp = %s" +
                 " a = %d b = %d c = %d trap = %d paging = %d vadr = %d",
-                cycle + (xpc - xcycle) / 4, hex(xpc - tpc), hex(ir),
+                (cycle + ((xpc - xcycle) | 0) / 4) >>> 0, hex(xpc - tpc), hex(ir),
                 hex(xsp - tsp), a, b, c, trap, paging, vadr >>> 0);
         }
         follower();
