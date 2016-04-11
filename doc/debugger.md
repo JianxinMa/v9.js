@@ -27,7 +27,7 @@ Here I will describe where to store this information and how does the format loo
 
 ### Where to store the information?
 
-First we need to review the format currently used for an executable file. And we assume little-endian here. Say we have an executable file called `a.out` generated from `a.c`. `a.o` contains three parts:
+First we need to review the format currently used for an executable file. And we assume little-endian here. Say we have an executable file called `a.out` generated from `a.c`. `a.out` contains three parts:
 ```
 | hdr | text | data |
 ```
@@ -40,9 +40,23 @@ First we need to review the format currently used for an executable file. And we
 - `data` is loaded into memory immediately after `text`.
 
 To support debugging, the compiler is required to:
-- Store debugging information to another file, e.g. `a.dbg`.
-- Store a C-style string terminated by '\0' at (virtual) address 0x0, i.e. the start of .text. The string contains the path to `a.dbg`.
+- Store debugging information to another file, e.g. `a.out.dsym`.
+- Store a C-style string terminated by '\0' at (virtual) address 0x0, i.e. the start of .text. The string contains the path to `a.out.dsym`.
 
-Now, every time page tables are changed, the emulator can simply peek at 0x0 and load `a.dbg` to find necessary information.
+Now, every time page tables are changed, the emulator can simply peek at 0x0 and load `a.out.dsym` to find necessary information.
 
 ### What is the format then?
+
+`a.out.dsym` is simply a normal ASCII text file. Say .text contains n instructions. Then there should be n blocks, each of which corresponds to a single instruction. A block should look like this, where whatever after `#` are comments:
+
+```
+A 0x00010000    # Virtual address of a instruction.
+F a.c           # Source file name, can be empty.
+C 123           # Line number, can be empty.
+L x -24         # L means it is an argument or local variable. Here x is stored at %ebp-24.
+L y 16          # There can be many mnay arguments and/or lcoal variables.
+G f 0x01234567  # G means f is a global variable, and it is stored at 0x01234567.
+G g 0x02345678  # There can be many global variables.
+```
+
+To be discussed: to include or not to include type information?
