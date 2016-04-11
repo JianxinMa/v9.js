@@ -51,12 +51,14 @@ Now, every time page tables are changed, the emulator can simply peek at 0x0 and
 
 ```
 A 0x00010000    # Virtual address of a instruction.
-F a.c           # Source file name, can be empty.
-C 123           # Line number, can be empty.
+F a.c           # Source file name, might not exist.
+C 123           # Line number, might not exist.
 L x -24         # L means it is an argument or local variable. Here x is stored at %ebp-24.
 L y 16          # There can be many mnay arguments and/or lcoal variables.
 G f 0x01234567  # G means f is a global variable, and it is stored at 0x01234567.
 G g 0x02345678  # There can be many global variables.
 ```
+
+Orders of `F C L G` are not important. Yet every block should be led by an `A`.
 
 To be discussed: to include or not to include type information?
