@@ -54,13 +54,12 @@ A 0x00010000    # Virtual address of a instruction.
 F a.c           # Source file name, might not exist.
 L 123           # Line number, might not exist.
 C myfunc        # Which function this instruction lies in.
-V x -24         # L means it is an argument or local variable. Here x is stored at %ebp-24.
-V y 16          # There can be many mnay arguments and/or lcoal variables.
+V mylocal -24         # L means it is an argument or local variable. Here mylocal is stored at %ebp-24.
+V myotherlocal 16          # There can be many mnay arguments and/or lcoal variables.
 ```
 Orders of `F L C V` are not important. Yet every block should be led by an `A` term.
 
 Besides these n blocks. Each global variable  corresponds to a term led by `G`.
 ```
-G f 0x01234567  # G means f is a global variable, and it is stored at 0x01234567.
+G myglobe 0x01234567  # G means myglobe is a global variable, and it is stored at 0x01234567.
 ```
-
