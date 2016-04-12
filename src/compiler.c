@@ -357,6 +357,8 @@ int tk,       // current token
     *pdata,   // data segment patchup pointer
     *pbss;    // bss segment patchup pointer
 
+int symfd;
+
 ident_t *id; // current parsed identifier
 double fval; // current token double value
 uint ty,     // current parsed subexpression type
@@ -578,11 +580,20 @@ char *mapfile(char *name, int size) // XXX replace with mmap
   return p;
 }
 
+void printdsym() {
+  if (symfd) {
+    dprintf(symfd, "A 0x%08x\n", ip - ts);
+    dprintf(symfd, "F %s\n", file);
+    dprintf(symfd, "L %d\n", line);
+  }
+}
+
 // instruction emitter
 void em(int i) {
   if (debug) {
     printf("%08x  %08x%6.4s\n", ip - ts, i, &ops[i * 5]);
   }
+  printdsym();
   *(int *)ip = i;
   ip += 4;
 }
@@ -592,6 +603,7 @@ void emi(int i, int c) {
   }
   if (c << 8 >> 8 != c)
     err("emi() constant out of bounds");
+  printdsym();
   *(int *)ip = i | (c << 8);
   ip += 4;
 }
@@ -938,7 +950,9 @@ void next() {
             default:
               break;
             }
-            // XXX			b = (char) b; // make sure 0xFF becomes -1 XXX
+            // XXX			b = (char) b; // make sure 0xFF becomes
+            // -1
+            // XXX
             // do
             // some
             // other way!
@@ -4319,6 +4333,7 @@ int main(int argc, char *argv[]) {
   int i, amain, text, *patchdata, *patchbss, sbrk_start;
   ident_t *tmain;
   char *outfile;
+  char *symfile;
   struct {
     uint magic, bss, entry, flags;
   } hdr;
@@ -4329,6 +4344,7 @@ int main(int argc, char *argv[]) {
     goto usage;
   }
   outfile = 0;
+  symfile = 0;
   file = *++argv;
   while (--argc && *file == '-') {
     switch (file[1]) {
@@ -4347,6 +4363,12 @@ int main(int argc, char *argv[]) {
         argc--;
         break;
       }
+    case 'd':
+      if (argc > 1) {
+        symfile = *++argv;
+        argc--;
+        break;
+      }
     default:
     usage:
       dprintf(2, "usage: %s [-v] [-s] [-Ipath] [-o exefile] file ...\n", cmd);
@@ -4362,6 +4384,20 @@ int main(int argc, char *argv[]) {
 
   bigend = 1;
   bigend = ((char *)&bigend)[3];
+
+  if (symfile) {
+    ip = ts + 256;
+    *((uint *)ts) = 0xFF3223FF;
+    for (i = 4; i < 256; i++) {
+      *((char *)(ts + i)) = 0;
+    }
+    strcpy((char *)(ts + 4), symfile);
+    symfd = open(symfile, O_WRONLY | O_CREAT | O_TRUNC);
+    if (symfd < 0) {
+      dprintf(2, "%s : error: can't open symbol file %s\n", cmd, symfile);
+      return -1;
+    }
+  }
 
   pos = "asm auto break case char continue default do double else enum float "
         "for goto if int long return short "
@@ -4426,6 +4462,9 @@ int main(int argc, char *argv[]) {
     while (pbss != patchbss) {
       pbss--;
       *(int *)*pbss += (ip + data - *pbss - 4) << 8;
+    }
+    if (symfd) {
+      close(symfd);
     }
     if (outfile) {
       if ((i = open(outfile, O_WRONLY | O_CREAT | O_TRUNC)) < 0) {
