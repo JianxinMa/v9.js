@@ -8,5 +8,5 @@ body {
 
 .CodeMirror {
     border: 1px solid #aaa;
-    height: auto;
+    height: available;
 }
