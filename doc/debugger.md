@@ -41,7 +41,7 @@ First we need to review the format currently used for an executable file. And we
 
 To support debugging, the compiler is required to:
 - Store debugging information to another file, e.g. `a.out.dsym`.
-- Store a C-style string terminated by '\0' at (virtual) address 0x0, i.e. the start of .text. The string contains the path to `a.out.dsym`.
+- Store a C-style string terminated by '\0' at (virtual) address 0x0, i.e. the start of .text. The string contains the path to `a.out.dsym`. Currently, I preserve the first 256 bytes for this purpose.
 
 Now, every time page tables are changed, the emulator can simply peek at 0x0 and load `a.out.dsym` to find necessary information.
 
