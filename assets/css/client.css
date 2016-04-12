@@ -1,0 +1,12 @@
+body {
+    padding-top: 50px;
+}
+
+.breakpoints {
+    width: .8em;
+}
+
+.CodeMirror {
+    border: 1px solid #aaa;
+    height: auto;
+}
