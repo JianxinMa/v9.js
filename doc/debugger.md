@@ -33,15 +33,18 @@ First we need to review the format currently used for an executable file. And we
 ```
 - The 16-byte header `hdr` consists of four 32-bit integers. The four integers are consecutively:
   - `magic` just `0xC0DEF00D` for the current format in use.
-  - `bss` is the length of the .bss section. Since variables in .bss are initialized with zero, only the size, rather than the whole image, of .bss is required. Used by the operating system, not the emulator.
+  - `bss` is the length of the .bss section. Since variables in .bss are initialized with zero, only the size, rather than the whole image, of .bss is required. Used by the operating system, not the simulator.
   - `entry` stores the address (virtual if paging is enabled) of the entry point, i.e. the first PC value.
-  - `flags` currently can only be `0`.
+  - `flags` currently is set to `0`, and used by neither the simulator nor the OS.
 - The `text` section is, of course, code. After loaded into memory, the start of text is at address 0 (virtual if paging is enabled).
 - `data` is loaded into memory immediately after `text`.
 
 To support debugging, the compiler is required to:
 - Store debugging information to another file, e.g. `a.out.dsym`.
-- Store a C-style string terminated by '\0' at (virtual) address 0x0, i.e. the start of .text. The string contains the path to `a.out.dsym`. Currently, I preserve the first 256 bytes for this purpose.
+- Store a magic 32-bit number at (virtual) address 0x0, i.e. the start of .text. Currently I use `0xFF3223FF` because 0xFF is not a valid instruction prefix. 
+- Store a C-style string terminated by '\0' at (virtual) address 0x0, i.e. the start of .text. The string contains the path to `a.out.dsym`. 
+
+Currently, I preserve the first 256 bytes for the magic number and the path string.
 
 Now, every time page tables are changed, the emulator can simply peek at 0x0 and load `a.out.dsym` to find necessary information.
 
