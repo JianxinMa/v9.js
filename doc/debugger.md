@@ -17,12 +17,11 @@ We want to implement the following features:
 
 ## Support from Operating System
 
+In fact, we don't need to modify the existing OS for debugging support. But if you're interested, keep reading.
+
 First you need to know that how the current `exec` is implemented in the OS. When you power on the system, and enter `ls` in the shell. The shell will use a fork trap to first fork itself and use another exec trap to "execuate `ls`". The OS does jumps to `exec`. However, `exec`, in fact, does not load a exectuable binary program `ls` directly. Instead, it load the C compiler (`/bin/c`). This C compiler will compile `/bin/ls.c` on the fly and run the compiled result directly while staying in exactly the same process.
 
-Therefore, we need to the OS to:
-- Change the `exec` implementation. Load `/bin/ls` directly, rather than ask `/bin/c` to run `/bin/ls.c`. We will provide the `/bin/ls` binary program by using a cross-platform compiler to compile `ls.c` in advance.
-
-Hint: When you first `c -o hello hello.c` in the shell and use `./hello` to run the program, the OS does load the `./hello` binary program directly. This is differnt from excuting `ls`, `cp`, etc.
+Fortunately, the OS will try `/bin/ls` before compiling `/bin/ls.c`. So we can just cross compile `/bin/ls.c` in advance to avoid on-the-fly compiling.
 
 ## Support from Compiler
 
