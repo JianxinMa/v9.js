@@ -30,5 +30,6 @@
     });
 
     github = new Github();
-    repo = github.getRepo("JianixnMa", "v9.js");
+    repo = github.getRepo("JianxinMa", "v9.js");
+    repo.read('master', '', function(err, data) {console.log(err); console.log(data);});
 })();
