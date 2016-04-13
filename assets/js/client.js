@@ -8,6 +8,7 @@ var files;
     var editor, terminal, monitor, usrName, repoName, brName, repo;
 
     editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
+        readOnly: true,  // not ready yet
         mode: "text/x-csrc",
         styleActiveLine: true,
         lineNumbers: true,
@@ -37,7 +38,11 @@ var files;
     usrName = "JianxinMa";
     repoName = "v9.js";
     brName = "gh-pages";
-    repo = (new Github({})).getRepo(usrName, repoName);
+    repo = (new Github({
+//        username: "v9os",
+//        password:
+//        auth: "basic"
+    })).getRepo(usrName, repoName);
     repo.getTree(brName + "?recursive=true", function(err, tree) {
         var len;
 
