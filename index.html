@@ -56,9 +56,8 @@
         <div class="container-fluid" style="margin-top:10px">
             <div class="row">
                 <div class="col-sm-3 col-md-2 sidebar">
-                    <ul class="nav nav-sidebar">
-                        <li class="active"><a href="#">Fetching files... </a></li>
-                        <li><a href="#"></a></li>
+                    <ul class="nav nav-sidebar" id="files">
+                        <li class="active" id="fetchingfiles"><a href="#">Fetching files... </a></li>
                     </ul>
                     <div class="row">
                         <div class="btn-group btn-block">
@@ -72,25 +71,25 @@
                     <div class="row" style="margin-top:-5px; margin-bottom: -15px">
                         <div class="panel panel-primary">
                             <div class="panel-heading">
-                                <h3 class="panel-title">Panel title</h3>
+                                <h3 class="panel-title">Editor</h3>
                             </div>
-                            <textarea id="editor">int main() { return 0; }</textarea>
+                            <textarea id="editor">// Fetching files ... </textarea>
                         </div>
                     </div>
                     <div class="row" style="margin-top:-5px; margin-bottom: -15px">
                         <div class="panel panel-default">
                             <div class="panel-heading">
-                                <h3 class="panel-title">Panel title</h3>
+                                <h3 class="panel-title">Terminal</h3>
                             </div>
-                            <textarea id="terminal">I am a terminal!</textarea>
+                            <textarea id="terminal">CPU not running.</textarea>
                         </div>
                     </div>
                     <div class="row" style="margin-top:-5px; margin-bottom: -5px">
                         <div class="panel panel-default">
                             <div class="panel-heading">
-                                <h3 class="panel-title">Panel title</h3>
+                                <h3 class="panel-title">Monitor</h3>
                             </div>
-                            <p id="debugger">null</p>
+                            <textarea id="monitor">CPU not running.</textarea>
                         </div>
                     </div>
                 </div>
