@@ -53,35 +53,59 @@
             </div>
         </nav>
 
-        <div class="container" style="margin-top:10px">
+        <div class="container-fluid" style="margin-top:10px">
             <div class="row">
-                <div class="col-xs-12 col-sm-3 sidebar-offcanvas" id="sidebar">
+                <div class="col-sm-3 col-md-2 sidebar">
+                    <ul class="nav nav-sidebar">
+                        <li class="active"><a href="#">Overview <span class="sr-only">(current)</span></a></li>
+                        <li><a href="#">Reports</a></li>
+                        <li><a href="#">Analytics</a></li>
+                        <li><a href="#">Export</a></li>
+                    </ul>
+                    <ul class="nav nav-sidebar">
+                        <li><a href="">Nav item</a></li>
+                        <li><a href="">Nav item again</a></li>
+                        <li><a href="">One more nav</a></li>
+                        <li><a href="">Another nav item</a></li>
+                        <li><a href="">More navigation</a></li>
+                    </ul>
+                    <ul class="nav nav-sidebar">
+                        <li><a href="">Nav item again</a></li>
+                        <li><a href="">One more nav</a></li>
+                        <li><a href="">Another nav item</a></li>
+                    </ul>
                     <div class="row">
+                        <div class="btn-group btn-block">
+                            <button type="button" class="btn btn-default col-xs-4" style="color:#428bca">Step</button>
+                            <button type="button" class="btn btn-default col-xs-4" style="color:#428bca">Continue</button>
+                            <button type="button" class="btn btn-default col-xs-4" style="color:#428bca">Run </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+                    <div class="row" style="margin-top:-5px; margin-bottom: -15px">
                         <div class="panel panel-primary">
                             <div class="panel-heading">
                                 <h3 class="panel-title">Panel title</h3>
                             </div>
-                            <div class="list-group">
-                                <a href="#" class="list-group-item">Cras justo odio</a>
-                                <a href="#" class="list-group-item">Dapibus ac facilisis in</a>
-                                <a href="#" class="list-group-item">Morbi leo risus</a>
-                                <a href="#" class="list-group-item">Porta ac consectetur ac</a>
-                                <a href="#" class="list-group-item">Vestibulum at eros</a>
+                            <textarea id="editor">int main() { return 0; }</textarea>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-top:-5px; margin-bottom: -15px">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <h3 class="panel-title">Panel title</h3>
                             </div>
+                            <textarea id="terminal">I am a terminal!</textarea>
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="btn-group btn-block">
-                            <button type="button" class="btn btn-primary col-xs-3">Kill</button>
-                            <button type="button" class="btn btn-primary col-xs-3">Step</button>
-                            <button type="button" class="btn btn-primary col-xs-3">Cont</button>
-                            <button type="button" class="btn btn-primary col-xs-3">Run</button>
+                    <div class="row" style="margin-top:-5px; margin-bottom: -5px">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <h3 class="panel-title">Panel title</h3>
+                            </div>
+                            <p id="debugger">null</p>
                         </div>
-                    </div>
-                </div>
-                <div class="col-xs-12 col-sm-9">
-                    <div>
-                        <textarea id=editor></textarea>
                     </div>
                 </div>
             </div>

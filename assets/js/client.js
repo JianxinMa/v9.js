@@ -4,7 +4,6 @@
     //        socket.send('hi');
     //        socket.on('message', function(msg) {});
     var editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
-        value: "function myScript(){return 100;}\n",
         mode: "text/x-csrc",
         styleActiveLine: true,
         lineNumbers: true,
@@ -21,4 +20,7 @@
         marker.innerHTML = "●";
         return marker;
     }
+    var terminal = CodeMirror.fromTextArea(document.getElementById("terminal"), {
+        readOnly: true
+    });
 })();
