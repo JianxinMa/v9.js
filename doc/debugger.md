@@ -22,6 +22,8 @@ First you need to know that how the current `exec` is implemented in the OS. Whe
 Therefore, we need to the OS to:
 - Change the `exec` implementation. Load `/bin/ls` directly, rather than ask `/bin/c` to run `/bin/ls.c`. We will provide the `/bin/ls` binary program by using a cross-platform compiler to compile `ls.c` in advance.
 
+Hint: When you first `c -o hello hello.c` in the shell and use `./hello` to run the program, the OS does load the `./hello` binary program directly. This is differnt from excuting `ls`, `cp`, etc.
+
 ## Support from Compiler
 
 Compilers are required to generate necessary symbolic information for debugging support. 
