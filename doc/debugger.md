@@ -17,7 +17,10 @@ We want to implement the following features:
 
 ## Support from Operating System
 
-Currently we don't need support from the operating system.
+First you need to know that how the current `exec` is implemented in the OS. When you power on the system, and enter `ls` in the shell. The shell will use a fork trap to first fork itself and use another exec trap to "execuate `ls`". The OS does jumps to `exec`. However, `exec`, in fact, does not load a exectuable binary program `ls` directly. Instead, it load the C compiler (`/bin/c`). This C compiler will compile `/bin/ls.c` on the fly and run the compiled result directly while staying in exactly the same process.
+
+Therefore, we need to the OS to:
+- Change the `exec` implementation. Load `/bin/ls` directly, rather than ask `/bin/c` to run `/bin/ls.c`. We will provide the `/bin/ls` binary program by using a cross-platform compiler to compile `ls.c` in advance.
 
 ## Support from Compiler
 
