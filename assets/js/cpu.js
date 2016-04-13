@@ -1,5 +1,5 @@
 /*jslint bitwise:true browser:true maxlen:80 white:true */
-/*global Buffer */
+/*global buffer */
 
 "use strict";
 
@@ -39,7 +39,7 @@ var v9 = {};
         vadr = 0, // bad virtual address
         paging = 0, // virtual memory enabled
         pdir = 0, // page directory
-        tpage = Buffer.alloc(TPAGES * 4), // valid page translations
+        tpage = 0, // valid page translations
         tpages = 0, // number of cached page translations
         trk = 0, // kernel read page translation tables
         twk = 0, // kernel write page translation tables
@@ -3695,7 +3695,8 @@ var v9 = {};
     function loados(osbuf) {
         var hdrbuf, hdr;
 
-        hdrbuf = Buffer.alloc(16);
+        hdrbuf = new buffer.Buffer(16);
+        hdrbuf.fill(0);
         osbuf(hdrbuf, 0, 0, 16);
         hdr = {
             magic: hdrbuf.readUInt32LE(0),
@@ -3735,15 +3736,22 @@ var v9 = {};
         kbinit(pendkeys);
         putstr = putstrimpl;
         memsz = MEM_SZ;
-        mem = Buffer.alloc(memsz);
-        trk = Buffer.alloc(TB_SZ * 4);
-        twk = Buffer.alloc(TB_SZ * 4);
-        tru = Buffer.alloc(TB_SZ * 4);
-        twu = Buffer.alloc(TB_SZ * 4);
+        mem = new buffer.Buffer(memsz);
+        mem.fill(0);
+        trk = new buffer.Buffer(TB_SZ * 4);
+        trk.fill(0);
+        twk = new buffer.Buffer(TB_SZ * 4);
+        twk.fill(0);
+        tru = new buffer.Buffer(TB_SZ * 4);
+        tru.fill(0);
+        twu = new buffer.Buffer(TB_SZ * 4);
+        twu.fill(0);
+        tpage = new buffer.Buffer(TPAGES * 4);
+        tpage.fill(0);
         assemble();
     };
 
-    v9.fillos = function(osbuf, diskbuf) {
+    v9.fillimg = function(osbuf, diskbuf) {
         var hdr;
 
         mem.fill(0);
@@ -3754,6 +3762,20 @@ var v9 = {};
     };
 
     v9.reset = function() {
+        user = 0;
+        iena = 0;
+        ipend = 0;
+        trap = 0;
+        ivec = 0;
+        vadr = 0;
+        paging = 0;
+        pdir = 0;
+        tpages = 0;
+        tpage.fill(0);
+        trk.fill(0);
+        twk.fill(0);
+        tru.fill(0);
+        twu.fill(0);
         tr = trk;
         tw = twk;
         a = 0;
