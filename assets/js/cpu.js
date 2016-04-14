@@ -1,5 +1,5 @@
 /*jslint bitwise:true browser:true maxlen:80 white:true */
-/*global buffer */
+/*global buffer, Uint8Array */
 
 "use strict";
 
@@ -101,7 +101,7 @@ var v9 = {};
     }
 
     function printch(ch) {
-        if (putstr(String.fromCharCode(ch))) {
+        if (putstr(1, String.fromCharCode(ch))) {
             return 1;
         }
         return -1;
@@ -238,7 +238,7 @@ var v9 = {};
 
     function execHALT() {
         if (user) {
-            putstr("halt(" + a.toString() + ") cycle = " +
+            putstr(2, "halt(" + a.toString() + ") cycle = " +
                 ((cycle + ((xpc - xcycle) | 0) / 4) >>> 0).toString() + "\n");
         }
         follower = 0;
@@ -263,7 +263,7 @@ var v9 = {};
             if (ch !== -1) {
                 kbchar = ch;
                 if (kbchar === '`'.charCodeAt(0)) {
-                    putstr("ungraceful exit. cycle = " +
+                    putstr(2, "ungraceful exit. cycle = " +
                         ((cycle + ((xpc - xcycle) | 0) / 4) >>> 0).toString() +
                         "\n");
                     follower = 0;
@@ -3100,7 +3100,7 @@ var v9 = {};
             return;
         }
         if (a !== 1) {
-            putstr("bad write a=" + a.toString() + "\n");
+            putstr(2, "bad write a=" + a.toString() + "\n");
             follower = 0;
             return;
         }
@@ -3185,7 +3185,7 @@ var v9 = {};
         if (!p) {
             p = (rlook(xsp));
             if (!p) {
-                putstr("RTI kstack fault\n");
+                putstr(2, "RTI kstack fault\n");
                 follower = fatal;
                 return;
             }
@@ -3196,7 +3196,7 @@ var v9 = {};
         if (!p) {
             p = (rlook(xsp));
             if (!p) {
-                putstr("RTI kstack fault\n");
+                putstr(2, "RTI kstack fault\n");
                 follower = fatal;
                 return;
             }
@@ -3279,7 +3279,7 @@ var v9 = {};
             return;
         }
         if (ir >> 8) {
-            putstr("timer" + (ir >> 8).toString() + "=" + timer.toString() +
+            putstr(2, "timer" + (ir >> 8).toString() + "=" + timer.toString() +
                 " timeout=" + timeout.toString() + "\n");
             follower = chkpc;
             return;
@@ -3329,7 +3329,7 @@ var v9 = {};
     }
 
     function execDefault() {
-        putstr((ir & 0xFF).toString() + " not implemented!\n");
+        putstr(2, (ir & 0xFF).toString() + " not implemented!\n");
         trap = FINST;
         follower = exception;
         return;
@@ -3543,7 +3543,7 @@ var v9 = {};
         execs[207] = execFMOD;
         execs[208] = execIDLE;
         fatal = function() {
-            putstr("processor halted! cycle = " +
+            putstr(2, "processor halted! cycle = " +
                 ((cycle + ((xpc - xcycle) | 0) / 4) >>> 0).toString() +
                 " pc = " + hexstr(xpc - tpc) +
                 " ir = " + hexstr(ir) +
@@ -3556,7 +3556,7 @@ var v9 = {};
         };
         exception = function() {
             if (!iena) {
-                putstr("exception in interrupt handler\n");
+                putstr(2, "exception in interrupt handler\n");
                 follower = fatal;
             } else {
                 follower = interrupt;
@@ -3581,7 +3581,7 @@ var v9 = {};
             if (!p) {
                 p = wlook(xsp);
                 if (!p) {
-                    putstr("kstack fault!\n");
+                    putstr(2, "kstack fault!\n");
                     follower = fatal;
                     return;
                 }
@@ -3592,7 +3592,7 @@ var v9 = {};
             if (!p) {
                 p = wlook(xsp);
                 if (!p) {
-                    putstr("kstack fault\n");
+                    putstr(2, "kstack fault\n");
                     follower = fatal;
                     return;
                 }
@@ -3652,7 +3652,7 @@ var v9 = {};
                     if (ch !== -1) {
                         kbchar = ch;
                         if (kbchar === '`'.charCodeAt(0)) {
-                            putstr("ungraceful exit. cycle = %d\n",
+                            putstr(2, "ungraceful exit. cycle = %d\n",
                                 (cycle + ((xpc - xcycle) | 0) / 4) >>> 0);
                             follower = 0;
                             return;
@@ -3715,7 +3715,7 @@ var v9 = {};
             flags: hdrbuf.readUInt32LE(12)
         };
         if (hdr.magic !== 0xC0DEF00D) {
-            putstr("failed to boot: bad hdr.magic\n");
+            putstr(2, "failed to boot: bad hdr.magic\n");
             return -1;
         }
         j = osbuf.byteLength;
@@ -3824,13 +3824,14 @@ var v9 = {};
     };
 
     v9.run = function(cb) {
-        setInterval(function() {
+        cpu = setInterval(function() {
             var i;
 
             for (i = 0; i < (1 << 18); i = i + 1) {
                 if (follower === 0) {
                     clearInterval(cpu);
                     cpu = 0;
+                    v9.reset();
                     if (cb) {
                         cb();
                     }
@@ -3844,5 +3845,11 @@ var v9 = {};
 
     v9.running = function() {
         return cpu !== 0;
+    };
+
+    v9.kill = function() {
+        clearInterval(cpu);
+        cpu = 0;
+        v9.reset();
     };
 }());

@@ -1,4 +1,4 @@
-// Customized JQuery Console.
+// Heavily Customized JQuery Console.
 // Thu Apr 14 10:05:44 GMT 2016
 //
 // Copyright is not mine. Don't ask who I am. I have no rights anyway.
@@ -33,14 +33,6 @@
 // LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-
-// TESTED ON
-//   Internet Explorer 6
-//   Opera 10.01
-//   Chromium 4.0.237.0 (Ubuntu build 31094)
-//   Firefox 3.5.8, 3.6.2 (Mac)
-//   Safari 4.0.5 (6531.22.7) (Mac)
-//   Google Chrome 5.0.375.55 (Mac)
 
 (function($) {
     var isWebkit = !!~navigator.userAgent.indexOf(' AppleWebKit/');

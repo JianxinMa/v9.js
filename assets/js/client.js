@@ -4,7 +4,8 @@
 "use strict";
 
 (function() {
-    var files, editor, terminal, termInner, usrName, repoName, brName, repo, runBtn;
+    var files, editor, terminal, termInner,
+        usrName, repoName, brName, repo, runBtn;
 
     editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
         readOnly: true, // not ready yet
@@ -96,9 +97,11 @@
     });
     termInner = terminal.children(".jquery-console-inner");
 
-    v9.inithdr(function(msg) {
+    v9.inithdr(function(fd, msg) {
         var o;
-
+        if (fd == 2) {
+            console.log(msg);
+        }
         o = termInner.children(".jquery-console-message").last();
         o.html(o.html() +
             msg.replace(/\t/g, '&nbsp;&nbsp;').replace(/\n/g, '<br/>'));
@@ -120,10 +123,15 @@
                 socket.on('sendfs', function(fs) {
                     v9.fillimg(os.os, fs.fs);
                     v9.reset();
-                    v9.run();
+                    v9.run(function() {
+                        runBtn.text("Run");
+                    });
                     runBtn.text("Kill");
                 });
             });
+        } else {
+            v9.kill();
+            runBtn.text("Run");
         }
     });
 }());
