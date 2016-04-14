@@ -150,6 +150,11 @@
         var socket;
 
         if (!v9.running()) {
+            alert("Before you start the CPU. " +
+                "Do remember to set up a local server with 'node server.js' " +
+                "under the 'server' directory. " +
+                "And if you use Vimium or something like that, " +
+                "please turn it off for a while.");
             socket = io('http://localhost:8080');
             socket.emit('getos');
             socket.on('sendos', function(os) {
