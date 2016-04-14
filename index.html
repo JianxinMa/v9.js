@@ -69,7 +69,7 @@
                 </div>
                 <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
                     <div class="row" style="margin-top:-5px; margin-bottom: -15px">
-                        <div class="panel panel-primary">
+                        <div id="edpanel" class="panel panel-primary">
                             <div class="panel-heading">
                                 <h3 class="panel-title">Editor</h3>
                             </div>
@@ -77,12 +77,12 @@
                         </div>
                     </div>
                     <div class="row" style="margin-top:-5px; margin-bottom: -15px">
-                        <div class="panel panel-default">
+                        <div id="termpanel" class="panel panel-default">
                             <div class="panel-heading">
                                 <h3 class="panel-title">Terminal</h3>
                             </div>
-                            <div id="terminal">
-                                <div class="jquery-console-inner jquery-console-nofocus">
+                            <div tabindex="1" id="terminal">
+                                <div class="jquery-console-inner">
                                     <div class="jquery-console-message">
                                         <span id="termtext">No process running.</span><span class="blinking-cursor">&nbsp</span>
                                     </div>

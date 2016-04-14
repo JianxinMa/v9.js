@@ -60,26 +60,17 @@ body {
 
 #terminal {
     word-wrap: break-word;
-    font-size: 14px
+    font-size: 14px;
+    outline: 1px;
 }
 
 #terminal div.jquery-console-inner {
     width: auto;
-    height: 200px;
+    min-height: 200px;
+    height: auto;
     background: #333;
     padding: 0.5em;
     overflow: auto
-}
-
-#terminal div.jquery-console-prompt-box {
-    color: #fff;
-    font-family: monospace;
-}
-
-#terminal div.jquery-console-focus span.jquery-console-cursor {
-    background: #fefefe;
-    color: #333;
-    font-weight: bold
 }
 
 #terminal div.jquery-console-message {

@@ -3762,13 +3762,8 @@ var v9 = {};
         return probingkb;
     };
 
-    v9.putkbseq = function(str) {
-        var i, j;
-
-        j = str.length;
-        for (i = 0; i < j; i = i + 1) {
-            pendkeys.push(str.charCodeAt(i));
-        }
+    v9.putkbch = function(c) {
+        pendkeys.push(c);
     };
 
     v9.fillimg = function(osbuf, diskbuf) {
