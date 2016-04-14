@@ -1,11 +1,10 @@
 /*jslint white:true browser:true maxlen:80 */
-/*global CodeMirror, Github, $, v9 */
+/*global CodeMirror, Github, $, v9, io */
 
 "use strict";
-var files;
 
 (function() {
-    var editor, terminal, termInner, usrName, repoName, brName, repo, runBtn;
+    var files, editor, terminal, termInner, usrName, repoName, brName, repo, runBtn;
 
     editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
         readOnly: true, // not ready yet
@@ -111,9 +110,20 @@ var files;
 
     runBtn = $("#run");
     runBtn.click(function() {
+        var socket;
+
         if (!v9.running()) {
-            // ...
-            runBtn.text("Kill");
+            socket = io('http://localhost:8080');
+            socket.emit('getos');
+            socket.on('sendos', function(os) {
+                socket.emit('getfs');
+                socket.on('sendfs', function(fs) {
+                    v9.fillimg(os.os, fs.fs);
+                    v9.reset();
+                    v9.run();
+                    runBtn.text("Kill");
+                });
+            });
         }
     });
 }());

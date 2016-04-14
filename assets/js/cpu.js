@@ -3690,16 +3690,24 @@ var v9 = {};
     }
 
     function mntdisk(diskbuf) {
-        diskbuf.copy(mem, memsz - FS_SZ);
+        var i, j, view;
+
+        view = new Uint8Array(diskbuf);
+        j = diskbuf.byteLength;
+        for (i = 0; i < j; i = i + 1) {
+            mem[memsz - FS_SZ + i] = view[i];
+        }
         return 0;
     }
 
     function loados(osbuf) {
-        var hdrbuf, hdr;
+        var i, j, hdrbuf, hdr, view;
 
+        view = new Uint8Array(osbuf);
         hdrbuf = new buffer.Buffer(16);
-        hdrbuf.fill(0);
-        osbuf(hdrbuf, 0, 0, 16);
+        for (i = 0; i < 16; i = i + 1) {
+            hdrbuf[i] = view[i];
+        }
         hdr = {
             magic: hdrbuf.readUInt32LE(0),
             bss: hdrbuf.readUInt32LE(4),
@@ -3710,7 +3718,10 @@ var v9 = {};
             putstr("failed to boot: bad hdr.magic\n");
             return -1;
         }
-        osbuf(mem, 0, 16);
+        j = osbuf.byteLength;
+        for (i = 16; i < j; i = i + 1) {
+            mem[i - 16] = view[i];
+        }
         return hdr;
     }
 
