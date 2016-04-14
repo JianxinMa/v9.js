@@ -10,6 +10,10 @@ body {
     height: auto;
 }
 
+.CodeMirror-scroll {
+    max-height: 600px;
+}
+
 .navbar-fixed-top {
     border: 0;
 }

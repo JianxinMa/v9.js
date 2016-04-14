@@ -4,11 +4,10 @@
 "use strict";
 
 (function() {
-    var files, editor, termtext, terminal,
+    var files, editor, termtext, terminal, currentFileId = -1,
         usrName, repoName, brName, repo, runBtn;
 
     editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
-        readOnly: true, // not ready yet
         mode: "text/x-csrc",
         styleActiveLine: true,
         lineNumbers: true,
@@ -32,6 +31,27 @@
     editor.on("blur", function() {
         $("#edpanel").removeClass("panel-primary").addClass("panel-default");
     });
+
+    function editFile(name) {
+        var i, j, k;
+
+        j = files.length;
+        for (i = 0; i < j; i = i + 1) {
+            if (files[i].name === name) {
+                if (currentFileId !== -1) {
+                    k = editor.getValue();
+                    if (k !== files[currentFileId].text) {
+                        files[currentFileId].text = k;
+                        files[currentFileId].modified = true;
+                    }
+                }
+                currentFileId = i;
+                editor.setValue(files[i].text);
+                return;
+            }
+        }
+        console.log("cannot find file " + name);
+    }
 
     usrName = "JianxinMa";
     repoName = "v9.js";
@@ -69,12 +89,17 @@
                                 files[p].name + "</a></li>"
                             );
                             if (files[p].name === "/etc/os.c") {
-                                editor.setValue(data);
+                                editFile(files[p].name);
                                 $("#file" + p.toString()).addClass(
                                     "active");
                             }
                             if (p + 1 === files.length) {
                                 $("#fetchingfiles").remove();
+                                $("#files").children().click(function() {
+                                    $("#files").children().removeClass("active");
+                                    $(this).addClass("active");
+                                    editFile($(this).text());
+                                });
                             }
                         });
                     getFiles(i + 1, p + 1);
@@ -90,7 +115,7 @@
 
     termtext = $("#termtext");
     v9.inithdr(function(fd, msg) {
-        if (fd == 2) {
+        if (fd === 2) {
             console.log(msg);
         }
         termtext.html(termtext.html() +
@@ -145,4 +170,5 @@
             termtext.html("No process running.");
         }
     });
+
 }());
