@@ -4,7 +4,7 @@
 "use strict";
 
 (function() {
-    var files, editor, terminal, termInner,
+    var files, editor, termtext,
         usrName, repoName, brName, repo, runBtn;
 
     editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
@@ -35,6 +35,7 @@
         // password:
         // auth: "basic"
     })).getRepo(usrName, repoName);
+    /*
     repo.getTree(brName + "?recursive=true", function(err, tree) {
         var len;
 
@@ -81,29 +82,14 @@
         len = tree.length;
         getFiles(0, 0);
     });
+     */
 
-    terminal = $("#terminal");
-    terminal.console({
-        welcomeMessage: "No process running.",
-        commandValidate: function() {
-            return v9.acceptkb();
-        },
-        commandHandle: function(line) {
-            v9.putkbseq(line + "\n");
-            return [{
-                msg: ""
-            }];
-        }
-    });
-    termInner = terminal.children(".jquery-console-inner");
-
+    termtext = $("#termtext");
     v9.inithdr(function(fd, msg) {
-        var o;
         if (fd == 2) {
             console.log(msg);
         }
-        o = termInner.children(".jquery-console-message").last();
-        o.html(o.html() +
+        termtext.html(termtext.html() +
             msg.replace(/\t/g, '&nbsp;&nbsp;').replace(/\n/g, '<br/>'));
     });
 
