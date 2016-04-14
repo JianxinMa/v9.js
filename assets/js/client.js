@@ -1,14 +1,14 @@
 /*jslint white:true browser:true maxlen:80 */
-/*global CodeMirror, Github, $ */
+/*global CodeMirror, Github, $, v9 */
 
 "use strict";
 var files;
 
 (function() {
-    var editor, terminal, monitor, usrName, repoName, brName, repo;
+    var editor, terminal, termInner, usrName, repoName, brName, repo, runBtn;
 
     editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
-        readOnly: true,  // not ready yet
+        readOnly: true, // not ready yet
         mode: "text/x-csrc",
         styleActiveLine: true,
         lineNumbers: true,
@@ -27,21 +27,13 @@ var files;
         }
     });
 
-    terminal = CodeMirror.fromTextArea(document.getElementById("terminal"), {
-        readOnly: true
-    });
-
-    monitor = CodeMirror.fromTextArea(document.getElementById("monitor"), {
-        readOnly: true
-    });
-
     usrName = "JianxinMa";
     repoName = "v9.js";
     brName = "gh-pages";
     repo = (new Github({
-//        username: "v9os",
-//        password:
-//        auth: "basic"
+        // username: "v9os",
+        // password:
+        // auth: "basic"
     })).getRepo(usrName, repoName);
     repo.getTree(brName + "?recursive=true", function(err, tree) {
         var len;
@@ -88,5 +80,40 @@ var files;
         files = [];
         len = tree.length;
         getFiles(0, 0);
+    });
+
+    terminal = $("#terminal");
+    terminal.console({
+        welcomeMessage: "No process running.",
+        commandValidate: function() {
+            return v9.acceptkb();
+        },
+        commandHandle: function(line) {
+            v9.putkbseq(line + "\n");
+            return [{
+                msg: ""
+            }];
+        }
+    });
+    termInner = terminal.children(".jquery-console-inner");
+
+    v9.inithdr(function(msg) {
+        var o;
+
+        o = termInner.children(".jquery-console-message").last();
+        o.html(o.html() +
+            msg.replace(/\t/g, '&nbsp;&nbsp;').replace(/\n/g, '<br/>'));
+    });
+
+    CodeMirror.fromTextArea(document.getElementById("monitor"), {
+        readOnly: true
+    });
+
+    runBtn = $("#run");
+    runBtn.click(function() {
+        if (!v9.running()) {
+            // ...
+            runBtn.text("Kill");
+        }
     });
 }());

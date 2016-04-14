@@ -63,7 +63,7 @@
                         <div class="btn-group btn-block">
                             <button type="button" class="btn btn-default col-xs-4" style="color:#428bca">Step</button>
                             <button type="button" class="btn btn-default col-xs-4" style="color:#428bca">Continue</button>
-                            <button type="button" class="btn btn-default col-xs-4" style="color:#428bca">Run </button>
+                            <button id="run" "type="button" class="btn btn-default col-xs-4" style="color:#428bca">Run </button>
                         </div>
                     </div>
                 </div>
@@ -81,7 +81,7 @@
                             <div class="panel-heading">
                                 <h3 class="panel-title">Terminal</h3>
                             </div>
-                            <textarea id="terminal">CPU not running.</textarea>
+                            <div id="terminal"></div>
                         </div>
                     </div>
                     <div class="row" style="margin-top:-5px; margin-bottom: -5px">
@@ -89,7 +89,7 @@
                             <div class="panel-heading">
                                 <h3 class="panel-title">Monitor</h3>
                             </div>
-                            <textarea id="monitor">CPU not running.</textarea>
+                            <textarea id="monitor">No process running.</textarea>
                         </div>
                     </div>
                 </div>
@@ -103,6 +103,7 @@
         <script src="assets/lib/codemirror/mode/clike/clike.js"></script>
         <script src="assets/lib/codemirror/addon/selection/active-line.js"></script>
         <script src="assets/lib/github/github.bundle.min.js"></script>
+        <script src="assets/js/jquery.console.modified.js"></script>
         <script src="assets/lib/buffer/buffer.js"></script>
         <script src="assets/js/cpu.js"></script>
         <script src="assets/js/client.js"></script>

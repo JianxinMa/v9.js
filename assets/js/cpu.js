@@ -84,10 +84,12 @@ var v9 = {};
         bootpc = -1,
         bootsp = -1,
 
+        probingkb = false,
         pendkeys = [],
         putstr = 0;
 
     function probekb() {
+        probingkb = true;
         if (pendkeys[0]) {
             return pendkeys.shift();
         }
@@ -3327,7 +3329,7 @@ var v9 = {};
     }
 
     function execDefault() {
-        putstr((ir & 0xFF).toString() + " not implemented!");
+        putstr((ir & 0xFF).toString() + " not implemented!\n");
         trap = FINST;
         follower = exception;
         return;
@@ -3732,23 +3734,30 @@ var v9 = {};
         timeout >>>= 0;
     }
 
-    v9.inithdr = function(kbinit, putstrimpl) {
-        kbinit(pendkeys);
+    v9.inithdr = function(putstrimpl) {
+        pendkeys = [];
         putstr = putstrimpl;
         memsz = MEM_SZ;
         mem = new buffer.Buffer(memsz);
-        mem.fill(0);
         trk = new buffer.Buffer(TB_SZ * 4);
-        trk.fill(0);
         twk = new buffer.Buffer(TB_SZ * 4);
-        twk.fill(0);
         tru = new buffer.Buffer(TB_SZ * 4);
-        tru.fill(0);
         twu = new buffer.Buffer(TB_SZ * 4);
-        twu.fill(0);
         tpage = new buffer.Buffer(TPAGES * 4);
-        tpage.fill(0);
         assemble();
+    };
+
+    v9.acceptkb = function() {
+        return probingkb;
+    };
+
+    v9.putkbseq = function(str) {
+        var i, j;
+
+        j = str.length;
+        for (i = 0; i < j; i = i + 1) {
+            pendkeys.push(str.charCodeAt(i));
+        }
     };
 
     v9.fillimg = function(osbuf, diskbuf) {
@@ -3762,6 +3771,8 @@ var v9 = {};
     };
 
     v9.reset = function() {
+        probingkb = false;
+        pendkeys = [];
         user = 0;
         iena = 0;
         ipend = 0;
@@ -3802,25 +3813,25 @@ var v9 = {};
     };
 
     v9.run = function(cb) {
-        function tickcpu() {
+        setInterval(function() {
             var i;
 
             for (i = 0; i < (1 << 18); i = i + 1) {
-                if (follower !== 0) {
-                    unsignall();
-                    follower();
-                } else {
+                if (follower === 0) {
                     clearInterval(cpu);
-                    break;
+                    cpu = 0;
+                    if (cb) {
+                        cb();
+                    }
+                    return;
                 }
+                unsignall();
+                follower();
             }
-        }
-        ///
+        }, 50);
     };
 
-    v9.kill = function() {};
-
-    v9.continue = function(cb) {};
-
-    v9.step = function() {};
+    v9.running = function() {
+        return cpu !== 0;
+    };
 }());
