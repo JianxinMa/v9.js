@@ -58,8 +58,8 @@ Now, every time page tables are changed, the emulator can simply peek at 0x0 and
 
 ```
 A 0x00010000    # Virtual address of a instruction.
-F a.c           # Source file name, might not exist.
-L 123           # Line number, might not exist.
+F a.c           # Source file name, must exist.
+L 123           # Line number, must exist.
 C myfunc        # Which function this instruction lies in.
 V mylocal -24         # L means it is an argument or local variable. Here mylocal is stored at %ebp-24.
 V myotherlocal 16          # There can be many mnay arguments and/or lcoal variables.

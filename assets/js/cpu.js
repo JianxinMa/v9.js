@@ -80,7 +80,9 @@ var v9 = {};
         chkio = 0,
         decode = 0,
 
+        currentSym = '',
         dsyms = {},
+        stateInfo = {},
         cpu = 0,
         debug = false,
         bootpc = -1,
@@ -3773,6 +3775,23 @@ var v9 = {};
         return x;
     }
 
+    function udpateStateInfo(pc) {
+        var info;
+
+        stateInfo = {};
+        if (currentSym !== '') {
+            info = dsyms[currentSym][pc];
+            if (info) {
+                stateInfo.file = info.file;
+                stateInfo.line = info.line;
+            } else {
+                console.log("updateStateInfo: no info for " + pc);
+            }
+        } else {
+            console.log("updateStateInfo: empty currentSym");
+        }
+    }
+
     v9.inithdr = function(putstrimpl) {
         pendkeys = [];
         putstr = putstrimpl;
@@ -3797,6 +3816,11 @@ var v9 = {};
     v9.fillimg = function(osbuf, diskbuf) {
         var hdr;
 
+        if (cpu !== 0) {
+            clearInterval(cpu);
+            cpu = 0;
+            console.log("v9.fillimg: dangerous");
+        }
         mem.fill(0);
         mntdisk(diskbuf);
         hdr = loados(osbuf);
@@ -3804,7 +3828,33 @@ var v9 = {};
         bootsp = memsz - FS_SZ;
     };
 
+    function bufToStr(buf, begin, end) {
+        var i, j, s;
+
+        s = '';
+        for (i = begin; i < end; i = i + 1) {
+            j = buf.readUInt8(i);
+            if (0 <= j && j <= 0x7F) {
+                if (j === 0) {
+                    break;
+                }
+                s = s + String.fromCharCode(j);
+            } else {
+                console.log("bufToStr: non-ASCII " + j.toString());
+                break;
+            }
+        }
+        return s;
+    }
+
     v9.reset = function() {
+        if (cpu !== 0) {
+            clearInterval(cpu);
+            cpu = 0;
+            console.log("v9.reset: dangerous");
+        }
+        currentSym = bufToStr(mem, 4, 256);
+        stateInfo = {};
         debug = false;
         probingkb = false;
         pendkeys = [];
@@ -3851,7 +3901,7 @@ var v9 = {};
         if (cpu !== 0) {
             clearInterval(cpu);
             cpu = 0;
-            console.log("v9.run: What the hell?");
+            console.log("v9.run: dangerous");
         }
         cpu = setInterval(function() {
             var i;
@@ -3872,7 +3922,7 @@ var v9 = {};
         }, 50);
     };
 
-    v9.debug = function() {
+    v9.startdebug = function() {
         debug = true;
     };
 
@@ -3891,11 +3941,30 @@ var v9 = {};
     };
 
     v9.singlestep = function(cb) {
+        var cur;
 
+        if (!v9.debugging()) {
+            console.log("v9.singlestep: not in debug mode");
+        }
+        if (cpu !== 0) {
+            clearInterval(cpu);
+            cpu = 0;
+            console.log("v9.singlestep: dangerous");
+        }
+        cur = (xpc - tpc) >>> 0;
+        while (follower !== 0 && ((xpc - tpc) >>> 0) === cur) {
+            unsignall();
+            follower();
+        }
+        if (follower === 0) {
+            v9.reset();
+        }
+        udpateStateInfo((xpc - tpc) >>> 0);
+        cb(stateInfo);
     };
 
     v9.untilbreak = function(cb) {
-
+        // ...
     };
 
     v9.loadsymbols = function(d) {

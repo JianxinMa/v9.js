@@ -218,22 +218,26 @@
         stepBtn.click(function() {
             if (!v9.debugging()) {
                 fetchImage(function() {
-                    v9.debug();
+                    v9.startdebug();
                     runBtn.text("Quit");
+                    stepBtn.click();
                 });
+            } else {
+                v9.singlestep(updateCpuView);
             }
-            v9.singlestep(updateCpuView);
         });
 
         contBtn = $("#contBtn");
         contBtn.click(function() {
             if (!v9.debugging()) {
                 fetchImage(function() {
-                    v9.debug();
+                    v9.startdebug();
                     runBtn.text("Quit");
+                    contBtn.click();
                 });
+            } else {
+                v9.untilbreak(updateCpuView);
             }
-            v9.untilbreak(updateCpuView);
         });
     }());
 }());
