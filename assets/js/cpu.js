@@ -3858,15 +3858,15 @@ var v9 = {};
         v9.reset();
     };
 
-    v9.singlestep = function() {
+    v9.singlestep = function(cb) {
 
     };
 
-    v9.untilbreak = function() {
+    v9.untilbreak = function(cb) {
 
     };
 
-    v9.loadsymbols = function() {
+    v9.loadsymbols = function(dsyms) {
 
     };
 }());

@@ -43,17 +43,23 @@
             v9.kill();
         }
         socket = io('http://localhost:8080');
-        socket.emit('getos');
-        socket.on('sendos', function(os) {
-            socket.emit('getfs');
-            socket.on('sendfs', function(fs) {
-                socket.disconnect();
-                v9.fillimg(os.os, fs.fs);
-                v9.reset();
-                $("#termtext").text("");
-                cb();
-            });
+        socket.emit('getstuff');
+        socket.on('gotstuff', function(stuff) {
+            socket.disconnect();
+            v9.fillimg(stuff.files[0].data, stuff.files[1].data);
+            v9.loadsymbols(stuff.files.slice(2));
+            v9.reset();
+            $("#termtext").text("");
+            cb();
         });
+    }
+
+    function updateCpuView(info) {
+        if (!v9.running() && !v9.debugging()) {
+            v9.reset();
+            $("#runBtn").text("Run");
+        }
+        //
     }
 
     (function() {
@@ -191,7 +197,8 @@
                         runBtn.text("Run");
                     });
                 });
-            } else if (runBtn.text() === "Kill") {
+            } else if (runBtn.text() === "Kill" ||
+                runBtn.text() === "Quit") {
                 v9.kill();
                 runBtn.text("Run");
                 $("#termtext").html("No process running.");
@@ -205,9 +212,10 @@
             if (!v9.debugging()) {
                 fetchImage(function() {
                     v9.debug();
+                    runBtn.text("Quit");
                 });
             }
-            //
+            v9.singlestep(updateCpuView);
         });
 
         contBtn = $("#contBtn");
@@ -215,9 +223,10 @@
             if (!v9.debugging()) {
                 fetchImage(function() {
                     v9.debug();
+                    runBtn.text("Quit");
                 });
             }
-            //
+            v9.untilbreak(updateCpuView);
         });
     }());
 }());
