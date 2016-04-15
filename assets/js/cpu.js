@@ -81,6 +81,7 @@ var v9 = {};
         decode = 0,
 
         cpu = 0,
+        debug = false,
         bootpc = -1,
         bootsp = -1,
 
@@ -3777,6 +3778,7 @@ var v9 = {};
     };
 
     v9.reset = function() {
+        debug = false;
         probingkb = false;
         pendkeys = [];
         user = 0;
@@ -3838,13 +3840,33 @@ var v9 = {};
         }, 50);
     };
 
+    v9.debug = function() {
+        debug = true;
+    };
+
     v9.running = function() {
         return cpu !== 0;
+    };
+
+    v9.debugging = function() {
+        return debug;
     };
 
     v9.kill = function() {
         clearInterval(cpu);
         cpu = 0;
         v9.reset();
+    };
+
+    v9.singlestep = function() {
+
+    };
+
+    v9.untilbreak = function() {
+
+    };
+
+    v9.loadsymbols = function() {
+
     };
 }());

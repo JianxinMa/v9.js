@@ -62,10 +62,13 @@ body {
     padding-left: 20px;
 }
 
+.panel {
+    outline: 2px;
+}
+
 #terminal {
     word-wrap: break-word;
     font-size: 14px;
-    outline: 1px;
 }
 
 #terminal div.jquery-console-inner {

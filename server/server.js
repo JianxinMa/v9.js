@@ -31,6 +31,22 @@ function serve(port) {
                 }
             });
         });
+        socket.on('getdsym', function() {
+            fs.readFile('dsym/bin/c.dsym', 'ascii', function(e, cdsym) {
+                fs.readFile('dsym/bin/sh.dsym', 'ascii', function(e, shdsym) {
+                    fs.readFile('dsym/etc/os.dsym', 'ascii', function(e, osdsym) {
+                        fs.readFile('dsym/etc/init.dsym', 'ascii', function(e, initdsym) {
+                            socket.emit('senddsym', {
+                                c: cdsym,
+                                sh: shdsym,
+                                os: osdsym,
+                                init: initdsym
+                            });
+                        });
+                    });
+                });
+            });
+        });
     });
 }
 

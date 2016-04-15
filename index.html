@@ -61,15 +61,15 @@
                     </ul>
                     <div class="row">
                         <div class="btn-group btn-block">
-                            <button type="button" class="btn btn-default col-xs-4" style="color:#428bca">Step</button>
-                            <button type="button" class="btn btn-default col-xs-4" style="color:#428bca">Continue</button>
-                            <button id="run" "type="button" class="btn btn-default col-xs-4" style="color:#428bca">Run </button>
+                            <button id="stepBtn" type="button" class="btn btn-default col-xs-4" style="color:#428bca">Step</button>
+                            <button id="contBtn" type="button" class="btn btn-default col-xs-4" style="color:#428bca">Continue</button>
+                            <button id="runBtn" "type="button" class="btn btn-default col-xs-4" style="color:#428bca">Run</button>
                         </div>
                     </div>
                 </div>
                 <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
                     <div class="row" style="margin-top:-5px; margin-bottom: -15px">
-                        <div id="edpanel" class="panel panel-primary">
+                        <div tabindex="1" id="edpanel" class="panel panel-primary">
                             <div class="panel-heading">
                                 <h3 class="panel-title">Editor</h3>
                             </div>
@@ -77,11 +77,11 @@
                         </div>
                     </div>
                     <div class="row" style="margin-top:-5px; margin-bottom: -15px">
-                        <div id="termpanel" class="panel panel-default">
+                        <div tabindex="1" id="termpanel" class="panel panel-default">
                             <div class="panel-heading">
                                 <h3 class="panel-title">Terminal</h3>
                             </div>
-                            <div tabindex="1" id="terminal">
+                            <div id="terminal">
                                 <div class="jquery-console-inner">
                                     <div class="jquery-console-message">
                                         <span id="termtext">No process running.</span><span class="blinking-cursor">&nbsp</span>
@@ -91,11 +91,11 @@
                         </div>
                     </div>
                     <div class="row" style="margin-top:-5px; margin-bottom: -5px">
-                        <div class="panel panel-default">
+                        <div id="monpanel" tabindex="1" class="panel panel-default">
                             <div class="panel-heading">
                                 <h3 class="panel-title">Monitor</h3>
                             </div>
-                            <textarea id="monitor">No process running.</textarea>
+                            <div id="monitor">No process running.</div>
                         </div>
                     </div>
                 </div>
