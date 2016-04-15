@@ -1,5 +1,5 @@
 /*jslint white:true browser:true maxlen:80 */
-/*global CodeMirror, Github, $, v9, io */
+/*global CodeMirror, Github, $, v9, io, alert */
 
 "use strict";
 
@@ -64,6 +64,10 @@
     repo.getTree(brName + "?recursive=true", function(err, tree) {
         var i, j, k;
 
+        if (err) {
+            console.log(err);
+            return;
+        }
         files = [];
         j = tree.length;
         for (i = 0; i < j; i = i + 1) {
@@ -80,9 +84,10 @@
 
         function getFile(i) {
             $.get("https://raw.githubusercontent.com/" +
-                usrName + "/" + repoName + "/" + brName + "/root" + files[i].name,
+                usrName + "/" + repoName + "/" + brName +
+                "/root" + files[i].name,
                 function(d) {
-                    var cnt, j, k;
+                    var cnt, v;
 
                     files[i].text = d;
                     $("#files").append(
@@ -91,9 +96,8 @@
                     );
 
                     cnt = 0;
-                    j = files.length;
-                    for (k = 0; k < j; k = k + 1) {
-                        if (files[k].text) {
+                    for (v = 0; v < files.length; v = v + 1) {
+                        if (files[v].text) {
                             cnt = cnt + 1;
                         }
                     }
