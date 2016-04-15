@@ -3778,15 +3778,25 @@ var v9 = {};
     function udpateStateInfo(pc) {
         var info;
 
-        stateInfo = {};
         if (currentSym !== '') {
             info = dsyms[currentSym][pc];
-            if (info) {
-                stateInfo.file = info.file;
-                stateInfo.line = info.line;
-            } else {
-                console.log("updateStateInfo: no info for " + pc);
+            if (!info) {
+                console.log("updateStateInfo: no info for " +
+                    pc.toString(16));
+                return;
             }
+            if (!info.file) {
+                console.log("updateStateInfo: no info.file for " +
+                    pc.toString(16));
+                return;
+            }
+            if (!info.line) {
+                console.log("updateStateInfo: no info.line for " +
+                    pc.toString(16));
+                return;
+            }
+            stateInfo.file = info.file;
+            stateInfo.line = info.line;
         } else {
             console.log("updateStateInfo: empty currentSym");
         }
@@ -3941,7 +3951,7 @@ var v9 = {};
     };
 
     v9.singlestep = function(cb) {
-        var cur;
+        var cur, lastline;
 
         if (!v9.debugging()) {
             console.log("v9.singlestep: not in debug mode");
@@ -3959,8 +3969,13 @@ var v9 = {};
         if (follower === 0) {
             v9.reset();
         }
+        lastline = stateInfo.line;
         udpateStateInfo((xpc - tpc) >>> 0);
-        cb(stateInfo);
+        if (lastline !== stateInfo.line) {
+            cb(stateInfo);
+        } else {
+            v9.singlestep(cb);
+        }
     };
 
     v9.untilbreak = function(cb) {
