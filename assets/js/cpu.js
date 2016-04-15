@@ -80,6 +80,7 @@ var v9 = {};
         chkio = 0,
         decode = 0,
 
+        toUpdateSyms = false,
         currentSym = '',
         dsyms = {},
         stateInfo = {},
@@ -239,6 +240,40 @@ var v9 = {};
         trap = FWPAGE;
         vadr = v;
         return 0;
+    }
+
+    function execUpdateSyms() {
+        var p, v, s, t;
+
+        v = 0x4;
+        p = tr.readUInt32LE((v >>> 12) * 4);
+        if (!p) {
+            p = rlook(v);
+            if (!p) {
+                follower = exception;
+                return;
+            }
+        }
+        p = (v ^ (p - 1)) >>> 0;
+        s = '';
+        while (true) {
+            t = mem.readUInt8(p);
+            console.log('execUpdateSyms: ' + t.toString());
+            if (0 <= t && t <= 0x7F) {
+                if (t === 0) {
+                    break;
+                }
+                s = s + String.fromCharCode(t);
+            } else {
+                console.log("execUpdateSyms: incorrect string");
+            }
+            p = p + 1;
+        }
+        currentSym = s;
+        follower = chkpc;
+        toUpdateSyms = false;
+        console.log('currentSym === ' + s);
+        return;
     }
 
     function execHALT() {
@@ -3256,6 +3291,7 @@ var v9 = {};
         cleartlb();
         fsp = 0;
         follower = fixpc;
+        toUpdateSyms = true;
         return;
     }
 
@@ -3780,20 +3816,24 @@ var v9 = {};
         var info;
 
         if (currentSym !== '') {
+            if (!dsyms[currentSym]) {
+                console.log("updateStateInfo: no syms!");
+                return;
+            }
             info = dsyms[currentSym][pc];
             if (!info) {
-                console.log("updateStateInfo: no info for " +
-                    pc.toString(16));
+                // console.log("updateStateInfo: no info for " +
+                //     pc.toString(16));
                 return;
             }
             if (!info.file) {
-                console.log("updateStateInfo: no info.file for " +
-                    pc.toString(16));
+                // console.log("updateStateInfo: no info.file for " +
+                //     pc.toString(16));
                 return;
             }
             if (!info.line) {
-                console.log("updateStateInfo: no info.line for " +
-                    pc.toString(16));
+                // console.log("updateStateInfo: no info.line for " +
+                //     pc.toString(16));
                 return;
             }
             stateInfo.file = info.file;
@@ -3875,6 +3915,7 @@ var v9 = {};
             console.log("v9.reset: dangerous with debugcpu");
         }
         currentSym = bufToStr(mem, 4, 256);
+        toUpdateSyms = false;
         stateInfo = {};
         debug = false;
         probingkb = false;
@@ -3988,16 +4029,20 @@ var v9 = {};
             debugcpu = 0;
             console.log("v9.singlestep: dangerous debugcpu");
         }
-        cur = (xpc - tpc) >>> 0;
-        while (follower !== 0 && ((xpc - tpc) >>> 0) === cur) {
+        cur = xpc >>> 0;
+        while (follower !== 0 && (xpc >>> 0) === cur) {
             unsignall();
-            follower();
+            if (toUpdateSyms && paging && follower === decode) {
+                execUpdateSyms();
+            } else {
+                follower();
+            }
         }
         if (follower === 0) {
             v9.reset();
         }
         lastline = stateInfo.line;
-        udpateStateInfo((xpc - tpc) >>> 0);
+        udpateStateInfo(xpc >>> 0);
         if (lastline !== stateInfo.line) {
             cb(stateInfo);
         } else {
@@ -4068,8 +4113,12 @@ var v9 = {};
                     return;
                 }
                 unsignall();
-                follower();
-                cur = (xpc - tpc) >>> 0;
+                if (toUpdateSyms && paging && follower === decode) {
+                    execUpdateSyms();
+                } else {
+                    follower();
+                }
+                cur = xpc >>> 0;
                 udpateStateInfo(cur);
                 if (s[cur] && s[cur] ===
                     stateInfo.file + '|||' + stateInfo.line.toString()) {
