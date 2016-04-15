@@ -6,25 +6,32 @@
 (function() {
     var editor, files, currentFileId = -1;
 
-    function editFile(name) {
+    function editFile(name, line) {
         var i, j, k;
 
-        j = files.length;
-        for (i = 0; i < j; i = i + 1) {
-            if (files[i].name === name) {
-                if (currentFileId !== -1) {
-                    k = editor.getValue();
-                    if (k !== files[currentFileId].text) {
-                        files[currentFileId].text = k;
-                        files[currentFileId].modified = true;
+        if (currentFileId === -1 || files[currentFileId].name !== name) {
+            j = files.length;
+            for (i = 0; i < j; i = i + 1) {
+                if (files[i].name === name) {
+                    if (currentFileId !== -1) {
+                        k = editor.getValue();
+                        if (k !== files[currentFileId].text) {
+                            files[currentFileId].text = k;
+                            files[currentFileId].modified = true;
+                        }
                     }
+                    currentFileId = i;
+                    editor.setValue(files[i].text);
+                    break;
                 }
-                currentFileId = i;
-                editor.setValue(files[i].text);
-                return;
+                if (i + 1 === j) {
+                    console.log("cannot find file " + name);
+                }
             }
         }
-        console.log("cannot find file " + name);
+        if (line) {
+            editor.setCursor(line - 1);
+        }
     }
 
     function fetchImage(cb) {
@@ -56,10 +63,11 @@
 
     function updateCpuView(info) {
         if (!v9.running() && !v9.debugging()) {
+            alert("End of program reached.");
             v9.reset();
             $("#runBtn").text("Run");
         }
-        //
+        editFile(info.file, info.line);
     }
 
     (function() {

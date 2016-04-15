@@ -70,3 +70,5 @@ Besides these n blocks. Each global variable  corresponds to a term led by `G`.
 ```
 G myglobe 0x01234567  # G means myglobe is a global variable, and it is stored at 0x01234567.
 ```
+
+Please do ensure no trailing space at the end.

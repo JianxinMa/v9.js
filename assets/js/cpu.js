@@ -80,6 +80,7 @@ var v9 = {};
         chkio = 0,
         decode = 0,
 
+        dsyms = {},
         cpu = 0,
         debug = false,
         bootpc = -1,
@@ -3746,6 +3747,32 @@ var v9 = {};
         timeout >>>= 0;
     }
 
+    function parseSymFile(d) {
+        var t, s, tlen, i, cur, x;
+
+        x = {};
+        t = d.split('\n');
+        tlen = t.length;
+        for (i = 0; i < tlen; i = i + 1) {
+            s = t[i];
+            if (s !== '') {
+                if (s[0] === 'A') {
+                    cur = Number(s.slice(2)) >>> 0;
+                    if (!x[cur]) {
+                        x[cur] = {};
+                    }
+                } else if (s[0] === 'F') {
+                    x[cur].file = s.slice(2);
+                } else if (s[0] === 'L') {
+                    x[cur].line = Number(s.slice(2));
+                } else {
+                    console.log('In parseSymFile: not implemented.');
+                }
+            }
+        }
+        return x;
+    }
+
     v9.inithdr = function(putstrimpl) {
         pendkeys = [];
         putstr = putstrimpl;
@@ -3866,7 +3893,13 @@ var v9 = {};
 
     };
 
-    v9.loadsymbols = function(dsyms) {
+    v9.loadsymbols = function(d) {
+        var dlen, i;
 
+        dsyms = {};
+        dlen = d.length;
+        for (i = 0; i < dlen; i = i + 1) {
+            dsyms[d[i].name] = parseSymFile(d[i].data);
+        }
     };
 }());
