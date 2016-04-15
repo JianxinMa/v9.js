@@ -62,55 +62,56 @@
         // auth: "basic"
     })).getRepo(usrName, repoName);
     repo.getTree(brName + "?recursive=true", function(err, tree) {
-        var len;
+        var i, j, k;
 
-        if (err) {
-            console.log(err);
-            return;
-        }
-
-        function getFiles(i, p) {
-            var a;
-
-            if (i < len) {
-                a = tree[i].path;
-                if (a.startsWith("root/") &&
-                    (a.endsWith(".c") || a.endsWith(".h"))) {
-                    files.push({
-                        name: a.substr(4)
-                    });
-                    $.get("https://raw.githubusercontent.com/" +
-                        usrName + "/" + repoName + "/" + brName + "/" + a,
-                        function(data) {
-                            files[p].text = data;
-                            $("#files").append(
-                                "<li id='file" + p.toString() +
-                                "'><a href='#'>" +
-                                files[p].name + "</a></li>"
-                            );
-                            if (files[p].name === "/etc/os.c") {
-                                editFile(files[p].name);
-                                $("#file" + p.toString()).addClass(
-                                    "active");
-                            }
-                            if (p + 1 === files.length) {
-                                $("#fetchingfiles").remove();
-                                $("#files").children().click(function() {
-                                    $("#files").children().removeClass("active");
-                                    $(this).addClass("active");
-                                    editFile($(this).text());
-                                });
-                            }
-                        });
-                    getFiles(i + 1, p + 1);
-                } else {
-                    getFiles(i + 1, p);
-                }
+        files = [];
+        j = tree.length;
+        for (i = 0; i < j; i = i + 1) {
+            k = tree[i].path;
+            if (k.startsWith("root/") &&
+                (k.endsWith(".c") ||
+                    k.endsWith(".h") ||
+                    k.endsWith(".txt"))) {
+                files.push({
+                    name: k.substr(4)
+                });
             }
         }
-        files = [];
-        len = tree.length;
-        getFiles(0, 0);
+
+        function getFile(i) {
+            $.get("https://raw.githubusercontent.com/" +
+                usrName + "/" + repoName + "/" + brName + "/root" + files[i].name,
+                function(d) {
+                    var cnt, j, k;
+
+                    files[i].text = d;
+                    $("#files").append(
+                        "<li id='file" + i.toString() + "'><a href='#'>" +
+                        files[i].name + "</a></li>"
+                    );
+
+                    cnt = 0;
+                    j = files.length;
+                    for (k = 0; k < j; k = k + 1) {
+                        if (files[k].text) {
+                            cnt = cnt + 1;
+                        }
+                    }
+                    if (cnt === files.length) {
+                        $("#fetchingfiles").remove();
+                        $("#files").children().click(function() {
+                            $("#files").children().removeClass("active");
+                            $(this).addClass("active");
+                            editFile($(this).text());
+                        });
+                        editFile("/etc/os.c");
+                    }
+                });
+            if (i + 1 < files.length) {
+                getFile(i + 1);
+            }
+        }
+        getFile(0);
     });
 
     termtext = $("#termtext");
@@ -160,6 +161,7 @@
             socket.on('sendos', function(os) {
                 socket.emit('getfs');
                 socket.on('sendfs', function(fs) {
+                    socket.disconnect();
                     v9.fillimg(os.os, fs.fs);
                     v9.reset();
                     termtext.text("");
