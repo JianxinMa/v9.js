@@ -4005,7 +4005,39 @@ var v9 = {};
         }
     };
 
-    v9.untilbreak = function(mps, cb) {
+    function validateBreaks(bps) {
+        var i, j, k, s, t;
+        k = {};
+        for (i in bps) {
+            if (bps.hasOwnProperty(i)) {
+                for (j in bps[i]) {
+                    if (bps[i].hasOwnProperty(j)) {
+                        k[i + '|||' + j.toString()] = true;
+                    }
+                }
+            }
+        }
+        bps = k;
+        s = {};
+        for (i in dsyms) {
+            if (dsyms.hasOwnProperty(i)) {
+                for (j in dsyms[i]) {
+                    if (dsyms[i].hasOwnProperty(j)) {
+                        k = dsyms[i][j];
+                        t = k.file + '|||' + k.line;
+                        if (bps[t]) {
+                            s[j] = t;
+                        }
+                    }
+                }
+            }
+        }
+        return s;
+    }
+
+    v9.untilbreak = function(bps, cb) {
+        var s;
+
         if (!v9.debugging()) {
             console.log("v9.untilbreak: not in debug mode");
         }
@@ -4019,7 +4051,35 @@ var v9 = {};
             debugcpu = 0;
             console.log("v9.untilbreak: dangerous debugcpu");
         }
-        ///...
+        s = validateBreaks(bps);
+        console.log(s);
+        v9.singlestep(function() {
+            return;
+        });
+        debugcpu = setInterval(function() {
+            var i, cur;
+
+            for (i = 0; i < 1 << 16; i = i + 1) {
+                if (follower === 0) {
+                    clearInterval(debugcpu);
+                    debugcpu = 0;
+                    v9.reset();
+                    cb(stateInfo);
+                    return;
+                }
+                unsignall();
+                follower();
+                cur = (xpc - tpc) >>> 0;
+                udpateStateInfo(cur);
+                if (s[cur] && s[cur] ===
+                    stateInfo.file + '|||' + stateInfo.line.toString()) {
+                    clearInterval(debugcpu);
+                    debugcpu = 0;
+                    cb(stateInfo);
+                    return;
+                }
+            }
+        }, 50);
     };
 
     v9.loadsymbols = function(d) {

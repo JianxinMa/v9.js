@@ -93,13 +93,6 @@
         editFile(info.file, info.line);
     }
 
-    function checkIfMarked(line) {
-        if (editor.lineInfo(line - 1).gutterMarkers) {
-            return true;
-        }
-        return false;
-    }
-
     (function() {
         $(".panel").focus(function() {
             $(".panel").removeClass("panel-primary").addClass("panel-default");
@@ -277,11 +270,7 @@
                 } else {
                     contBtn.text("Running");
                     stepBtn.text("Void");
-                    v9.untilbreak(checkIfMarked, function(err, info) {
-                        if (err) {
-                            alert(err);
-                            return;
-                        }
+                    v9.untilbreak(breakpoints, function(info) {
                         updateCpuView(info);
                         contBtn.text("Continue");
                         stepBtn.text("Step");
