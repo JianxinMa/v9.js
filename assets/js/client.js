@@ -4,7 +4,17 @@
 "use strict";
 
 (function() {
-    var editor, files, currentFileId = -1;
+    var editor, files, currentFileId = -1,
+        breakpoints = {};
+
+    function makeMarker() {
+        var marker;
+
+        marker = document.createElement("div");
+        marker.style.color = "gray";
+        marker.innerHTML = "●";
+        return marker;
+    }
 
     function editFile(name, line) {
         var i, j, k;
@@ -26,12 +36,27 @@
                 }
                 if (i + 1 === j) {
                     console.log("cannot find file " + name);
+                    return;
                 }
             }
         }
         if (line) {
             editor.setCursor(line - 1);
         }
+        k = breakpoints[name];
+        for (i in k) {
+            if (k.hasOwnProperty(i)) {
+                editor.setGutterMarker(Number(i) - 1, "breakpoints",
+                    makeMarker());
+            }
+        }
+        k = $("#files").children();
+        k.removeClass("active");
+        k.each(function() {
+            if ($(this).text() === name) {
+                $(this).addClass("active");
+            }
+        });
         $("#edpanel").focus();
     }
 
@@ -68,6 +93,13 @@
         editFile(info.file, info.line);
     }
 
+    function checkIfMarked(line) {
+        if (editor.lineInfo(line - 1).gutterMarkers) {
+            return true;
+        }
+        return false;
+    }
+
     (function() {
         $(".panel").focus(function() {
             $(".panel").removeClass("panel-primary").addClass("panel-default");
@@ -83,15 +115,18 @@
             gutters: ["CodeMirror-linenumbers", "breakpoints"]
         });
         editor.on("gutterClick", function(cm, ln) {
-            var marker;
+            var filename;
 
+            filename = files[currentFileId].name;
             if (cm.lineInfo(ln).gutterMarkers) {
                 cm.setGutterMarker(ln, "breakpoints", null);
+                delete breakpoints[filename][ln + 1];
             } else {
-                marker = document.createElement("div");
-                marker.style.color = "gray";
-                marker.innerHTML = "●";
-                cm.setGutterMarker(ln, "breakpoints", marker);
+                cm.setGutterMarker(ln, "breakpoints", makeMarker());
+                if (!breakpoints[filename]) {
+                    breakpoints[filename] = {};
+                }
+                breakpoints[filename][ln + 1] = true;
             }
         });
         editor.on("focus", function() {
@@ -152,8 +187,6 @@
                         if (cnt === files.length) {
                             $("#fetchingfiles").remove();
                             $("#files").children().click(function() {
-                                $("#files").children().removeClass("active");
-                                $(this).addClass("active");
                                 editFile($(this).text());
                             });
                             editFile("/etc/os.c");
@@ -216,27 +249,44 @@
 
         stepBtn = $("#stepBtn");
         stepBtn.click(function() {
-            if (!v9.debugging()) {
-                fetchImage(function() {
-                    v9.startdebug();
-                    runBtn.text("Quit");
-                    stepBtn.click();
-                });
-            } else {
-                v9.singlestep(updateCpuView);
+            if (contBtn.text() !== "Running") {
+                if (!v9.debugging()) {
+                    fetchImage(function() {
+                        v9.startdebug();
+                        runBtn.text("Quit");
+                        stepBtn.click();
+                    });
+                } else {
+                    v9.singlestep(updateCpuView);
+                }
             }
         });
 
         contBtn = $("#contBtn");
         contBtn.click(function() {
-            if (!v9.debugging()) {
-                fetchImage(function() {
-                    v9.startdebug();
-                    runBtn.text("Quit");
-                    contBtn.click();
-                });
-            } else {
-                v9.untilbreak(updateCpuView);
+            if (contBtn.text() !== "Running") {
+                if (contBtn.text() !== "Continue") {
+                    console.log("contBtn's text === " + contBtn.text());
+                }
+                if (!v9.debugging()) {
+                    fetchImage(function() {
+                        v9.startdebug();
+                        runBtn.text("Quit");
+                        contBtn.click();
+                    });
+                } else {
+                    contBtn.text("Running");
+                    stepBtn.text("Void");
+                    v9.untilbreak(checkIfMarked, function(err, info) {
+                        if (err) {
+                            alert(err);
+                            return;
+                        }
+                        updateCpuView(info);
+                        contBtn.text("Continue");
+                        stepBtn.text("Step");
+                    });
+                }
             }
         });
     }());

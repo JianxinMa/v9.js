@@ -84,6 +84,7 @@ var v9 = {};
         dsyms = {},
         stateInfo = {},
         cpu = 0,
+        debugcpu = 0,
         debug = false,
         bootpc = -1,
         bootsp = -1,
@@ -3831,6 +3832,11 @@ var v9 = {};
             cpu = 0;
             console.log("v9.fillimg: dangerous");
         }
+        if (debugcpu !== 0) {
+            clearInterval(debugcpu);
+            debugcpu = 0;
+            console.log("v9.fillimg: dangerous with debugcpu");
+        }
         mem.fill(0);
         mntdisk(diskbuf);
         hdr = loados(osbuf);
@@ -3862,6 +3868,11 @@ var v9 = {};
             clearInterval(cpu);
             cpu = 0;
             console.log("v9.reset: dangerous");
+        }
+        if (debugcpu !== 0) {
+            clearInterval(debugcpu);
+            debugcpu = 0;
+            console.log("v9.reset: dangerous with debugcpu");
         }
         currentSym = bufToStr(mem, 4, 256);
         stateInfo = {};
@@ -3913,6 +3924,11 @@ var v9 = {};
             cpu = 0;
             console.log("v9.run: dangerous");
         }
+        if (debugcpu !== 0) {
+            clearInterval(debugcpu);
+            debugcpu = 0;
+            console.log("v9.run: dangerous with debugcpu");
+        }
         cpu = setInterval(function() {
             var i;
 
@@ -3937,7 +3953,7 @@ var v9 = {};
     };
 
     v9.running = function() {
-        return cpu !== 0;
+        return cpu !== 0 || debugcpu !== 0;
     };
 
     v9.debugging = function() {
@@ -3945,8 +3961,14 @@ var v9 = {};
     };
 
     v9.kill = function() {
-        clearInterval(cpu);
-        cpu = 0;
+        if (cpu !== 0) {
+            clearInterval(cpu);
+            cpu = 0;
+        }
+        if (debugcpu !== 0) {
+            clearInterval(debugcpu);
+            cpu = 0;
+        }
         v9.reset();
     };
 
@@ -3960,6 +3982,11 @@ var v9 = {};
             clearInterval(cpu);
             cpu = 0;
             console.log("v9.singlestep: dangerous");
+        }
+        if (debugcpu !== 0) {
+            clearInterval(debugcpu);
+            debugcpu = 0;
+            console.log("v9.singlestep: dangerous debugcpu");
         }
         cur = (xpc - tpc) >>> 0;
         while (follower !== 0 && ((xpc - tpc) >>> 0) === cur) {
@@ -3978,8 +4005,21 @@ var v9 = {};
         }
     };
 
-    v9.untilbreak = function(cb) {
-        // ...
+    v9.untilbreak = function(mps, cb) {
+        if (!v9.debugging()) {
+            console.log("v9.untilbreak: not in debug mode");
+        }
+        if (cpu !== 0) {
+            clearInterval(cpu);
+            cpu = 0;
+            console.log("v9.untilbreak: dangerous");
+        }
+        if (debugcpu !== 0) {
+            clearInterval(debugcpu);
+            debugcpu = 0;
+            console.log("v9.untilbreak: dangerous debugcpu");
+        }
+        ///...
     };
 
     v9.loadsymbols = function(d) {
