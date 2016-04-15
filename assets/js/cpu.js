@@ -3848,6 +3848,11 @@ var v9 = {};
     };
 
     v9.run = function(cb) {
+        if (cpu !== 0) {
+            clearInterval(cpu);
+            cpu = 0;
+            console.log("v9.run: What the hell?");
+        }
         cpu = setInterval(function() {
             var i;
 

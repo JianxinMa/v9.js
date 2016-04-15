@@ -32,6 +32,7 @@
         if (line) {
             editor.setCursor(line - 1);
         }
+        $("#edpanel").focus();
     }
 
     function fetchImage(cb) {
@@ -43,11 +44,8 @@
             "And if you use Vimium or something like that, " +
             "please turn it off for a while.");
         runBtn = $("#runBtn");
-        if (runBtn.text() === "Kill") {
+        if (runBtn.text() === "Kill" || runBtn.text() === "Quit") {
             runBtn.click();
-        }
-        if (v9.running() || v9.debugging()) {
-            v9.kill();
         }
         socket = io('http://localhost:8080');
         socket.emit('getstuff');
@@ -201,6 +199,7 @@
             if (runBtn.text() === "Run") {
                 fetchImage(function() {
                     runBtn.text("Kill");
+                    $("#termpanel").focus();
                     v9.run(function() {
                         runBtn.text("Run");
                     });
