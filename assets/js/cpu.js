@@ -80,6 +80,7 @@ var v9 = {};
         chkio = 0,
         decode = 0,
 
+        updateForOS = true,
         toUpdateSyms = false,
         currentSym = '',
         dsyms = {},
@@ -245,7 +246,11 @@ var v9 = {};
     function execUpdateSyms() {
         var p, v, s, t;
 
-        v = 0x4;
+        if (updateForOS) {
+            v = 0;
+        } else {
+            v = 16;
+        }
         p = tr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
             p = rlook(v);
@@ -254,11 +259,12 @@ var v9 = {};
                 return;
             }
         }
-        p = (v ^ (p - 1)) >>> 0;
+        p = ((v ^ p) & -4) >>> 0;
+        console.log('magic: ' + mem.readUInt32LE(p).toString(16));
         s = '';
+        p = p + 4;
         while (true) {
             t = mem.readUInt8(p);
-            console.log('execUpdateSyms: ' + t.toString());
             if (0 <= t && t <= 0x7F) {
                 if (t === 0) {
                     break;
@@ -270,9 +276,10 @@ var v9 = {};
             p = p + 1;
         }
         currentSym = s;
-        follower = chkpc;
-        toUpdateSyms = false;
         console.log('currentSym === ' + s);
+        toUpdateSyms = false;
+        updateForOS = false;
+        follower = chkpc;
         return;
     }
 
@@ -3915,6 +3922,7 @@ var v9 = {};
             console.log("v9.reset: dangerous with debugcpu");
         }
         currentSym = bufToStr(mem, 4, 256);
+        updateForOS = true;
         toUpdateSyms = false;
         stateInfo = {};
         debug = false;
