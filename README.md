@@ -49,7 +49,7 @@ The `Step` button is for single steping, while the `Continue` button is for runn
 
 - 在个别地方可能会卡在断点、或重复执行，请取消该处断点；
 - 一些地方设置断点会无效、单步时有时会偏差一行，主要是由于编译器提供的信息不准确；
-- **尽管现在支持用户程序调试，从os到init再到sh大致能work，但是在sh里执行ls等不会去调试ls等程序，因为我忘了处理这种特殊情况，等我有空就来补。**
+- 关于用户程序调试，从os到init再到sh大致能work，但是在sh里执行ls等似乎不会去调试ls，正在调查原因。
 
 关于第一点，正在调查是程序本就该重复、还是调试器的问题。
 
