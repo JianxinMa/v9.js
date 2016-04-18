@@ -32,11 +32,11 @@ The server currently just sends you a precompiled `os` and `fs.img` whenever you
 
 Then go to https://JianxinMa.github.com/v9.js, or alternatively open the `index.html` udner `v9.js`.
 
-### Run in Normal Mode
+### Normal Mode
 
 Click the `Run` button to fire up the cpu in normal mode. You can go to `Terminal` panel to interact with the system.
 
-### Run in Debug Mode
+### Debug Mode
 
 The `Step` button is for single steping, while the `Continue` button is for running until encountering a break point.
 `Step` and `Continue` can be used in a mixed way. You can click line numbers in the `Editor` to set break points.
