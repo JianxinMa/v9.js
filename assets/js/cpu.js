@@ -3809,7 +3809,7 @@ var v9 = {};
                         x[cur] = {};
                     }
                 } else if (s[0] === 'F') {
-                    x[cur].file = s.slice(2);
+                    x[cur].file = s.slice(2).slice(4);
                 } else if (s[0] === 'L') {
                     x[cur].line = Number(s.slice(2));
                 } else {
