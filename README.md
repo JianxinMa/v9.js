@@ -43,6 +43,8 @@ The `Step` button is for single steping, while the `Continue` button is for runn
 
 #### 警告
 
+现在还处于prototyping的阶段，会有很多很多bugs，请包容。
+
 由于编译器生成的信息不准确、以及控制逻辑写得比较匆忙，调试功能在个别地方会出小问题。比如：
 
 - 在个别地方可能会卡在断点、或重复执行，请取消该处断点；
