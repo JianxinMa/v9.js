@@ -244,7 +244,7 @@ var v9 = {};
     }
 
     function execUpdateSyms() {
-        var p, v, s, t;
+        var p, v, s, t, m;
 
         if (updateForOS) {
             v = 0;
@@ -260,7 +260,7 @@ var v9 = {};
             }
         }
         p = ((v ^ p) & -4) >>> 0;
-        console.log('magic: ' + mem.readUInt32LE(p).toString(16));
+        m = mem.readUInt32LE(p);
         s = '';
         p = p + 4;
         while (true) {
@@ -275,8 +275,9 @@ var v9 = {};
             }
             p = p + 1;
         }
-        currentSym = s;
-        console.log('currentSym === ' + s);
+        if (dsyms[s] && m === 0xff3223ff) {
+            currentSym = s;
+        }
         toUpdateSyms = false;
         updateForOS = false;
         follower = chkpc;
@@ -3823,30 +3824,16 @@ var v9 = {};
         var info;
 
         if (currentSym !== '') {
-            if (!dsyms[currentSym]) {
-                console.log("updateStateInfo: no syms!");
-                return;
-            }
-            info = dsyms[currentSym][pc];
+            info = dsyms[currentSym];
             if (!info) {
-                // console.log("updateStateInfo: no info for " +
-                //     pc.toString(16));
                 return;
             }
-            if (!info.file) {
-                // console.log("updateStateInfo: no info.file for " +
-                //     pc.toString(16));
-                return;
-            }
-            if (!info.line) {
-                // console.log("updateStateInfo: no info.line for " +
-                //     pc.toString(16));
+            info = info[pc];
+            if (!info || !info.file || !info.line) {
                 return;
             }
             stateInfo.file = info.file;
             stateInfo.line = info.line;
-        } else {
-            console.log("updateStateInfo: empty currentSym");
         }
     }
 
@@ -4112,7 +4099,7 @@ var v9 = {};
         debugcpu = setInterval(function() {
             var i, cur;
 
-            for (i = 0; i < 1 << 16; i = i + 1) {
+            for (i = 0; i < 1 << 18; i = i + 1) {
                 if (follower === 0) {
                     clearInterval(debugcpu);
                     debugcpu = 0;
