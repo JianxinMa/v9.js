@@ -2,6 +2,8 @@
 
 Currently working on debugging tools. See the [debugger design](doc/debugger.md) for more details.
 
+Reading `c.c` these days. What a pain.
+
 ## Usage
 
 There is a live demo at https://JianxinMa.github.com/v9.js. Please read on for how to use it.
