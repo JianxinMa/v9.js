@@ -968,7 +968,7 @@ void next() {
         pos++;
         fval = tk - '0';
         goto frac;
-      } else if (ival = tk - '0') {
+      } else if ((ival = tk - '0')) {
         p = pos;
         while (*pos >= '0' && *pos <= '9') {
           ival = ival * 10 + *pos++ - '0';
@@ -1425,7 +1425,7 @@ int talign(uint t) {
   case ARRAY:
     return talign(((array_t *)(va + (t >> TSHIFT)))->type);
   case STRUCT:
-    if (a = ((struct_t *)(va + (t >> TSHIFT)))->align) {
+    if ((a = ((struct_t *)(va + (t >> TSHIFT)))->align)) {
       return a;
     }
     err("can't compute alignment of incomplete struct");
@@ -1617,7 +1617,7 @@ uint *type(uint *t, ident_t **v, uint bt) {
     next();
     for (pt = p = 0; tk != ')'; p++) {
       n = 0;
-      if (a = basetype()) {
+      if ((a = basetype())) {
         if (tk == ')' && a == VOID) {
           break;
         }
@@ -1984,7 +1984,7 @@ void member(int stype, struct_t *s) {
       if (!v) {
         err("bad member declaration");
       } else {
-        for (mp = &s->member; m = *mp; mp = &m->next)
+        for (mp = &s->member; (m = *mp); mp = &m->next)
           if (m->id == v) {
             err("duplicate member declaration");
           }
@@ -2072,11 +2072,11 @@ void add(uint *b) // XXX make sure to optimize (a + 9 + 2) -> (a + 11)    and
       return;
     }
     if (!e[2]) {
-      e = b;
+      e = (int *)b;
       return;
     } // XXX reliable???
   }
-  nodc(Add, b, e);
+  nodc(Add, (int *)b, e);
 }
 
 int *flot(int *b, uint t) {
@@ -2195,13 +2195,14 @@ void cast(uint t) {
       }
     }
   } else if (t < UINT) {
-    if (ty == DOUBLE || ty == FLOAT)
+    if (ty == DOUBLE || ty == FLOAT) {
       if (*e == Numf) {
         *e = Num;
         e[2] = (int)*(double *)(e + 2);
       } else {
         *(e -= 2) = Cdi;
       }
+    }
     switch (t) {
     case CHAR:
       if (*e == Num) {
@@ -2315,7 +2316,7 @@ void expr(int lev) {
 
   case Paren:
     next();
-    if (tt = basetype()) {
+    if ((tt = basetype())) {
       t = 0;
       type(&t, 0, tt);
       skip(')');
@@ -2464,7 +2465,7 @@ void expr(int lev) {
 
   case Sizeof:
     next();
-    if (t = tk == Paren) {
+    if ((t = tk == Paren)) {
       next();
     }
     if (t && (tt = basetype())) {
@@ -3002,7 +3003,7 @@ void expr(int lev) {
           e[2] = tt;
           mul(e + 4);
         }
-        add(b);
+        add((uint *)b);
         ty = t;
       } else if ((ty & PAMASK) && t <= UINT) {
         if ((tt = tinc(ty)) > 1) {
@@ -3010,9 +3011,9 @@ void expr(int lev) {
           *(e -= 4) = Num;
           e[2] = tt;
           mul(b);
-          add(d);
+          add((uint *)d);
         } else {
-          add(b);
+          add((uint *)b);
         }
       } // XXX refactor?
       else if ((tt = t | ty) >= STRUCT) {
@@ -3028,7 +3029,7 @@ void expr(int lev) {
         }
         ty = DOUBLE;
       } else {
-        add(b);
+        add((uint *)b);
         ty = (tt & UINT) ? UINT : INT;
       }
       continue;
@@ -3051,7 +3052,7 @@ void expr(int lev) {
         }
         if (*e == Num) {
           e[2] *= -1;
-          add(b);
+          add((uint *)b);
         } else {
           node(Sub, b, e);
         }
@@ -3071,7 +3072,7 @@ void expr(int lev) {
       } else {
         if (*e == Num) {
           e[2] *= -1;
-          add(b);
+          add((uint *)b);
         } else {
           node(Sub, b, e);
         }
@@ -3163,7 +3164,7 @@ void expr(int lev) {
         e[2] = -tinc(ty);
         *(e -= 2) = Suba;
         e[1] = (int)b;
-        add(e + 2);
+        add((uint *)(e + 2));
       }
       continue;
 
@@ -3176,7 +3177,7 @@ void expr(int lev) {
         e[2] = tinc(ty);
         *(e -= 2) = Suba;
         e[1] = (int)b;
-        add(e + 2);
+        add((uint *)(e + 2));
       }
       continue;
 
@@ -3202,7 +3203,7 @@ void expr(int lev) {
     found:
       *(e -= 4) = Num;
       e[2] = m->offset;
-      add(e + 4);
+      add((uint *)(e + 4));
       if ((m->type & TMASK) == ARRAY) {
         ty = m->type;
       } else {
@@ -3221,7 +3222,7 @@ void expr(int lev) {
       *(e -= 4) = Num;
       e[2] = tinc(t);
       mul(d);
-      add(b);
+      add((uint *)b);
       ty = t;
       ind();
       continue;
@@ -3520,7 +3521,7 @@ void op(int *a, int o) {
   switch (*b) {
   case Auto:
     rv((int *)a[1]);
-    if (t = lmod(b[1])) {
+    if ((t = lmod(b[1]))) {
       eml(LBL + t, b[2]);
       em(o);
     } else {
@@ -3573,7 +3574,7 @@ void opa(int *a, int o, int comm) {
     } // loc op= locint
     else if (comm) {
       rv(b);
-      if (t = lmod(a[1])) {
+      if ((t = lmod(a[1]))) {
         eml(LBL + t, a[2]);
         em(o);
       } else {

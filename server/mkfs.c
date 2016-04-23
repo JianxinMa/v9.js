@@ -359,7 +359,7 @@ void xstrncpy(char *s, char *t, int n) { // no return value unlike strncpy
 }
 
 void write_disk(void *b, uint n) {
-  uint i;
+  int i;
   while (n) {
     if ((i = write(disk, b, n)) < 0) {
       dprintf(2, "write(%d) failed\n", n);
@@ -423,7 +423,7 @@ void add_dir(uint parent, struct direct *sp) {
   sp->d_ino = parent;
   xstrncpy(sp->d_name, "..", DIRSIZ);
   sp++;
-  while (dp = readdir(d)) {
+  while ((dp = readdir(d))) {
     if (!strcmp(dp->d_name, ".") || !strcmp(dp->d_name, "..") ||
         strlen(dp->d_name) > DIRSIZ) {
       continue;
