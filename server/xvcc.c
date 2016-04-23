@@ -231,27 +231,6 @@ typedef unsigned int uint;
 #include <sys/stat.h>
 #include <unistd.h>
 
-void *xsbrk(int i) {
-  void *p;
-  static int brk = 0;
-  if (!i) {
-    return (void *)brk;
-  }
-  if (i < 0) {
-    printf("sbrk(i<0) not implemented\n");
-    exit(-1);
-  }
-  p = malloc(i);
-  if (p != NULL) {
-    memset(p, 0, i);
-    brk += i;
-    return p;
-  } // XXX memset is probably redundant since we never reallocate
-  return (void *)-1;
-}
-
-#define sbrk xsbrk
-
 // c -- c compiler
 //
 // Usage:  c [-v] [-s] [-Ipath] [-o exefile] file ...
@@ -551,9 +530,28 @@ void info_print_current_line() {
   dprintf(info_fd, "0x%08x %s %d\n", ip - ts, file, line);
 }
 
-void *new (int size) {
+void *xsbrk(int i) {
   void *p;
-  if ((p = sbrk((size + 7) & -8)) == (void *)-1) {
+  static int brk = 0;
+  if (!i) {
+    return (void *)brk;
+  }
+  if (i < 0) {
+    printf("sbrk(i<0) not implemented\n");
+    exit(-1);
+  }
+  p = malloc(i);
+  if (p != NULL) {
+    memset(p, 0, i);
+    brk += i;
+    return p;
+  }
+  return (void *)-1;
+}
+
+void *alloc(int size) {
+  void *p;
+  if ((p = xsbrk((size + 7) & -8)) == (void *)-1) {
     dprintf(2, "%s : fatal: unable to sbrk(%d)\n", cmd, size);
     exit(-1);
   }
@@ -578,7 +576,7 @@ char *mapfile(char *name, int size) { // XXX replace with mmap
             name);
     exit(-1);
   }
-  p = new (size + 1);
+  p = alloc(size + 1);
   if (read(f, p, size) != size) {
     dprintf(2, "%s : [%s:%d] error: can't read file %s\n", cmd, file, line,
             name);
@@ -894,7 +892,7 @@ void next() {
             break; // form feed
           case 'n':
             b = '\n';
-            break; // new line
+            break; // alloc line
           case 'r':
             b = '\r';
             break; // carriage return
@@ -4370,9 +4368,9 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  ts = ip = (int)new (SEG_SZ);
-  gs = (int)new (SEG_SZ);
-  va = vp = (int)new (VAR_SZ);
+  ts = ip = (int)alloc(SEG_SZ);
+  gs = (int)alloc(SEG_SZ);
+  va = vp = (int)alloc(VAR_SZ);
 
   bigend = 1;
   bigend = ((char *)&bigend)[3];
@@ -4398,10 +4396,10 @@ int main(int argc, char *argv[]) {
   } // XXX fstat inside mapfile?
   pos = mapfile(file, st.st_size);
 
-  e = new (EXPR_SZ) + EXPR_SZ;
-  pdata = patchdata = new (PSTACK_SZ);
-  pbss = patchbss = new (PSTACK_SZ);
-  ploc = new (LSTACK_SZ);
+  e = alloc(EXPR_SZ) + EXPR_SZ;
+  pdata = patchdata = alloc(PSTACK_SZ);
+  pbss = patchbss = alloc(PSTACK_SZ);
+  ploc = alloc(LSTACK_SZ);
 
   if (verbose) {
     dprintf(2, "%s : compiling %s\n", cmd, file);
