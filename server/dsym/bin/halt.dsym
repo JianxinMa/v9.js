@@ -1,9 +1,0 @@
-A 0x00000100
-F root/bin/halt.c
-L 7
-A 0x00000104
-F root/bin/halt.c
-L 8
-A 0x00000108
-F root/bin/halt.c
-L 10
