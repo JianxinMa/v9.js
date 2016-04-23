@@ -229,164 +229,8 @@ typedef unsigned int uint;
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <termios.h>
 #include <unistd.h>
 
-#define NOFILE 16 // XXX subject to change
-
-#undef NAME_MAX
-#undef PATH_MAX
-#define NAME_MAX 256
-#define PATH_MAX 256
-
-enum { xCLOSED, xCONSOLE, xFILE, xSOCKET, xDIR };
-int xfd[NOFILE];
-int xft[NOFILE];
-
-char *pesc = 0;
-
-int xopen(char *fn, int mode) {
-  int i, d;
-  struct stat hs;
-  int r;
-  for (i = 0; i < NOFILE; i++) {
-    if (xft[i] == xCLOSED) {
-      if (!(mode & O_CREAT) && !stat(fn, &hs) && S_ISDIR(hs.st_mode)) {
-        if (!(d = (int)opendir(fn))) {
-          return -1;
-        }
-        xft[i] = xDIR;
-      } else {
-        if ((d = open(fn, mode, S_IRWXU)) < 0) {
-          return d;
-        }
-        xft[i] = xFILE;
-      }
-      xfd[i] = d;
-      return i;
-    }
-  }
-  return -1;
-}
-int xclose(int d) {
-  int r;
-  if ((uint)d >= NOFILE) {
-    return -1;
-  }
-  switch (xft[d]) {
-  case xSOCKET:
-  case xFILE:
-    r = close(xfd[d]);
-    break;
-  case xDIR:
-    closedir((DIR *)xfd[d]);
-    r = 0;
-    break;
-  }
-  xfd[d] = -1;
-  xft[d] = xCLOSED;
-  return r;
-}
-int xread(int d, void *b, int n) {
-  struct dirent *de;
-  int c;
-
-  if ((uint)d >= NOFILE) {
-    return -1;
-  }
-  switch (xft[d]) {
-  case xSOCKET:
-    return read(xfd[d], b, n);
-  case xCONSOLE:
-    return read(0, b, 1);
-  case xDIR:
-    if (n != NAME_MAX) {
-      return 0;
-    }
-    if (!(de = readdir((DIR *)xfd[d]))) {
-      return 0;
-    }
-    n = 1;
-    memcpy(b, &n, 4);
-    strncpy((char *)b + 4, de->d_name, NAME_MAX - 4);
-    return NAME_MAX; // XXX hardcoded crap
-  case xFILE:
-    return read(xfd[d], b, n);
-  }
-  return -1;
-}
-int xwrite(int d, void *b, int n) {
-  if ((uint)d >= NOFILE) {
-    return -1;
-  }
-  switch (xft[d]) {
-  case xSOCKET:
-  case xFILE: // return write(xfd[d], b, n);
-  case xCONSOLE:
-    return write(xfd[d], b, n); // return write(1, b, n); XXX
-  }
-  return -1;
-}
-int xprintf(char *f, ...) {
-  static char buf[4096];
-  va_list v;
-  int n;
-  va_start(v, f);
-  n = vsprintf(buf, f, v); // XXX should be my version!
-  va_end(v);
-  return xwrite(1, buf, n);
-}
-int xdprintf(int d, char *f, ...) {
-  static char buf[4096];
-  va_list v;
-  int n;
-  va_start(v, f);
-  n = vsprintf(buf, f, v);
-  va_end(v);
-  return xwrite(d, buf, n);
-}
-
-struct xstat {
-  ushort st_dev;  // device number
-  ushort st_mode; // type of file
-  uint st_ino;    // inode number on device
-  uint st_nlink;  // number of links to file
-  uint st_size;   // size of file in bytes
-};
-int xfstat(int d, struct xstat *s) {
-  struct stat hs;
-  int r;
-  if ((uint)d >= NOFILE) {
-    return -1;
-  }
-  if (xft[d] == xDIR) {
-    s->st_mode = S_IFDIR;
-    s->st_dev = 0;
-    s->st_ino = 0;
-    s->st_nlink = 0;
-    s->st_size = 0;
-    r = 0;
-  } else if (!(r = fstat(xfd[d], &hs))) {
-    s->st_mode = S_IFREG;
-    s->st_dev = hs.st_dev;
-    s->st_ino = hs.st_ino;
-    s->st_nlink = hs.st_nlink;
-    s->st_size = hs.st_size;
-  }
-  return r;
-}
-int xstat(char *file, struct xstat *s) {
-  struct stat hs;
-  int r;
-  if (!(r = stat(file, &hs))) {
-    s->st_mode = hs.st_mode;
-    s->st_dev = hs.st_dev;
-    s->st_ino = hs.st_ino;
-    s->st_nlink = hs.st_nlink;
-    s->st_size = hs.st_size;
-  }
-  return r;
-}
 void *xsbrk(int i) {
   void *p;
   static int brk = 0;
@@ -406,43 +250,6 @@ void *xsbrk(int i) {
   return (void *)-1;
 }
 
-void xexit(int rc) {
-  struct termios sttybuf;
-  tcgetattr(0, &sttybuf);
-  sttybuf.c_lflag |= ECHO | ICANON;
-  tcsetattr(0, TCSANOW, &sttybuf);
-  exit(rc);
-}
-
-int main(int argc, char *argv[]) {
-  extern int xmain();
-  struct termios sttybuf;
-  int i;
-  tcgetattr(0, &sttybuf);
-  sttybuf.c_lflag &= ~(ECHO | ICANON);
-  tcsetattr(0, TCSANOW, &sttybuf);
-  for (i = 0; i < 3; i++) {
-    xfd[i] = i;
-    xft[i] = xCONSOLE;
-  }
-  for (i = 3; i < NOFILE; i++) {
-    xfd[i] = -1;
-    xft[i] = xCLOSED;
-  }
-  xexit(xmain(argc, argv));
-}
-
-#define printf xprintf
-#define dprintf xdprintf
-#define open xopen
-#define close xclose
-#define read xread
-#define write xwrite
-#define stat xstat
-#define fstat xfstat
-
-#define exit xexit
-#define main xmain
 #define sbrk xsbrk
 
 // c -- c compiler
@@ -4519,7 +4326,7 @@ void stmt() {
 }
 
 int main(int argc, char *argv[]) {
-  int i, amain, text, *patchdata, *patchbss, sbrk_start;
+  int i, amain, text, *patchdata, *patchbss;
   ident_t *tmain;
   char *outfile;
   struct {
@@ -4563,7 +4370,6 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  sbrk_start = (int)sbrk(0);
   ts = ip = (int)new (SEG_SZ);
   gs = (int)new (SEG_SZ);
   va = vp = (int)new (VAR_SZ);
