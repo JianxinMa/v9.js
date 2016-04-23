@@ -5,30 +5,30 @@ gcc -o mkfs -O3 -m32 mkfs.c
 
 cp -r ../root root
 
-./xvcc -o os               -Iroot/lib root/etc/os.c
-./xvcc -o root/etc/init    -Iroot/lib root/etc/init.c
-./xvcc -o root/bin/sh      -Iroot/lib root/bin/sh.c
-./xvcc -o root/bin/cat     -Iroot/lib root/bin/cat.c
-./xvcc -o root/bin/cp      -Iroot/lib root/bin/cp.c
-./xvcc -o root/bin/halt    -Iroot/lib root/bin/halt.c
-./xvcc -o root/bin/ln      -Iroot/lib root/bin/ln.c
-./xvcc -o root/bin/ls      -Iroot/lib root/bin/ls.c
-./xvcc -o root/bin/man     -Iroot/lib root/bin/man.c
-./xvcc -o root/bin/mkdir   -Iroot/lib root/bin/mkdir.c
-./xvcc -o root/bin/mv      -Iroot/lib root/bin/mv.c
-./xvcc -o root/bin/pwd     -Iroot/lib root/bin/pwd.c
-./xvcc -o root/bin/rm      -Iroot/lib root/bin/rm.c
-./xvcc -o root/bin/rmdir   -Iroot/lib root/bin/rmdir.c
-./xvcc -o root/bin/echo    -Iroot/lib root/bin/echo.c
-./xvcc -o root/bin/kill    -Iroot/lib root/bin/kill.c
-./xvcc -o root/bin/bin2c   -Iroot/lib root/bin/bin2c.c
-./xvcc -o root/bin/edit    -Iroot/lib root/bin/edit.c
-./xvcc -o root/bin/grep    -Iroot/lib root/bin/grep.c
-./xvcc -o root/bin/wc      -Iroot/lib root/bin/wc.c
-./xvcc -o root/usr/euhello -Iroot/lib root/usr/euhello.c
-./xvcc -o root/usr/hello   -Iroot/lib root/usr/hello.c
-./xvcc -o root/usr/prseg   -Iroot/lib root/usr/prseg.c
-./xvcc -o root/usr/sdk     -Iroot/lib root/usr/sdk.c
+./xvcc -Iroot/lib -o os               root/etc/os.c
+./xvcc -Iroot/lib -o root/etc/init    root/etc/init.c
+./xvcc -Iroot/lib -o root/bin/sh      root/bin/sh.c
+./xvcc -Iroot/lib -o root/bin/cat     root/bin/cat.c
+./xvcc -Iroot/lib -o root/bin/cp      root/bin/cp.c
+./xvcc -Iroot/lib -o root/bin/halt    root/bin/halt.c
+./xvcc -Iroot/lib -o root/bin/ln      root/bin/ln.c
+./xvcc -Iroot/lib -o root/bin/ls      root/bin/ls.c
+./xvcc -Iroot/lib -o root/bin/man     root/bin/man.c
+./xvcc -Iroot/lib -o root/bin/mkdir   root/bin/mkdir.c
+./xvcc -Iroot/lib -o root/bin/mv      root/bin/mv.c
+./xvcc -Iroot/lib -o root/bin/pwd     root/bin/pwd.c
+./xvcc -Iroot/lib -o root/bin/rm      root/bin/rm.c
+./xvcc -Iroot/lib -o root/bin/rmdir   root/bin/rmdir.c
+./xvcc -Iroot/lib -o root/bin/echo    root/bin/echo.c
+./xvcc -Iroot/lib -o root/bin/kill    root/bin/kill.c
+./xvcc -Iroot/lib -o root/bin/bin2c   root/bin/bin2c.c
+./xvcc -Iroot/lib -o root/bin/edit    root/bin/edit.c
+./xvcc -Iroot/lib -o root/bin/grep    root/bin/grep.c
+./xvcc -Iroot/lib -o root/bin/wc      root/bin/wc.c
+./xvcc -Iroot/lib -o root/usr/euhello root/usr/euhello.c
+./xvcc -Iroot/lib -o root/usr/hello   root/usr/hello.c
+./xvcc -Iroot/lib -o root/usr/prseg   root/usr/prseg.c
+./xvcc -Iroot/lib -o root/usr/sdk     root/usr/sdk.c
 
 ./mkfs fs root
 
