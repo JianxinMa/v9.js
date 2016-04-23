@@ -285,14 +285,15 @@ char *mapfile(char *name, int size) { // XXX replace with mmap
 // instruction emitter
 void em(int i) {
   if (debug) {
-    printf("%08x  %08x%6.4s\n", ip - ts, i, &ops[i * 5]);
+    dprintf(info_fd, "# 0x%08x 0x%08x%5.4s\n", ip - ts, i, &ops[i * 5]);
   }
   *(int *)ip = i;
   ip += 4;
 }
 void emi(int i, int c) {
   if (debug) {
-    printf("%08x  %08x%6.4s  %d\n", ip - ts, i | (c << 8), &ops[i * 5], c);
+    dprintf(info_fd, "# 0x%08x 0x%08x%5.4s %d\n", ip - ts, i | (c << 8),
+            &ops[i * 5], c);
   }
   if (c << 8 >> 8 != c)
     err("emi() constant out of bounds");
@@ -316,7 +317,8 @@ void emg(int i, int c) {
 } // global
 int emf(int i, int c) { // forward
   if (debug) {
-    printf("%08x  %08x%6.4s  <fwd>\n", ip - ts, i | (c << 8), &ops[i * 5]);
+    dprintf(info_fd, "# 0x%08x 0x%08x%5.4s <fwd>\n", ip - ts, i | (c << 8),
+            &ops[i * 5]);
   }
   if (c << 8 >> 8 != c)
     err("emf() offset out of bounds");
@@ -338,7 +340,7 @@ void dline() {
   char *p;
   for (p = pos; *p && *p != '\n' && *p != '\r'; p++)
     ;
-  printf("%s  %d: %.*s\n", file, line, p - pos, pos);
+  dprintf(info_fd, "# %s %d: %.*s\n", file, line, p - pos, pos);
 }
 
 void next() {
@@ -4127,7 +4129,7 @@ int main(int argc, char *argv[]) {
     dprintf(2, "entry = %d text = %d data = %d bss = %d\n", amain - ts, text,
             data, bss);
 
-  if (!errs && !debug) {
+  if (!errs) {
     while (pdata != patchdata) {
       pdata--;
       *(int *)*pdata += (ip - *pdata - 4) << 8;

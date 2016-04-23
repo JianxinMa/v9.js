@@ -51,9 +51,15 @@ Now, every time page tables are changed, the emulator can first peek at 0x4 and 
 
 `a.d` is simply a normal ASCII text file.
 
-The first line of `a.d` is the same string as the one at 0x4 (in .text), e.g.
+The first line, led by a `C`, of `a.d` is the same string as the one at 0x4 (in .text), e.g.
 ```
 C a.c
+```
+
+Whatever after `#` are comments:
+```
+C a.c # This is a comment.
+# Yet another comment.
 ```
 
 Suppose that there is an instruction at address 0x00010000, which belongs to line 123 in `a.c`.
@@ -61,6 +67,6 @@ This information can be written as
 ```
 I 0x00010000 a.c 123
 ```
-If there are multiple such entries for 0x00010000, all but the last one are ignored.
+It is led by an `I`. If there are multiple such entries for 0x00010000, all but the last one are ignored.
 
 Regarding local variables, (still working on ...)
