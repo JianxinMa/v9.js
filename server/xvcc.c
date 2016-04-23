@@ -476,9 +476,6 @@ int main(int argc, char *argv[]) {
 //
 // Written by Robert Swierczek
 
-// #include <u.h>
-// #include <libc.h>
-
 enum {
   SEG_SZ = 8 * 1024 * 1024, // max size of text+data+bss seg
   EXPR_SZ = 4 * 1024,       // size of expression stack
@@ -544,8 +541,6 @@ int tk,       // current token
     *pdata,   // data segment patchup pointer
     *pbss;    // bss segment patchup pointer
 
-int symfd;
-
 ident_t *id; // current parsed identifier
 double fval; // current token double value
 uint ty,     // current parsed subexpression type
@@ -560,32 +555,21 @@ char *file, // input file name
 loc_t *ploc; // local variable stack pointer
 
 char ops[] =
-    "HALT,ENT ,LEV ,JMP ,JMPI,JSR ,JSRA,LEA ,LEAG,CYC "
-    ",MCPY,MCMP,MCHR,MSET," // system
-    "LL  ,LLS ,LLH ,LLC ,LLB ,LLD ,LLF ,LG  ,LGS ,LGH ,LGC ,LGB ,LGD ,LGF "
-    "," // load a
-    "LX  ,LXS ,LXH ,LXC ,LXB ,LXD ,LXF ,LI  ,LHI ,LIF ,"
-    "LBL ,LBLS,LBLH,LBLC,LBLB,LBLD,LBLF,LBG "
-    ",LBGS,LBGH,LBGC,LBGB,LBGD,LBGF," // load b
-    "LBX ,LBXS,LBXH,LBXC,LBXB,LBXD,LBXF,LBI ,LBHI,LBIF,LBA ,LBAD,"
-    "SL  ,SLH ,SLB ,SLD ,SLF ,SG  ,SGH ,SGB ,SGD ,SGF ," // store
-    "SX  ,SXH ,SXB ,SXD ,SXF ,"
-    "ADDF,SUBF,MULF,DIVF," // arithmetic
-    "ADD ,ADDI,ADDL,SUB ,SUBI,SUBL,MUL ,MULI,MULL,DIV ,DIVI,DIVL,"
-    "DVU ,DVUI,DVUL,MOD ,MODI,MODL,MDU ,MDUI,MDUL,AND ,ANDI,ANDL,"
-    "OR  ,ORI ,ORL ,XOR ,XORI,XORL,SHL ,SHLI,SHLL,SHR ,SHRI,SHRL,"
-    "SRU ,SRUI,SRUL,EQ  ,EQF ,NE  ,NEF ,LT  ,LTU ,LTF ,GE  ,GEU ,GEF ," // logical
-    "BZ  ,BZF ,BNZ ,BNZF,BE  ,BEF ,BNE ,BNEF,BLT ,BLTU,BLTF,BGE "
-    ",BGEU,BGEF,"          // conditional
-    "CID ,CUD ,CDI ,CDU ," // conversion
-    "CLI ,STI ,RTI ,BIN ,BOUT,NOP ,SSP "
-    ",PSHA,PSHI,PSHF,PSHB,POPB,POPF,POPA," // misc
-    "IVEC,PDIR,SPAG,TIME,LVAD,TRAP,LUSP,SUSP,LCL ,LCA ,PSHC,POPC,MSIZ,"
-    "PSHG,POPG,NET1,NET2,NET3,NET4,NET5,NET6,NET7,NET8,NET9,"
-    "POW ,ATN2,FABS,ATAN,LOG ,LOGT,EXP ,FLOR,CEIL,HYPO,SIN ,COS ,TAN "
-    ",ASIN," // math
-    "ACOS,SINH,COSH,TANH,SQRT,FMOD,"
-    "IDLE,";
+    "HALT,ENT ,LEV ,JMP ,JMPI,JSR ,JSRA,LEA ,LEAG,CYC ,MCPY,MCMP,MCHR,MSET,"
+    "LL  ,LLS ,LLH ,LLC ,LLB ,LLD ,LLF ,LG  ,LGS ,LGH ,LGC ,LGB ,LGD ,LGF ,"
+    "LX  ,LXS ,LXH ,LXC ,LXB ,LXD ,LXF ,LI  ,LHI ,LIF ,LBL ,LBLS,LBLH,LBLC,"
+    "LBLB,LBLD,LBLF,LBG ,LBGS,LBGH,LBGC,LBGB,LBGD,LBGF,LBX ,LBXS,LBXH,LBXC,"
+    "LBXB,LBXD,LBXF,LBI ,LBHI,LBIF,LBA ,LBAD,SL  ,SLH ,SLB ,SLD ,SLF ,SG  ,"
+    "SGH ,SGB ,SGD ,SGF ,SX  ,SXH ,SXB ,SXD ,SXF ,ADDF,SUBF,MULF,DIVF,ADD ,"
+    "ADDI,ADDL,SUB ,SUBI,SUBL,MUL ,MULI,MULL,DIV ,DIVI,DIVL,DVU ,DVUI,DVUL,"
+    "MOD ,MODI,MODL,MDU ,MDUI,MDUL,AND ,ANDI,ANDL,OR  ,ORI ,ORL ,XOR ,XORI,"
+    "XORL,SHL ,SHLI,SHLL,SHR ,SHRI,SHRL,SRU ,SRUI,SRUL,EQ  ,EQF ,NE  ,NEF ,"
+    "LT  ,LTU ,LTF ,GE  ,GEU ,GEF ,BZ  ,BZF ,BNZ ,BNZF,BE  ,BEF ,BNE ,BNEF,"
+    "BLT ,BLTU,BLTF,BGE ,BGEU,BGEF,CID ,CUD ,CDI ,CDU ,CLI ,STI ,RTI ,BIN ,"
+    "BOUT,NOP ,SSP ,PSHA,PSHI,PSHF,PSHB,POPB,POPF,POPA,IVEC,PDIR,SPAG,TIME,"
+    "LVAD,TRAP,LUSP,SUSP,LCL ,LCA ,PSHC,POPC,MSIZ,PSHG,POPG,NET1,NET2,NET3,"
+    "NET4,NET5,NET6,NET7,NET8,NET9,POW ,ATN2,FABS,ATAN,LOG ,LOGT,EXP ,FLOR,"
+    "CEIL,HYPO,SIN ,COS ,TAN ,ASIN,ACOS,SINH,COSH,TANH,SQRT,FMOD,IDLE,";
 
 // types and type masks. specific bit patterns and orderings needed by expr()
 enum {
@@ -728,6 +712,38 @@ enum {
   Paren
 };
 
+int info_fd;
+
+void info_open(char *c_file) {
+  int i;
+
+  i = strlen(c_file);
+  if (c_file[i - 1] != 'c') {
+    dprintf(2, "%s : error: source %s should end with .c\n", cmd, c_file);
+    exit(-1);
+  }
+  c_file[i - 1] = 'd';
+  info_fd = open(c_file, O_WRONLY | O_CREAT | O_TRUNC);
+  if (info_fd < 0) {
+    dprintf(2, "%s : error: can't open info file %s\n", cmd, c_file);
+    exit(-1);
+  }
+  c_file[i - 1] = 'c';
+  dprintf(info_fd, "%s\n", c_file);
+  *((uint *)ts) = 0xFF2017FF;
+  ts += 4;
+  strcpy((char *)ts, c_file);
+  ts += strlen(c_file) + 1;
+  ts = (ts + 7) & -8;
+  ip = ts;
+}
+
+void info_close() { close(info_fd); }
+
+void info_print_current_line() {
+  dprintf(info_fd, "0x%08x %s %d\n", ip - ts, file, line);
+}
+
 void *new (int size) {
   void *p;
   if ((p = sbrk((size + 7) & -8)) == (void *)-1) {
@@ -766,20 +782,11 @@ char *mapfile(char *name, int size) { // XXX replace with mmap
   return p;
 }
 
-void printdsym() {
-  if (symfd) {
-    dprintf(symfd, "A 0x%08x\n", ip - ts);
-    dprintf(symfd, "F %s\n", file);
-    dprintf(symfd, "L %d\n", line);
-  }
-}
-
 // instruction emitter
 void em(int i) {
   if (debug) {
     printf("%08x  %08x%6.4s\n", ip - ts, i, &ops[i * 5]);
   }
-  printdsym();
   *(int *)ip = i;
   ip += 4;
 }
@@ -789,7 +796,6 @@ void emi(int i, int c) {
   }
   if (c << 8 >> 8 != c)
     err("emi() constant out of bounds");
-  printdsym();
   *(int *)ip = i | (c << 8);
   ip += 4;
 }
@@ -4516,7 +4522,6 @@ int main(int argc, char *argv[]) {
   int i, amain, text, *patchdata, *patchbss, sbrk_start;
   ident_t *tmain;
   char *outfile;
-  char *symfile;
   struct {
     uint magic, bss, entry, flags;
   } hdr;
@@ -4527,7 +4532,6 @@ int main(int argc, char *argv[]) {
     goto usage;
   }
   outfile = 0;
-  symfile = 0;
   file = *++argv;
   while (--argc && *file == '-') {
     switch (file[1]) {
@@ -4546,18 +4550,17 @@ int main(int argc, char *argv[]) {
         argc--;
         break;
       }
-    case 'd':
-      if (argc > 1) {
-        symfile = *++argv;
-        argc--;
-        break;
-      }
     default:
     usage:
-      dprintf(2, "usage: %s [-v] [-s] [-Ipath] [-o exefile] file ...\n", cmd);
+      dprintf(2, "usage: %s [-v] [-s] [-Ipath] -o exefile file ...\n", cmd);
       return -1;
     }
     file = *++argv;
+  }
+
+  if (!outfile) {
+    dprintf(2, "%s : error: no output file\n", cmd);
+    return -1;
   }
 
   sbrk_start = (int)sbrk(0);
@@ -4568,19 +4571,7 @@ int main(int argc, char *argv[]) {
   bigend = 1;
   bigend = ((char *)&bigend)[3];
 
-  if (symfile) {
-    ip = ts + 256;
-    *((uint *)ts) = 0xFF3223FF;
-    for (i = 4; i < 256; i++) {
-      *((char *)(ts + i)) = 0;
-    }
-    strcpy((char *)(ts + 4), symfile);
-    symfd = open(symfile, O_WRONLY | O_CREAT | O_TRUNC);
-    if (symfd < 0) {
-      dprintf(2, "%s : error: can't open symbol file %s\n", cmd, symfile);
-      return -1;
-    }
-  }
+  info_open(file);
 
   pos = "asm auto break case char continue default do double else enum float "
         "for goto if int long return short "
@@ -4646,34 +4637,19 @@ int main(int argc, char *argv[]) {
       pbss--;
       *(int *)*pbss += (ip + data - *pbss - 4) << 8;
     }
-    if (symfd) {
-      close(symfd);
+    if ((i = open(outfile, O_WRONLY | O_CREAT | O_TRUNC)) < 0) {
+      dprintf(2, "%s : error: can't open output file %s\n", cmd, outfile);
+      return -1;
     }
-    if (outfile) {
-      if ((i = open(outfile, O_WRONLY | O_CREAT | O_TRUNC)) < 0) {
-        dprintf(2, "%s : error: can't open output file %s\n", cmd, outfile);
-        return -1;
-      }
-      hdr.magic = 0xC0DEF00D;
-      hdr.bss = bss;
-      hdr.entry = amain - ts;
-      hdr.flags = 0;
-      write(i, &hdr, sizeof(hdr));
-      write(i, (void *)ts, text);
-      write(i, (void *)gs, data);
-      close(i);
-    } else {
-      memcpy((void *)ip, (void *)gs, data);
-      sbrk(sbrk_start + text + data + 8 - (int)sbrk(0)); // free compiler memory
-      sbrk(bss);
-      if (verbose) {
-        dprintf(2, "%s : running %s\n", cmd, file);
-      }
-      errs = ((int (*)())amain)(argc, argv);
-      if (verbose) {
-        dprintf(2, "%s : %s main returned %d\n", cmd, file, errs);
-      }
-    }
+    hdr.magic = 0xC0DEF00D;
+    hdr.bss = bss;
+    hdr.entry = amain - ts;
+    hdr.flags = 0;
+    write(i, &hdr, sizeof(hdr));
+    write(i, (void *)ts, text);
+    write(i, (void *)gs, data);
+    close(i);
+    info_close();
   }
   if (verbose) {
     dprintf(2, "%s : exiting\n", cmd);

@@ -1,4 +1,4 @@
-# Debugger Design
+# (Deprecated) Debugger Design
 
 Our goal is to support both kernel and user mode debugging without, or at least only with minimum, support from the operating system. Most work should be done by the emulator. And hopefully it can be invisible to the OS.
 
