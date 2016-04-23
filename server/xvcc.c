@@ -509,7 +509,7 @@ void info_open(char *c_file) {
     exit(-1);
   }
   c_file[i - 1] = 'd';
-  info_fd = open(c_file, O_WRONLY | O_CREAT | O_TRUNC);
+  info_fd = open(c_file, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
   if (info_fd < 0) {
     dprintf(2, "%s : error: can't open info file %s\n", cmd, c_file);
     exit(-1);
@@ -571,7 +571,7 @@ void err(char *msg) {
 char *mapfile(char *name, int size) { // XXX replace with mmap
   int f;
   char *p;
-  if ((f = open(name, O_RDONLY)) < 0) {
+  if ((f = open(name, O_RDONLY, S_IRWXU)) < 0) {
     dprintf(2, "%s : [%s:%d] error: can't open file %s\n", cmd, file, line,
             name);
     exit(-1);
@@ -4441,7 +4441,7 @@ int main(int argc, char *argv[]) {
       pbss--;
       *(int *)*pbss += (ip + data - *pbss - 4) << 8;
     }
-    if ((i = open(outfile, O_WRONLY | O_CREAT | O_TRUNC)) < 0) {
+    if ((i = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU)) < 0) {
       dprintf(2, "%s : error: can't open output file %s\n", cmd, outfile);
       return -1;
     }
