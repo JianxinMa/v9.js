@@ -228,63 +228,107 @@ void info_print_current_line() {
   dprintf(info_fd, "@ 0x%08x %s %d\n", ip - ts, file, line);
 }
 
+void info_print_name(char *name) {
+  char *pos;
+
+  pos = name;
+  for (;;) {
+    switch (*pos) {
+    case 'a' ... 'z':
+    case 'A' ... 'Z':
+    case '0' ... '9':
+    case '_':
+    case '$':
+      pos++;
+      continue;
+    }
+    break;
+  }
+  dprintf(info_fd, "%.*s", pos - name, name);
+}
+
+void info_print_type_str(uint t);
+
+void info_print_struct(struct_t *s) {
+  member_t *mp;
+
+  dprintf(info_fd, "(");
+  for (mp = s->member; mp; mp = mp->next) {
+    dprintf(info_fd, "(");
+    info_print_name(mp->id->name);
+    dprintf(info_fd, ":%+d:", mp->offset);
+    info_print_type_str(mp->type);
+    dprintf(info_fd, ")");
+  }
+  dprintf(info_fd, ")");
+}
+
 void info_print_type_str(uint t) {
-  dprintf(info_fd, "( ");
+  ident_t *d;
+
+  dprintf(info_fd, "(");
   if (t & PMASK) {
-    dprintf(info_fd, "ptr ");
+    dprintf(info_fd, "ptr");
     info_print_type_str(t - PTR);
-    dprintf(info_fd, " ");
   } else {
     switch (t & TMASK & ~PMASK) {
     case CHAR:
-      dprintf(info_fd, "char ");
+      dprintf(info_fd, "char");
       assert((t >> TSHIFT) == 0);
       break;
     case SHORT:
-      dprintf(info_fd, "short ");
+      dprintf(info_fd, "short");
       assert((t >> TSHIFT) == 0);
       break;
     case INT:
-      dprintf(info_fd, "int ");
+      dprintf(info_fd, "int");
       assert((t >> TSHIFT) == 0);
       break;
     case UCHAR:
-      dprintf(info_fd, "uchar ");
+      dprintf(info_fd, "uchar");
       assert((t >> TSHIFT) == 0);
       break;
     case USHORT:
-      dprintf(info_fd, "ushort ");
+      dprintf(info_fd, "ushort");
       assert((t >> TSHIFT) == 0);
       break;
     case UINT:
-      dprintf(info_fd, "uint ");
+      dprintf(info_fd, "uint");
       assert((t >> TSHIFT) == 0);
       break;
     case FLOAT:
-      dprintf(info_fd, "float ");
+      dprintf(info_fd, "float");
       assert((t >> TSHIFT) == 0);
       break;
     case DOUBLE:
-      dprintf(info_fd, "double ");
+      dprintf(info_fd, "double");
       assert((t >> TSHIFT) == 0);
       break;
     case VOID:
-      dprintf(info_fd, "void ");
+      dprintf(info_fd, "void");
       assert((t >> TSHIFT) == 0);
       break;
     case FUN:
-      dprintf(info_fd, "fun ");
+      dprintf(info_fd, "fun");
+      dprintf(2, "warning: use of experimental feature: d->type == function\n");
       break;
     case ARRAY:
-      dprintf(info_fd, "array ");
+      dprintf(info_fd, "array");
       info_print_type_str(((array_t *)(va + (t >> TSHIFT)))->type);
-      dprintf(info_fd, " ");
       break;
     case STRUCT:
-      dprintf(info_fd, "struct ");
+      dprintf(info_fd, "struct");
+      d = ((struct_t *)(va + (t >> TSHIFT)))->id;
+      if (d) {
+        dprintf(info_fd, "<");
+        info_print_name(d->name);
+        dprintf(info_fd, ">");
+      } else {
+        info_print_struct((struct_t *)(va + (t >> TSHIFT)));
+      }
       break;
     default:
-      dprintf(info_fd, "??? ");
+      dprintf(info_fd, "???");
       dprintf(2, "warning: d->type == %d | %d\n", t >> TSHIFT, t & TMASK);
     }
   }
@@ -294,13 +338,13 @@ void info_print_type_str(uint t) {
 void info_print_locals(loc_t *sp) {
   loc_t *v;
   ident_t *d;
-  char *pos;
 
   v = ploc;
   while (v != sp) {
     v--;
     d = v->id;
-    dprintf(info_fd, "l");
+    dprintf(info_fd, "l ");
+    info_print_name(d->name);
     switch (d->class) {
     case Static:
     case Leag:
@@ -317,20 +361,6 @@ void info_print_locals(loc_t *sp) {
     }
     dprintf(info_fd, " ");
     info_print_type_str(d->type);
-    pos = d->name;
-    for (;;) {
-      switch (*pos) {
-      case 'a' ... 'z':
-      case 'A' ... 'Z':
-      case '0' ... '9':
-      case '_':
-      case '$':
-        pos++;
-        continue;
-      }
-      break;
-    }
-    dprintf(info_fd, " %.*s", pos - d->name, d->name);
     dprintf(info_fd, "\n");
   }
 }
