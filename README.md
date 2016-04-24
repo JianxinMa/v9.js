@@ -1,5 +1,7 @@
 # V9@Web
 
+ATTENTION! The demo is temporarily broken, because server.js hasn't caught up with other parts.
+
 Currently working on debugging tools. See the [debugger design](doc/debugger.md) for more details.
 
 Reading `c.c` these days. What a pain.

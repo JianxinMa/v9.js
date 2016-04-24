@@ -3,10 +3,6 @@
 // Usage:  c [-v] [-s] [-Ipath] [-o exefile] file ...
 //
 // Description:
-//   c is the c compiler.  It takes a single source file and creates an
-//   executable
-//   file or else executes the compiled code immediately.  The compiler does not
-//   reach full standards compliance, so some programs need minor adjustment.
 //   There is no preprocessor, although the #include keyword is allowed
 //   supporting a single level of file inclusion.
 //
@@ -167,31 +163,26 @@ enum {
   TSHIFT = 10,
 };
 
+// clang-format off
 // tokens and node types ( >= 128 so not to collide with ascii-valued tokens)
 enum {
   Num = 128, // low ordering of Num and Auto needed by nodc()
 
   // keyword grouping needed by main()  XXX missing extern and register
-  // clang-format off
   Asm, Auto, Break, Case, Char, Continue, Default, Do, Double, Else, Enum,
   Float, For, Goto, If, Int, Long, Return, Short, Sizeof, Static, Struct,
   Switch, Typedef, Union, Unsigned, Void, While, Va_list, Va_start, Va_arg,
-  // clang-format on
-
-  // clang-format off
   Id, Numf, Ptr, Not, Notf, Nzf, Lea, Leag, Fun, FFun, Fcall, Label, FLabel,
   Cid, Cud, Cdi, Cdu, Cic, Cuc, Cis, Cus, Dots, Addaf, Subaf, Mulaf, Dvua,
   Divaf, Mdua, Srua, Eqf, Nef, Ltu, Ltf, Geu, Gef, Sru, Addf, Subf, Mulf,
   Dvu, Divf, Mdu,
-  // clang-format on
 
   // operator precedence order needed by expr()
-  // clang-format off
   Comma, Assign, Adda, Suba, Mula, Diva, Moda, Anda, Ora, Xora, Shla, Shra,
   Cond, Lor, Lan, Or, Xor, And, Eq, Ne, Lt, Gt, Le, Ge, Shl, Shr, Add, Sub,
   Mul, Div, Mod, Inc, Dec, Dot, Arrow, Brak, Paren
-  // clang-format on
 };
+// clang-format on
 
 int info_fd;
 
@@ -219,10 +210,69 @@ void info_open(char *c_file) {
   ip = ts;
 }
 
-void info_close() { close(info_fd); }
+void info_close(int text) {
+  dprintf(info_fd, "# .text 0x%08x (+0x%08x) 0x%08x\n", 0, text, text);
+  dprintf(info_fd, "# .data 0x%08x (+0x%08x) 0x%08x\n", text, data,
+          text + data);
+  dprintf(info_fd, "# .bss  0x%08x (+0x%08x) 0x%08x\n", text + data, bss,
+          text + data + bss);
+  dprintf(info_fd, ".data 0x%08x\n", text);
+  dprintf(info_fd, ".bss  0x%08x\n", text + data);
+  close(info_fd);
+}
 
 void info_print_current_line() {
-  dprintf(info_fd, "0x%08x %s %d\n", ip - ts, file, line);
+  dprintf(info_fd, "@ 0x%08x %s %d\n", ip - ts, file, line);
+}
+
+void info_print_locals(loc_t *sp) {
+  loc_t *v;
+  ident_t *d;
+  char *pos;
+
+  v = ploc;
+  while (v != sp) {
+    v--;
+    d = v->id;
+    dprintf(info_fd, "l");
+    if (d->class == Static || d->class == Leag) {
+      // `d->val - BSS_TAG` is a relative offset from .bss.
+      dprintf(info_fd, " 0x%08x", d->val - BSS_TAG);
+    } else {
+      dprintf(info_fd, " %d", d->val);
+    }
+    switch (d->class) {
+    case Static:
+      dprintf(info_fd, " static");
+      break;
+    case Auto:
+      dprintf(info_fd, " auto");
+      break;
+    case Lea:
+      dprintf(info_fd, " lea");
+      break;
+    case Leag:
+      dprintf(info_fd, " leag");
+      break;
+    default:
+      printf("Warning: unknown class == %d\n", d->class);
+    }
+    pos = d->name;
+    for (;;) {
+      switch (*pos) {
+      case 'a' ... 'z':
+      case 'A' ... 'Z':
+      case '0' ... '9':
+      case '_':
+      case '$':
+        pos++;
+        continue;
+      }
+      break;
+    }
+    dprintf(info_fd, " %.*s", pos - d->name, d->name);
+    dprintf(info_fd, "\n");
+  }
 }
 
 void *xsbrk(int i) {
@@ -287,6 +337,7 @@ void em(int i) {
   if (debug) {
     dprintf(info_fd, "# 0x%08x 0x%08x%5.4s\n", ip - ts, i, &ops[i * 5]);
   }
+  info_print_current_line();
   *(int *)ip = i;
   ip += 4;
 }
@@ -295,6 +346,7 @@ void emi(int i, int c) {
     dprintf(info_fd, "# 0x%08x 0x%08x%5.4s %d\n", ip - ts, i | (c << 8),
             &ops[i * 5], c);
   }
+  info_print_current_line();
   if (c << 8 >> 8 != c)
     err("emi() constant out of bounds");
   *(int *)ip = i | (c << 8);
@@ -320,6 +372,7 @@ int emf(int i, int c) { // forward
     dprintf(info_fd, "# 0x%08x 0x%08x%5.4s <fwd>\n", ip - ts, i | (c << 8),
             &ops[i * 5]);
   }
+  info_print_current_line();
   if (c << 8 >> 8 != c)
     err("emf() offset out of bounds");
   *(int *)ip = i | (c << 8);
@@ -1286,17 +1339,15 @@ void decl(int bc) {
         b = e;
         decl(Auto);
         loc &= -8;
-        if (loc) {
-          emi(ENT, loc);
-        }
+        emi(ENT, loc);
         if (e != b) {
           rv(e);
           e = b;
         }
+        info_print_locals(sp);
         while (tk != '}') {
           stmt(); // XXX null check
         }
-        next();
         emi(LEV, -loc);
         while (ploc != sp) {
           ploc--;
@@ -1309,6 +1360,7 @@ void decl(int bc) {
           v->class = ploc->class;
           v->local = 0;
         }
+        next();
         break;
       } else if ((t & TMASK) == FUN) {
         //        if (bc != Static || sc != Static) err("bad nested function
@@ -4150,7 +4202,7 @@ int main(int argc, char *argv[]) {
     write(i, (void *)ts, text);
     write(i, (void *)gs, data);
     close(i);
-    info_close();
+    info_close(text);
   }
   if (verbose) {
     dprintf(2, "%s : exiting\n", cmd);

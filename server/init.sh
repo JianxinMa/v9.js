@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+rm -rf xvcc mkfs root
+
 gcc -o xvcc -O3 -m32 xvcc.c
 gcc -o mkfs -O3 -m32 mkfs.c
 
@@ -32,4 +34,4 @@ cp -r ../root root
 
 ./mkfs fs root
 
-rm -r xvcc mkfs
+rm xvcc mkfs
