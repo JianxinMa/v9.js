@@ -113,6 +113,8 @@ int tk,       // current token
     *pdata,   // data segment patchup pointer
     *pbss;    // bss segment patchup pointer
 
+struct_t *structs;
+
 ident_t *id; // current parsed identifier
 double fval; // current token double value
 uint ty,     // current parsed subexpression type
@@ -211,19 +213,6 @@ void info_open(char *c_file) {
   ip = ts;
 }
 
-void info_close(int text) {
-  if (debug) {
-    dprintf(info_fd, "# .text 0x%08x (+0x%08x) 0x%08x\n", 0, text, text);
-    dprintf(info_fd, "# .data 0x%08x (+0x%08x) 0x%08x\n", text, data,
-            text + data);
-    dprintf(info_fd, "# .bss  0x%08x (+0x%08x) 0x%08x\n", text + data, bss,
-            text + data + bss);
-  }
-  dprintf(info_fd, ".data 0x%08x\n", text);
-  dprintf(info_fd, ".bss  0x%08x\n", text + data);
-  close(info_fd);
-}
-
 void info_print_current_line() {
   dprintf(info_fd, "@ 0x%08x %s %d\n", ip - ts, file, line);
 }
@@ -261,6 +250,20 @@ void info_print_struct(struct_t *s) {
     dprintf(info_fd, ")");
   }
   dprintf(info_fd, ")");
+}
+
+void info_print_structs() {
+  struct_t *p;
+
+  for (p = structs; p; p = p->next) {
+    if (p->id) {
+      dprintf(info_fd, "D struct ");
+      info_print_name(p->id->name);
+      dprintf(info_fd, " ");
+      info_print_struct(p);
+      dprintf(info_fd, "\n");
+    }
+  }
 }
 
 void info_print_type_str(uint t) {
@@ -310,7 +313,6 @@ void info_print_type_str(uint t) {
       break;
     case FUN:
       dprintf(info_fd, "fun");
-      dprintf(2, "warning: use of experimental feature: d->type == function\n");
       break;
     case ARRAY:
       dprintf(info_fd, "array");
@@ -363,6 +365,20 @@ void info_print_locals(loc_t *sp) {
     info_print_type_str(d->type);
     dprintf(info_fd, "\n");
   }
+}
+
+void info_close(int text) {
+  info_print_structs();
+  if (debug) {
+    dprintf(info_fd, "# .text 0x%08x (+0x%08x) 0x%08x\n", 0, text, text);
+    dprintf(info_fd, "# .data 0x%08x (+0x%08x) 0x%08x\n", text, data,
+            text + data);
+    dprintf(info_fd, "# .bss  0x%08x (+0x%08x) 0x%08x\n", text + data, bss,
+            text + data + bss);
+  }
+  dprintf(info_fd, ".data 0x%08x\n", text);
+  dprintf(info_fd, ".bss  0x%08x\n", text + data);
+  close(info_fd);
 }
 
 void *xsbrk(int i) {
@@ -1099,7 +1115,6 @@ uint basetype() {
   int m;
   ident_t *n;
   struct_t *s;
-  static struct_t *structs;
 
   switch (tk) {
   case Void:
