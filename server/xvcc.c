@@ -1,6 +1,6 @@
 // c -- c compiler
 //
-// Usage:  c [-v] [-s] [-Ipath] [-o exefile] file ...
+// Usage:  c [-v] [-s] [-Ipath] -o exefile file ...
 //
 // Description:
 //   There is no preprocessor, although the #include keyword is allowed
@@ -15,6 +15,7 @@
 //
 // Written by Robert Swierczek
 
+#include <assert.h>
 #include <fcntl.h>
 #include <memory.h>
 #include <stdio.h>
@@ -211,11 +212,13 @@ void info_open(char *c_file) {
 }
 
 void info_close(int text) {
-  dprintf(info_fd, "# .text 0x%08x (+0x%08x) 0x%08x\n", 0, text, text);
-  dprintf(info_fd, "# .data 0x%08x (+0x%08x) 0x%08x\n", text, data,
-          text + data);
-  dprintf(info_fd, "# .bss  0x%08x (+0x%08x) 0x%08x\n", text + data, bss,
-          text + data + bss);
+  if (debug) {
+    dprintf(info_fd, "# .text 0x%08x (+0x%08x) 0x%08x\n", 0, text, text);
+    dprintf(info_fd, "# .data 0x%08x (+0x%08x) 0x%08x\n", text, data,
+            text + data);
+    dprintf(info_fd, "# .bss  0x%08x (+0x%08x) 0x%08x\n", text + data, bss,
+            text + data + bss);
+  }
   dprintf(info_fd, ".data 0x%08x\n", text);
   dprintf(info_fd, ".bss  0x%08x\n", text + data);
   close(info_fd);
@@ -223,6 +226,69 @@ void info_close(int text) {
 
 void info_print_current_line() {
   dprintf(info_fd, "@ 0x%08x %s %d\n", ip - ts, file, line);
+}
+
+void info_print_type_str(uint t) {
+  dprintf(info_fd, "( ");
+  if (t & PMASK) {
+    dprintf(info_fd, "ptr ");
+    info_print_type_str(t - PTR);
+    dprintf(info_fd, " ");
+  } else {
+    switch (t & TMASK & ~PMASK) {
+    case CHAR:
+      dprintf(info_fd, "char ");
+      assert((t >> TSHIFT) == 0);
+      break;
+    case SHORT:
+      dprintf(info_fd, "short ");
+      assert((t >> TSHIFT) == 0);
+      break;
+    case INT:
+      dprintf(info_fd, "int ");
+      assert((t >> TSHIFT) == 0);
+      break;
+    case UCHAR:
+      dprintf(info_fd, "uchar ");
+      assert((t >> TSHIFT) == 0);
+      break;
+    case USHORT:
+      dprintf(info_fd, "ushort ");
+      assert((t >> TSHIFT) == 0);
+      break;
+    case UINT:
+      dprintf(info_fd, "uint ");
+      assert((t >> TSHIFT) == 0);
+      break;
+    case FLOAT:
+      dprintf(info_fd, "float ");
+      assert((t >> TSHIFT) == 0);
+      break;
+    case DOUBLE:
+      dprintf(info_fd, "double ");
+      assert((t >> TSHIFT) == 0);
+      break;
+    case VOID:
+      dprintf(info_fd, "void ");
+      assert((t >> TSHIFT) == 0);
+      break;
+    case FUN:
+      dprintf(info_fd, "fun ");
+      break;
+    case ARRAY:
+      dprintf(info_fd, "array ");
+      info_print_type_str(((array_t *)(va + (t >> TSHIFT)))->type);
+      dprintf(info_fd, " ");
+      break;
+    case STRUCT:
+      dprintf(info_fd, "struct ");
+      break;
+    default:
+      dprintf(info_fd, "??? ");
+      dprintf(2, "warning: d->type == %d | %d\n", t >> TSHIFT, t & TMASK);
+    }
+  }
+  dprintf(info_fd, ")");
 }
 
 void info_print_locals(loc_t *sp) {
@@ -235,28 +301,22 @@ void info_print_locals(loc_t *sp) {
     v--;
     d = v->id;
     dprintf(info_fd, "l");
-    if (d->class == Static || d->class == Leag) {
-      // `d->val - BSS_TAG` is a relative offset from .bss.
-      dprintf(info_fd, " 0x%08x", d->val - BSS_TAG);
-    } else {
-      dprintf(info_fd, " %d", d->val);
-    }
     switch (d->class) {
     case Static:
-      dprintf(info_fd, " static");
+    case Leag:
+      dprintf(info_fd, " bss");
+      dprintf(info_fd, " %+d", d->val - BSS_TAG);
       break;
     case Auto:
-      dprintf(info_fd, " auto");
-      break;
     case Lea:
-      dprintf(info_fd, " lea");
-      break;
-    case Leag:
-      dprintf(info_fd, " leag");
+      dprintf(info_fd, " stk");
+      dprintf(info_fd, " %+d", d->val);
       break;
     default:
-      printf("Warning: unknown class == %d\n", d->class);
+      dprintf(2, "warning: d->class == %d\n", d->class);
     }
+    dprintf(info_fd, " ");
+    info_print_type_str(d->type);
     pos = d->name;
     for (;;) {
       switch (*pos) {
