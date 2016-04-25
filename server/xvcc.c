@@ -374,18 +374,20 @@ void info_print_locals(loc_t *sp) {
 }
 
 void info_print_global(ident_t *v) {
-  dprintf(info_fd, "g ");
-  info_print_name(v->name);
-  if (v->val < BSS_TAG) {
-    dprintf(info_fd, " dat");
-    dprintf(info_fd, " %+d", v->val);
-  } else {
-    dprintf(info_fd, " bss");
-    dprintf(info_fd, " %+d", v->val - BSS_TAG);
+  if (!v->local) {
+    dprintf(info_fd, "g ");
+    info_print_name(v->name);
+    if (v->val < BSS_TAG) {
+      dprintf(info_fd, " dat");
+      dprintf(info_fd, " %+d", v->val);
+    } else {
+      dprintf(info_fd, " bss");
+      dprintf(info_fd, " %+d", v->val - BSS_TAG);
+    }
+    dprintf(info_fd, " ");
+    info_print_type_str(v->type);
+    dprintf(info_fd, "\n");
   }
-  dprintf(info_fd, " ");
-  info_print_type_str(v->type);
-  dprintf(info_fd, "\n");
 }
 
 void info_close(int text) {
