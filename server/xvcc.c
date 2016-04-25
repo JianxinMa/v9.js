@@ -204,7 +204,7 @@ void info_open(char *c_file) {
     exit(-1);
   }
   c_file[i - 1] = 'c';
-  dprintf(info_fd, "%s\n", c_file);
+  dprintf(info_fd, "= %s\n", c_file);
   *((uint *)ts) = 0xFF2017FF;
   ts += 4;
   strcpy((char *)ts, c_file);
@@ -214,7 +214,7 @@ void info_open(char *c_file) {
 }
 
 void info_print_current_line() {
-  dprintf(info_fd, "@ 0x%08x %s %d\n", ip - ts, file, line);
+  dprintf(info_fd, "a 0x%08x %s %d\n", ip - ts, file, line);
 }
 
 void info_print_name(char *name) {
@@ -257,7 +257,7 @@ void info_print_structs() {
 
   for (p = structs; p; p = p->next) {
     if (p->id) {
-      dprintf(info_fd, "D struct ");
+      dprintf(info_fd, "d struct ");
       info_print_name(p->id->name);
       dprintf(info_fd, " ");
       info_print_struct(p);
@@ -274,7 +274,7 @@ void info_print_type_str(uint t) {
     dprintf(info_fd, "ptr");
     info_print_type_str(t - PTR);
   } else {
-    switch (t & TMASK & ~PMASK) {
+    switch (t & TMASK) {
     case CHAR:
       dprintf(info_fd, "char");
       assert((t >> TSHIFT) == 0);
@@ -341,6 +341,7 @@ void info_print_locals(loc_t *sp) {
   loc_t *v;
   ident_t *d;
 
+  dprintf(info_fd, "e 0x%08x\n", ip - ts);
   v = ploc;
   while (v != sp) {
     v--;
@@ -350,8 +351,13 @@ void info_print_locals(loc_t *sp) {
     switch (d->class) {
     case Static:
     case Leag:
-      dprintf(info_fd, " bss");
-      dprintf(info_fd, " %+d", d->val - BSS_TAG);
+      if (d->val < BSS_TAG) {
+        dprintf(info_fd, " dat");
+        dprintf(info_fd, " %+d", d->val);
+      } else {
+        dprintf(info_fd, " bss");
+        dprintf(info_fd, " %+d", d->val - BSS_TAG);
+      }
       break;
     case Auto:
     case Lea:
@@ -365,6 +371,21 @@ void info_print_locals(loc_t *sp) {
     info_print_type_str(d->type);
     dprintf(info_fd, "\n");
   }
+}
+
+void info_print_global(ident_t *v) {
+  dprintf(info_fd, "g ");
+  info_print_name(v->name);
+  if (v->val < BSS_TAG) {
+    dprintf(info_fd, " dat");
+    dprintf(info_fd, " %+d", v->val);
+  } else {
+    dprintf(info_fd, " bss");
+    dprintf(info_fd, " %+d", v->val - BSS_TAG);
+  }
+  dprintf(info_fd, " ");
+  info_print_type_str(v->type);
+  dprintf(info_fd, "\n");
 }
 
 void info_close(int text) {
@@ -1444,12 +1465,12 @@ void decl(int bc) {
         b = e;
         decl(Auto);
         loc &= -8;
+        info_print_locals(sp);
         emi(ENT, loc);
         if (e != b) {
           rv(e);
           e = b;
         }
-        info_print_locals(sp);
         while (tk != '}') {
           stmt(); // XXX null check
         }
@@ -1608,10 +1629,12 @@ void decl(int bc) {
                   break;
                 }
               }
+              info_print_global(v);
             } else {
               bss = (bss + align - 1) & -align; // allocate bss space
               v->val = bss + BSS_TAG;
               bss += size; // XXX check for zero size
+              info_print_global(v);
             }
           }
         }
