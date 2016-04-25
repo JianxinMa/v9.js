@@ -4,10 +4,12 @@
 
 // Based on the public domain ea.c Anthony Howe.
 
+// clang-format off
 #include <u.h>
 #include <libc.h>
 #include <ctype.h>
 #include <curses.h>
+// clang-format on
 
 enum {
   BUF   = 1024*1024,

@@ -1,9 +1,12 @@
-// mem.h -- modifed K&R memory allocator  XXX do not use... currently under development
+// mem.h -- modifed K&R memory allocator  XXX do not use... currently under
+// development
 
-struct alloc_s { struct alloc_s *ptr; uint size; } *allocp;
+struct alloc_s {
+  struct alloc_s *ptr;
+  uint size;
+} * allocp;
 
-void free(void *ptr)
-{
+void free(void *ptr) {
   struct alloc_s *p, *q;
 
   p = (struct alloc_s *)ptr - 1;
@@ -23,8 +26,7 @@ void free(void *ptr)
   allocp = q;
 }
 
-void *malloc(uint n)
-{
+void *malloc(uint n) {
   static struct alloc_s base;
   struct alloc_s *p, *q;
   uint nu;
@@ -34,7 +36,7 @@ void *malloc(uint n)
     base.ptr = allocp = q = &base; // XXX do this with sbrk vs base?
     base.size = 0;
   }
-  for (p = q->ptr; ; q = p, p = p->ptr) {
+  for (p = q->ptr;; q = p, p = p->ptr) {
     if (p->size >= n) {
       if (p->size == n)
         q->ptr = p->ptr;
@@ -48,8 +50,9 @@ void *malloc(uint n)
     }
     if (p == allocp) {
       nu = n < 4096 ? 4096 : n;
-      p = (struct alloc_s *) sbrk(nu * sizeof(struct alloc_s));
-      if ((int)p == -1) return 0;
+      p = (struct alloc_s *)sbrk(nu * sizeof(struct alloc_s));
+      if ((int)p == -1)
+        return 0;
       p->size = nu;
       free((void *)(p + 1));
       p = allocp;
@@ -57,13 +60,6 @@ void *malloc(uint n)
   }
 }
 
-void *memalign(uint bound, uint n)
-{
+void *memalign(uint bound, uint n) {}
 
-}
-
-void *realloc(void *ptr, uint n)
-{
-
-}
-
+void *realloc(void *ptr, uint n) {}

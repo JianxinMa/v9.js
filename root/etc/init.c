@@ -1,10 +1,11 @@
 // init.c - first process to run
 
+// clang-format off
 #include <u.h>
 #include <libc.h>
+// clang-format on
 
-main()
-{
+main() {
   char *argv[3];
   int pid, wpid;
 
@@ -16,12 +17,15 @@ main()
     mknod("/dev/console", S_IFCHR, (1 << 8) | 1);
     open("/dev/console", O_RDWR);
   }
-  dup2(0,1);
-  dup2(0,2);
-  
+  dup2(0, 1);
+  dup2(0, 2);
+
   chdir("/usr");
   for (;;) {
-    if ((pid = fork()) < 0) { printf("init: fork failed\n"); return -1; }
+    if ((pid = fork()) < 0) {
+      printf("init: fork failed\n");
+      return -1;
+    }
     if (!pid) {
       exec(argv[0], argv);
       printf("init: exec sh failed\n");

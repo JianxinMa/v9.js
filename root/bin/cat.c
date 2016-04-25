@@ -6,8 +6,10 @@
 //   cat reads each file in sequence and writes it to stdout.  If no input is
 //   given, cat reads from stdin.
 
+// clang-format off
 #include <u.h>
 #include <libc.h>
+// clang-format on
 
 void cat(int fd)
 {

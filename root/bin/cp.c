@@ -5,8 +5,10 @@
 // Description:
 //   cp copies the file1 into file2
 
+// clang-format off
 #include <u.h>
 #include <libc.h>
+// clang-format on
 
 int main(int argc, char *argv[])
 {

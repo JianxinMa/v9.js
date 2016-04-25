@@ -7,8 +7,10 @@
 //   is the raw file name.  the second argument is the name of the array
 //   generated.
 
+// clang-format off
 #include <u.h>
 #include <libc.h>
+// clang-format on
 
 int main(int argc, char *argv[])
 {
