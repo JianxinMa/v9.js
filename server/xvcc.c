@@ -214,7 +214,7 @@ void info_open(char *c_file) {
 }
 
 void info_print_current_line() {
-  dprintf(info_fd, "a 0x%08x %s %d\n", ip - ts, file, line);
+  dprintf(info_fd, "i 0x%08x %s %d\n", ip - ts, file, line);
 }
 
 void info_print_name(char *name) {
@@ -341,7 +341,7 @@ void info_print_locals(loc_t *sp) {
   loc_t *v;
   ident_t *d;
 
-  dprintf(info_fd, "e 0x%08x\n", ip - ts);
+  dprintf(info_fd, "> 0x%08x\n", ip - ts);
   v = ploc;
   while (v != sp) {
     v--;
