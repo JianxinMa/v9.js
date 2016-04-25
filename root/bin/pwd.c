@@ -5,15 +5,20 @@
 // Description:
 //   pwd prints the current working directory.
 
+// clang-format off
 #include <u.h>
 #include <libc.h>
 #include <dir.h>
+// clang-format on
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   char buf[512];
-  if (argc != 1) { dprintf(2, "usage: pwd\n"); return -1; }
-  if (!getcwd(buf, sizeof(buf))) return -1;
-  printf("%s\n",buf);
+  if (argc != 1) {
+    dprintf(2, "usage: pwd\n");
+    return -1;
+  }
+  if (!getcwd(buf, sizeof(buf)))
+    return -1;
+  printf("%s\n", buf);
   return 0;
 }
