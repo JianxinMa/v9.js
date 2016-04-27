@@ -202,12 +202,11 @@ void info_open(char *c_file) {
   }
   c_file[i - 1] = 'c';
   fprintf(info_fd, "= %s\n", c_file);
-  *((uint *)ts) = 0xFF2017FF;
-  ts += 4;
-  strcpy((char *)ts, c_file);
-  ts += strlen(c_file) + 1;
-  ts = (ts + 7) & -8;
-  ip = ts;
+  *((uint *)ip) = 0xFF2017FF;
+  ip += 4;
+  strcpy((char *)ip, c_file);
+  ip += strlen(c_file) + 1;
+  ip = (ip + 7) & -8;
 }
 
 void info_print_current_line() {
