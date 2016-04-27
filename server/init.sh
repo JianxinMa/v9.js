@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-rm -rf xvcc mkfs root
+rm -rf xvcc mkfs root de
 
 gcc -o xvcc -O3 -m32 xvcc.c
 gcc -o mkfs -O3 -m32 mkfs.c
@@ -31,6 +31,57 @@ cp -r ../root root
 ./xvcc -Iroot/lib -o root/usr/hello   root/usr/hello.c
 ./xvcc -Iroot/lib -o root/usr/prseg   root/usr/prseg.c
 ./xvcc -Iroot/lib -o root/usr/sdk     root/usr/sdk.c
+
+cat root/etc/os.d \
+    root/etc/init.d \
+    root/bin/sh.d \
+    root/bin/cat.d \
+    root/bin/cp.d \
+    root/bin/halt.d \
+    root/bin/ln.d \
+    root/bin/ls.d \
+    root/bin/man.d \
+    root/bin/mkdir.d \
+    root/bin/mv.d \
+    root/bin/pwd.d \
+    root/bin/rm.d \
+    root/bin/rmdir.d \
+    root/bin/echo.d \
+    root/bin/kill.d \
+    root/bin/bin2c.d \
+    root/bin/edit.d \
+    root/bin/grep.d \
+    root/bin/wc.d \
+    root/usr/euhello.d \
+    root/usr/hello.d \
+    root/usr/prseg.d \
+    root/usr/sdk.d \
+    > de
+
+rm root/etc/os.d \
+   root/etc/init.d \
+   root/bin/sh.d \
+   root/bin/cat.d \
+   root/bin/cp.d \
+   root/bin/halt.d \
+   root/bin/ln.d \
+   root/bin/ls.d \
+   root/bin/man.d \
+   root/bin/mkdir.d \
+   root/bin/mv.d \
+   root/bin/pwd.d \
+   root/bin/rm.d \
+   root/bin/rmdir.d \
+   root/bin/echo.d \
+   root/bin/kill.d \
+   root/bin/bin2c.d \
+   root/bin/edit.d \
+   root/bin/grep.d \
+   root/bin/wc.d \
+   root/usr/euhello.d \
+   root/usr/hello.d \
+   root/usr/prseg.d \
+   root/usr/sdk.d
 
 ./mkfs fs root
 

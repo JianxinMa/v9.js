@@ -16,13 +16,10 @@
 // Written by Robert Swierczek
 
 #include <assert.h>
-#include <fcntl.h>
 #include <memory.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 typedef unsigned char uchar;
 typedef unsigned short ushort;
@@ -187,24 +184,24 @@ enum {
 };
 // clang-format on
 
-int info_fd;
+FILE *info_fd;
 
 void info_open(char *c_file) {
   int i;
 
   i = strlen(c_file);
   if (c_file[i - 1] != 'c') {
-    dprintf(2, "%s : error: source %s should end with .c\n", cmd, c_file);
+    fprintf(stderr, "%s : error: source %s should end with .c\n", cmd, c_file);
     exit(-1);
   }
   c_file[i - 1] = 'd';
-  info_fd = open(c_file, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+  info_fd = fopen(c_file, "wb");
   if (info_fd < 0) {
-    dprintf(2, "%s : error: can't open info file %s\n", cmd, c_file);
+    fprintf(stderr, "%s : error: can't open info file %s\n", cmd, c_file);
     exit(-1);
   }
   c_file[i - 1] = 'c';
-  dprintf(info_fd, "= %s\n", c_file);
+  fprintf(info_fd, "= %s\n", c_file);
   *((uint *)ts) = 0xFF2017FF;
   ts += 4;
   strcpy((char *)ts, c_file);
@@ -214,7 +211,7 @@ void info_open(char *c_file) {
 }
 
 void info_print_current_line() {
-  dprintf(info_fd, "i 0x%08x %s %d\n", ip - ts, file, line);
+  fprintf(info_fd, "i 0x%08x %s %d\n", ip - ts, file, line);
 }
 
 void info_print_name(char *name) {
@@ -233,7 +230,7 @@ void info_print_name(char *name) {
     }
     break;
   }
-  dprintf(info_fd, "%.*s", pos - name, name);
+  fprintf(info_fd, "%.*s", pos - name, name);
 }
 
 void info_print_type_str(uint t);
@@ -241,15 +238,15 @@ void info_print_type_str(uint t);
 void info_print_struct(struct_t *s) {
   member_t *mp;
 
-  dprintf(info_fd, "(");
+  fprintf(info_fd, "(");
   for (mp = s->member; mp; mp = mp->next) {
-    dprintf(info_fd, "(");
+    fprintf(info_fd, "(");
     info_print_name(mp->id->name);
-    dprintf(info_fd, ":%+d:", mp->offset);
+    fprintf(info_fd, ":%+d:", mp->offset);
     info_print_type_str(mp->type);
-    dprintf(info_fd, ")");
+    fprintf(info_fd, ")");
   }
-  dprintf(info_fd, ")");
+  fprintf(info_fd, ")");
 }
 
 void info_print_structs() {
@@ -257,11 +254,11 @@ void info_print_structs() {
 
   for (p = structs; p; p = p->next) {
     if (p->id) {
-      dprintf(info_fd, "d struct ");
+      fprintf(info_fd, "d struct ");
       info_print_name(p->id->name);
-      dprintf(info_fd, " ");
+      fprintf(info_fd, " ");
       info_print_struct(p);
-      dprintf(info_fd, "\n");
+      fprintf(info_fd, "\n");
     }
   }
 }
@@ -269,139 +266,139 @@ void info_print_structs() {
 void info_print_type_str(uint t) {
   ident_t *d;
 
-  dprintf(info_fd, "(");
+  fprintf(info_fd, "(");
   if (t & PMASK) {
-    dprintf(info_fd, "ptr");
+    fprintf(info_fd, "ptr");
     info_print_type_str(t - PTR);
   } else {
     switch (t & TMASK) {
     case CHAR:
-      dprintf(info_fd, "char");
+      fprintf(info_fd, "char");
       assert((t >> TSHIFT) == 0);
       break;
     case SHORT:
-      dprintf(info_fd, "short");
+      fprintf(info_fd, "short");
       assert((t >> TSHIFT) == 0);
       break;
     case INT:
-      dprintf(info_fd, "int");
+      fprintf(info_fd, "int");
       assert((t >> TSHIFT) == 0);
       break;
     case UCHAR:
-      dprintf(info_fd, "uchar");
+      fprintf(info_fd, "uchar");
       assert((t >> TSHIFT) == 0);
       break;
     case USHORT:
-      dprintf(info_fd, "ushort");
+      fprintf(info_fd, "ushort");
       assert((t >> TSHIFT) == 0);
       break;
     case UINT:
-      dprintf(info_fd, "uint");
+      fprintf(info_fd, "uint");
       assert((t >> TSHIFT) == 0);
       break;
     case FLOAT:
-      dprintf(info_fd, "float");
+      fprintf(info_fd, "float");
       assert((t >> TSHIFT) == 0);
       break;
     case DOUBLE:
-      dprintf(info_fd, "double");
+      fprintf(info_fd, "double");
       assert((t >> TSHIFT) == 0);
       break;
     case VOID:
-      dprintf(info_fd, "void");
+      fprintf(info_fd, "void");
       assert((t >> TSHIFT) == 0);
       break;
     case FUN:
-      dprintf(info_fd, "fun");
+      fprintf(info_fd, "fun");
       break;
     case ARRAY:
-      dprintf(info_fd, "array");
+      fprintf(info_fd, "array");
       info_print_type_str(((array_t *)(va + (t >> TSHIFT)))->type);
       break;
     case STRUCT:
-      dprintf(info_fd, "struct");
+      fprintf(info_fd, "struct");
       d = ((struct_t *)(va + (t >> TSHIFT)))->id;
       if (d) {
-        dprintf(info_fd, "<");
+        fprintf(info_fd, "<");
         info_print_name(d->name);
-        dprintf(info_fd, ">");
+        fprintf(info_fd, ">");
       } else {
         info_print_struct((struct_t *)(va + (t >> TSHIFT)));
       }
       break;
     default:
-      dprintf(info_fd, "???");
-      dprintf(2, "warning: d->type == %d | %d\n", t >> TSHIFT, t & TMASK);
+      fprintf(info_fd, "???");
+      fprintf(stderr, "warning: d->type == %d | %d\n", t >> TSHIFT, t & TMASK);
     }
   }
-  dprintf(info_fd, ")");
+  fprintf(info_fd, ")");
 }
 
 void info_print_locals(loc_t *sp) {
   loc_t *v;
   ident_t *d;
 
-  dprintf(info_fd, "> 0x%08x\n", ip - ts);
+  fprintf(info_fd, "> 0x%08x\n", ip - ts);
   v = ploc;
   while (v != sp) {
     v--;
     d = v->id;
-    dprintf(info_fd, "l ");
+    fprintf(info_fd, "l ");
     info_print_name(d->name);
     switch (d->class) {
     case Static:
     case Leag:
       if (d->val < BSS_TAG) {
-        dprintf(info_fd, " dat");
-        dprintf(info_fd, " %+d", d->val);
+        fprintf(info_fd, " dat");
+        fprintf(info_fd, " %+d", d->val);
       } else {
-        dprintf(info_fd, " bss");
-        dprintf(info_fd, " %+d", d->val - BSS_TAG);
+        fprintf(info_fd, " bss");
+        fprintf(info_fd, " %+d", d->val - BSS_TAG);
       }
       break;
     case Auto:
     case Lea:
-      dprintf(info_fd, " stk");
-      dprintf(info_fd, " %+d", d->val);
+      fprintf(info_fd, " stk");
+      fprintf(info_fd, " %+d", d->val);
       break;
     default:
-      dprintf(2, "warning: d->class == %d\n", d->class);
+      fprintf(stderr, "warning: d->class == %d\n", d->class);
     }
-    dprintf(info_fd, " ");
+    fprintf(info_fd, " ");
     info_print_type_str(d->type);
-    dprintf(info_fd, "\n");
+    fprintf(info_fd, "\n");
   }
 }
 
 void info_print_global(ident_t *v) {
   if (!v->local) {
-    dprintf(info_fd, "g ");
+    fprintf(info_fd, "g ");
     info_print_name(v->name);
     if (v->val < BSS_TAG) {
-      dprintf(info_fd, " dat");
-      dprintf(info_fd, " %+d", v->val);
+      fprintf(info_fd, " dat");
+      fprintf(info_fd, " %+d", v->val);
     } else {
-      dprintf(info_fd, " bss");
-      dprintf(info_fd, " %+d", v->val - BSS_TAG);
+      fprintf(info_fd, " bss");
+      fprintf(info_fd, " %+d", v->val - BSS_TAG);
     }
-    dprintf(info_fd, " ");
+    fprintf(info_fd, " ");
     info_print_type_str(v->type);
-    dprintf(info_fd, "\n");
+    fprintf(info_fd, "\n");
   }
 }
 
 void info_close(int text) {
   info_print_structs();
   if (debug) {
-    dprintf(info_fd, "# .text 0x%08x (+0x%08x) 0x%08x\n", 0, text, text);
-    dprintf(info_fd, "# .data 0x%08x (+0x%08x) 0x%08x\n", text, data,
+    fprintf(info_fd, "# .text 0x%08x (+0x%08x) 0x%08x\n", 0, text, text);
+    fprintf(info_fd, "# .data 0x%08x (+0x%08x) 0x%08x\n", text, data,
             text + data);
-    dprintf(info_fd, "# .bss  0x%08x (+0x%08x) 0x%08x\n", text + data, bss,
+    fprintf(info_fd, "# .bss  0x%08x (+0x%08x) 0x%08x\n", text + data, bss,
             text + data + bss);
   }
-  dprintf(info_fd, ".data 0x%08x\n", text);
-  dprintf(info_fd, ".bss  0x%08x\n", text + data);
-  close(info_fd);
+  fprintf(info_fd, ".data 0x%08x\n", text);
+  fprintf(info_fd, ".bss  0x%08x\n", text + data);
+  fclose(info_fd);
 }
 
 void *xsbrk(int i) {
@@ -426,37 +423,51 @@ void *xsbrk(int i) {
 void *alloc(int size) {
   void *p;
   if ((p = xsbrk((size + 7) & -8)) == (void *)-1) {
-    dprintf(2, "%s : fatal: unable to sbrk(%d)\n", cmd, size);
+    fprintf(stderr, "%s : fatal: unable to sbrk(%d)\n", cmd, size);
     exit(-1);
   }
   return (void *)(((int)p + 7) & -8);
 }
 
 void err(char *msg) {
-  dprintf(
-      2, "%s : [%s:%d] error: %s\n", cmd, file, line,
+  fprintf(
+      stderr, "%s : [%s:%d] error: %s\n", cmd, file, line,
       msg); // XXX need errs to power past tokens (validate for each err case.)
   if (++errs > 10) {
-    dprintf(2, "%s : fatal: maximum errors exceeded\n", cmd);
+    fprintf(stderr, "%s : fatal: maximum errors exceeded\n", cmd);
     exit(-1);
   }
 }
 
-char *mapfile(char *name, int size) { // XXX replace with mmap
-  int f;
+int file_exist(char *name) {
+  FILE *f;
+  if (!(f = fopen(name, "rb"))) {
+    return 0;
+  }
+  fclose(f);
+  return 1;
+}
+
+char *mapfile(char *name) { // XXX replace with mmap
+  FILE *f;
   char *p;
-  if ((f = open(name, O_RDONLY, S_IRWXU)) < 0) {
-    dprintf(2, "%s : [%s:%d] error: can't open file %s\n", cmd, file, line,
+  int size;
+
+  if (!(f = fopen(name, "rb"))) {
+    fprintf(stderr, "%s : [%s:%d] error: can't open file %s\n", cmd, file, line,
             name);
     exit(-1);
   }
+  fseek(f, 0, SEEK_END);
+  size = ftell(f);
+  fseek(f, 0, SEEK_SET);
   p = alloc(size + 1);
-  if (read(f, p, size) != size) {
-    dprintf(2, "%s : [%s:%d] error: can't read file %s\n", cmd, file, line,
+  if (fread(p, 1, size, f) != size) {
+    fprintf(stderr, "%s : [%s:%d] error: can't read file %s\n", cmd, file, line,
             name);
     exit(-1);
   }
-  close(f);
+  fclose(f);
   p[size] = 0; // XXX redundant but need to map file!
   return p;
 }
@@ -464,7 +475,7 @@ char *mapfile(char *name, int size) { // XXX replace with mmap
 // instruction emitter
 void em(int i) {
   if (debug) {
-    dprintf(info_fd, "# 0x%08x 0x%08x%5.4s\n", ip - ts, i, &ops[i * 5]);
+    fprintf(info_fd, "# 0x%08x 0x%08x%5.4s\n", ip - ts, i, &ops[i * 5]);
   }
   info_print_current_line();
   *(int *)ip = i;
@@ -472,7 +483,7 @@ void em(int i) {
 }
 void emi(int i, int c) {
   if (debug) {
-    dprintf(info_fd, "# 0x%08x 0x%08x%5.4s %d\n", ip - ts, i | (c << 8),
+    fprintf(info_fd, "# 0x%08x 0x%08x%5.4s %d\n", ip - ts, i | (c << 8),
             &ops[i * 5], c);
   }
   info_print_current_line();
@@ -498,7 +509,7 @@ void emg(int i, int c) {
 } // global
 int emf(int i, int c) { // forward
   if (debug) {
-    dprintf(info_fd, "# 0x%08x 0x%08x%5.4s <fwd>\n", ip - ts, i | (c << 8),
+    fprintf(info_fd, "# 0x%08x 0x%08x%5.4s <fwd>\n", ip - ts, i | (c << 8),
             &ops[i * 5]);
   }
   info_print_current_line();
@@ -522,14 +533,13 @@ void dline() {
   char *p;
   for (p = pos; *p && *p != '\n' && *p != '\r'; p++)
     ;
-  dprintf(info_fd, "# %s %d: %.*s\n", file, line, p - pos, pos);
+  fprintf(info_fd, "# %s %d: %.*s\n", file, line, p - pos, pos);
 }
 
 void next() {
   char *p;
   int b;
   ident_t **hm;
-  struct stat st;
   static char iname[512], *ifile, *ipos; // XXX 512
   static int iline;
   static ident_t *ht[HASH_SZ];
@@ -581,10 +591,10 @@ void next() {
           iname[b++] = *pos++;
         }
         iname[b] = 0;
-        if (stat(iname, &st)) {
+        if (!file_exist(iname)) {
           if (*ipos == '"' || ipos[1] == '/') {
-            dprintf(2, "%s : [%s:%d] error: can't stat file %s\n", cmd, file,
-                    line, iname);
+            fprintf(stderr, "%s : [%s:%d] error: can't stat file %s\n", cmd,
+                    file, line, iname);
             exit(-1);
           }
           memcpy(iname, "/lib/", b = 5);
@@ -593,9 +603,9 @@ void next() {
             iname[b++] = *pos++;
           }
           iname[b] = 0;
-          if (stat(iname, &st)) {
-            dprintf(2, "%s : [%s:%d] error: can't stat file %s\n", cmd, file,
-                    line, iname);
+          if (!file_exist(iname)) {
+            fprintf(stderr, "%s : [%s:%d] error: can't stat file %s\n", cmd,
+                    file, line, iname);
             exit(-1);
           }
         }
@@ -603,7 +613,7 @@ void next() {
           pos++;
         }
         ipos = pos;
-        pos = mapfile(iname, st.st_size);
+        pos = mapfile(iname);
         ifile = file;
         file = iname;
         iline = line;
@@ -1030,7 +1040,7 @@ void next() {
 
 void skip(int c) {
   if (tk != c) {
-    dprintf(2, "%s : [%s:%d] error: '%c' expected\n", cmd, file, line, c);
+    fprintf(stderr, "%s : [%s:%d] error: '%c' expected\n", cmd, file, line, c);
     errs++;
   }
   next();
@@ -1979,8 +1989,8 @@ void expr(int lev) {
     if (tk != Paren) {
       err("undefined symbol");
     } else if (verbose)
-      dprintf(2, "%s : [%s:%d] warning: undeclared function called here\n", cmd,
-              file, line);
+      fprintf(stderr, "%s : [%s:%d] warning: undeclared function called here\n",
+              cmd, file, line);
     break;
 
   case Va_arg: // va_arg(list,mode) *(mode *)(list += 8)
@@ -2956,7 +2966,7 @@ void expr(int lev) {
       continue;
 
     default:
-      dprintf(2, "fatal compiler error expr() tk=%d\n", tk);
+      fprintf(stderr, "fatal compiler error expr() tk=%d\n", tk);
       exit(-1);
     }
   }
@@ -3849,7 +3859,7 @@ void rv(int *a) {
     return;
 
   default:
-    dprintf(2, "fatal compiler error rv(int *a) *a=%d\n", *a);
+    fprintf(stderr, "fatal compiler error rv(int *a) *a=%d\n", *a);
     exit(-1);
   }
 }
@@ -4206,10 +4216,10 @@ int main(int argc, char *argv[]) {
   int i, amain, text, *patchdata, *patchbss;
   ident_t *tmain;
   char *outfile;
+  FILE *fd;
   struct {
     uint magic, bss, entry, flags;
   } hdr;
-  struct stat st;
 
   cmd = *argv;
   if (argc < 2) {
@@ -4236,14 +4246,15 @@ int main(int argc, char *argv[]) {
       }
     default:
     usage:
-      dprintf(2, "usage: %s [-v] [-s] [-Ipath] -o exefile file ...\n", cmd);
+      fprintf(stderr, "usage: %s [-v] [-s] [-Ipath] -o exefile file ...\n",
+              cmd);
       return -1;
     }
     file = *++argv;
   }
 
   if (!outfile) {
-    dprintf(2, "%s : error: no output file\n", cmd);
+    fprintf(stderr, "%s : error: no output file\n", cmd);
     return -1;
   }
 
@@ -4268,12 +4279,7 @@ int main(int argc, char *argv[]) {
   tmain = id;
 
   line = 1;
-  if (stat(file, &st)) {
-    dprintf(2, "%s : [%s:%d] error: can't stat file %s\n", cmd, file, line,
-            file);
-    return -1;
-  } // XXX fstat inside mapfile?
-  pos = mapfile(file, st.st_size);
+  pos = mapfile(file);
 
   e = alloc(EXPR_SZ) + EXPR_SZ;
   pdata = patchdata = alloc(PSTACK_SZ);
@@ -4281,7 +4287,7 @@ int main(int argc, char *argv[]) {
   ploc = alloc(LSTACK_SZ);
 
   if (verbose) {
-    dprintf(2, "%s : compiling %s\n", cmd, file);
+    fprintf(stderr, "%s : compiling %s\n", cmd, file);
   }
   if (debug) {
     dline();
@@ -4305,11 +4311,11 @@ int main(int argc, char *argv[]) {
   }
 
   if (verbose || errs) {
-    dprintf(2, "%s : %s compiled with %d errors\n", cmd, file, errs);
+    fprintf(stderr, "%s : %s compiled with %d errors\n", cmd, file, errs);
   }
   if (verbose)
-    dprintf(2, "entry = %d text = %d data = %d bss = %d\n", amain - ts, text,
-            data, bss);
+    fprintf(stderr, "entry = %d text = %d data = %d bss = %d\n", amain - ts,
+            text, data, bss);
 
   if (!errs) {
     while (pdata != patchdata) {
@@ -4320,22 +4326,22 @@ int main(int argc, char *argv[]) {
       pbss--;
       *(int *)*pbss += (ip + data - *pbss - 4) << 8;
     }
-    if ((i = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU)) < 0) {
-      dprintf(2, "%s : error: can't open output file %s\n", cmd, outfile);
+    if (!(fd = fopen(outfile, "wb"))) {
+      fprintf(stderr, "%s : error: can't open output file %s\n", cmd, outfile);
       return -1;
     }
     hdr.magic = 0xC0DEF00D;
     hdr.bss = bss;
     hdr.entry = amain - ts;
     hdr.flags = 0;
-    write(i, &hdr, sizeof(hdr));
-    write(i, (void *)ts, text);
-    write(i, (void *)gs, data);
-    close(i);
+    fwrite(&hdr, 1, sizeof(hdr), fd);
+    fwrite((void *)ts, 1, text, fd);
+    fwrite((void *)gs, 1, data, fd);
+    fclose(fd);
     info_close(text);
   }
   if (verbose) {
-    dprintf(2, "%s : exiting\n", cmd);
+    fprintf(stderr, "%s : exiting\n", cmd);
   }
   return errs;
 }
