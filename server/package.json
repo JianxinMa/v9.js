@@ -14,6 +14,7 @@
   "author": "",
   "license": "GPL-3.0",
   "dependencies": {
+    "shelljs": "^0.7.0",
     "socket.io": "^1.4.5"
   }
 }
