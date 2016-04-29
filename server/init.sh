@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 
-rm -rf xvcc mkfs root de
+# gcc -o xvcc -O3 -m32 xvcc.c
+# gcc -o mkfs -O3 -m32 mkfs.c
 
-gcc -o xvcc -O3 -m32 xvcc.c
-gcc -o mkfs -O3 -m32 mkfs.c
-
-cp -r ../root root
+rm -rf os fs de
 
 ./xvcc -Iroot/lib -o os               root/etc/os.c
 ./xvcc -Iroot/lib -o root/etc/init    root/etc/init.c
@@ -85,4 +83,26 @@ rm root/etc/os.d \
 
 ./mkfs fs root
 
-rm xvcc mkfs
+rm root/etc/init \
+   root/bin/sh \
+   root/bin/cat \
+   root/bin/cp \
+   root/bin/halt \
+   root/bin/ln \
+   root/bin/ls \
+   root/bin/man \
+   root/bin/mkdir \
+   root/bin/mv \
+   root/bin/pwd \
+   root/bin/rm \
+   root/bin/rmdir \
+   root/bin/echo \
+   root/bin/kill \
+   root/bin/bin2c \
+   root/bin/edit \
+   root/bin/grep \
+   root/bin/wc \
+   root/usr/euhello \
+   root/usr/hello \
+   root/usr/prseg \
+   root/usr/sdk
