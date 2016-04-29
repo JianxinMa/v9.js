@@ -407,7 +407,7 @@ void *xsbrk(int i) {
     return (void *)brk;
   }
   if (i < 0) {
-    printf("sbrk(i<0) not implemented\n");
+    fprintf(stderr, "sbrk(i<0) not implemented\n");
     exit(-1);
   }
   p = malloc(i);
@@ -4075,7 +4075,6 @@ void stmt() {
         }
         data += cmax * 4;
       } else { // jump list
-        //        printf("jump list at line %d\n",line);
         while (et > e) {
           et -= 2;
           lbi(*et);
@@ -4181,8 +4180,7 @@ void stmt() {
   case Id:
     if (*pos == ':') {
       pos++;
-      // printf("+ + + processing label\n");  // XXX put on local list if 0 or
-      // global
+      // XXX put on local list if 0 or global
       if (!id->class) {
         ploc->class = 0;
         ploc->id = id;

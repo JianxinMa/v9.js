@@ -81,52 +81,59 @@ function listFiles(pathname, encoding, filter) {
 
 function handleCompileFiles(socket) {
     var compileFiles, packCompiled, sendCompiled,
-        files;
+        srcFiles, debugFiles, execFiles;
     compileFiles = function() {
-        var fileNum, finished;
-        files = listFiles('root', 'utf8', function(n) {
+        var fileNum, finished, errinfo;
+        debugFiles = [];
+        execFiles = [];
+        srcFiles = listFiles('root', 'utf8', function(n) {
             return n.endsWith('.c');
         });
-        fileNum = files.length;
+        srcFiles.forEach(function(file) {
+            debugFiles.push(
+                file.filename.substr(0, file.filename.length - 1) + 'd');
+            execFiles.push(
+                file.filename.substr(0, file.filename.length - 2));
+        });
+        fileNum = srcFiles.length;
         finished = 0;
-        files.forEach(function(file) {
+        errinfo = [];
+        srcFiles.forEach(function(file) {
             var filename;
             filename = file.filename;
             sh.exec('./xvcc -Iroot/lib -o ' +
-                filename.substr(0, filename.length - 2) + ' ' +
-                filename,
+                filename.substr(0, filename.length - 2) + ' ' + filename, {
+                    silent: true
+                },
                 function(code, stdout, stderr) {
                     if (code) {
-                        // TODO: handle code != 0.
-                        console.log('[Output]');
-                        console.log(stdout);
-                        console.log('[Error]');
-                        console.log(stderr);
+                        errinfo.push({
+                            filename: file.filename,
+                            stdout: stdout,
+                            stderr: stderr
+                        });
                     }
                     finished += 1;
                     if (finished === fileNum) {
-                        packCompiled();
+                        if (errinfo.length) {
+                            sh.rm('-f', debugFiles);
+                            sh.rm('-f', execFiles);
+                            socket.emit('filesCompiled', {
+                                error: errinfo
+                            });
+                        } else {
+                            packCompiled();
+                        }
                     }
                 });
         });
     };
     packCompiled = function() {
-        var relatedFiles;
-        relatedFiles = [];
-        files.forEach(function(file) {
-            relatedFiles.push(
-                file.filename.substr(0, file.filename.length - 1) + 'd');
-        });
-        sh.cat(relatedFiles).to('de');
-        sh.rm(relatedFiles);
-        relatedFiles = [];
-        files.forEach(function(file) {
-            relatedFiles.push(
-                file.filename.substr(0, file.filename.length - 2));
-        });
+        sh.cat(debugFiles).to('de');
+        sh.rm('-f', debugFiles);
         sh.mv('root/etc/os', 'os');
         sh.exec('./mkfs hd root', function() {
-            sh.rm('-f', relatedFiles);
+            sh.rm('-f', execFiles);
             sendCompiled();
         });
     };

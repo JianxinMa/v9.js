@@ -3,7 +3,7 @@
 # gcc -o xvcc -O3 -m32 xvcc.c
 # gcc -o mkfs -O3 -m32 mkfs.c
 
-rm -rf os fs de
+rm -rf os hd de
 
 ./xvcc -Iroot/lib -o os               root/etc/os.c
 ./xvcc -Iroot/lib -o root/etc/init    root/etc/init.c
@@ -81,7 +81,7 @@ rm root/etc/os.d \
    root/usr/prseg.d \
    root/usr/sdk.d
 
-./mkfs fs root
+./mkfs hd root
 
 rm root/etc/init \
    root/bin/sh \
