@@ -150,6 +150,7 @@ function handleCompileFiles(socket) {
                     if (e) {
                         throw e;
                     }
+                    sh.rm('-f', ['hd', 'os', 'de']);
                     hd = toArrayBuffer(hd);
                     os = toArrayBuffer(os);
                     socket.emit('filesCompiled', {

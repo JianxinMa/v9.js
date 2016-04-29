@@ -3,3961 +3,3782 @@
 
 "use strict";
 
-var v9 = {};
+function createV9(printOut, breakPoints) {
+    var PTE_P = 0x001,
+        PTE_W = 0x002,
+        PTE_U = 0x004,
+        PTE_A = 0x020,
+        PTE_D = 0x040,
+        FMEM = 0x00,
+        FTIMER = 0x01,
+        FKEYBD = 0x02,
+        FPRIV = 0x03,
+        FINST = 0x04,
+        FSYSCL = 0x05,
+        FARITH = 0x06,
+        FIPAGE = 0x07,
+        FWPAGE = 0x08,
+        FRPAGE = 0x09,
+        FUSER = 0x10,
+        kbBuffer,
+        hdrMem,
+        hdrMemSz,
+        hdrTrK,
+        hdrTwK,
+        hdrTrU,
+        hdrTwU,
+        hdrTpage,
+        regTpageCnt,
+        regUser,
+        regIena,
+        regIpend,
+        regTrap,
+        regIvec,
+        regVadr,
+        regPaging,
+        regPdir,
+        regTr,
+        regTw,
+        regNextHdlr,
+        regLoadInfo,
+        regA,
+        regB,
+        regC,
+        regF,
+        regG,
+        regIr,
+        regXPc,
+        regTPc,
+        regFPc,
+        regXSp,
+        regTSp,
+        regFSP,
+        regSSp,
+        regUSp,
+        regCycle,
+        regXCycle,
+        regTimer,
+        regTimeOut,
+        regKbChar,
+        executors,
+        hdlrFatal,
+        hdlrExcpt,
+        hdlrItrpt,
+        hdlrFixsp,
+        hdlrChkpc,
+        hdlrFixpc,
+        hdlrChkio,
+        hdlrInstr,
+        cpuEvent,
+        infoPool,
+        currentInfo;
 
-(function() {
-    var MEM_SZ = 64 * 1024 * 1024, // default memory size of vm (64M)
-        TB_SZ = 1024 * 1024, // page translation buffer size (4G / page_sz)
-        FS_SZ = 4 * 1024 * 1024, // ram file system size (4M)
-        TPAGES = 4096, // maximum cached page translations
-
-        PTE_P = 0x001, // present
-        PTE_W = 0x002, // writable
-        PTE_U = 0x004, // user
-        PTE_A = 0x020, // accessed
-        PTE_D = 0x040, // dirty
-
-        FMEM = 0, // bad physical address
-        FTIMER = 1, // timer interrupt
-        FKEYBD = 2, // keyboard interrupt
-        FPRIV = 3, // privileged instruction
-        FINST = 4, // illegal instruction
-        FSYS = 5, // software trap
-        FARITH = 6, // arithmetic trap
-        FIPAGE = 7, // page fault on opcode fetch
-        FWPAGE = 8, // page fault on write
-        FRPAGE = 9, // page fault on read
-        USER = 16, // user mode exception (16)
-
-        mem = 0, // physical memory
-        memsz = 0, // physical memory size
-        user = 0, // user mode
-        iena = 0, // interrupt enable
-        ipend = 0, // interrupt pending
-        trap = 0, // fault code
-        ivec = 0, // interrupt vector
-        vadr = 0, // bad virtual address
-        paging = 0, // virtual memory enabled
-        pdir = 0, // page directory
-        tpage = 0, // valid page translations
-        tpages = 0, // number of cached page translations
-        trk = 0, // kernel read page translation tables
-        twk = 0, // kernel write page translation tables
-        tru = 0, // user read page translation tables
-        twu = 0, // user write page translation tables
-        tr = 0, // current read page translation tables
-        tw = 0, // current write page translation tables
-
-        a = 0,
-        b = 0,
-        c = 0,
-        ssp = 0,
-        usp = 0,
-        xpc = 0,
-        tpc = 0,
-        fpc = 0,
-        xsp = 0,
-        tsp = 0,
-        fsp = 0,
-        delta = 0,
-        cycle = 0,
-        xcycle = 0,
-        timer = 0,
-        timeout = 0,
-        ir = 0,
-        kbchar = 0,
-        f = 0,
-        g = 0,
-
-        execs = [],
-        follower = 0,
-        fatal = 0,
-        exception = 0,
-        interrupt = 0,
-        fixsp = 0,
-        chkpc = 0,
-        fixpc = 0,
-        chkio = 0,
-        decode = 0,
-
-        updateForOS = true,
-        toUpdateSyms = false,
-        currentSym = '',
-        dsyms = {},
-        stateInfo = {},
-        cpu = 0,
-        debugcpu = 0,
-        debug = false,
-        bootpc = -1,
-        bootsp = -1,
-
-        probingkb = false,
-        pendkeys = [],
-        putstr = 0;
-
-    function probekb() {
-        probingkb = true;
-        if (pendkeys[0]) {
-            return pendkeys.shift();
-        }
-        return -1;
-    }
-
-    function hexstr(x) {
-        return ("00000000" + (x >>> 0).toString(16)).substr(-8);
-    }
-
-    function printch(ch) {
-        if (putstr(1, String.fromCharCode(ch))) {
-            return 1;
-        }
-        return -1;
-    }
-
-    function memcmp(a, b) {
-        var i, j, x, y;
-
-        j = a.length;
-        i = b.length;
-        if (j > i) {
-            j = i;
-        }
-        for (i = 0; i < j; i = i + 1) {
-            x = a.readUInt8(i);
-            y = b.readUInt8(i);
-            if (x !== y) {
-                return x - y;
-            }
-        }
-        return 0;
-    }
-
-    function cleartlb() {
+    function clearTLB() {
         var v;
-
-        while (tpages) {
-            tpages = tpages - 1;
-            v = tpage.readUInt32LE(tpages * 4);
-            trk.writeUInt32LE(0, v * 4);
-            twk.writeUInt32LE(0, v * 4);
-            tru.writeUInt32LE(0, v * 4);
-            twu.writeUInt32LE(0, v * 4);
+        while (regTpageCnt) {
+            regTpageCnt = regTpageCnt - 1;
+            v = hdrTpage.readUInt32LE(regTpageCnt * 4);
+            hdrTrK.writeUInt32LE(0, v * 4);
+            hdrTwK.writeUInt32LE(0, v * 4);
+            hdrTrU.writeUInt32LE(0, v * 4);
+            hdrTwU.writeUInt32LE(0, v * 4);
         }
     }
 
-    function pushtlb(v, p, writable, userable) {
-        if (p >= memsz) {
-            trap = FMEM;
-            vadr = v;
+    function pushTLB(v, p, writable, userable) {
+        if (p >= hdrMemSz) {
+            regTrap = FMEM;
+            regVadr = v;
             return 0;
         }
         p = (((v ^ p) & -4096) + 1) >>> 0;
         v = v >>> 12;
-        if (!trk.readUInt32LE(v * 4)) {
-            if (tpages >= TPAGES) {
-                cleartlb();
+        if (!hdrTrK.readUInt32LE(v * 4)) {
+            if (regTpageCnt >= hdrTpage.length) {
+                clearTLB();
             }
-            tpage.writeUInt32LE(v, tpages * 4);
-            tpages = tpages + 1;
+            hdrTpage.writeUInt32LE(v, regTpageCnt * 4);
+            regTpageCnt = regTpageCnt + 1;
         }
-        trk.writeUInt32LE(p, v * 4);
-        twk.writeUInt32LE((writable ? p : 0), v * 4);
-        tru.writeUInt32LE((userable ? p : 0), v * 4);
-        twu.writeUInt32LE(((userable && writable) ? p : 0), v * 4);
+        hdrTrK.writeUInt32LE(p, v * 4);
+        hdrTwK.writeUInt32LE((writable ? p : 0), v * 4);
+        hdrTrU.writeUInt32LE((userable ? p : 0), v * 4);
+        hdrTwU.writeUInt32LE(((userable && writable) ? p : 0), v * 4);
         return p;
     }
 
-    function rlook(v) {
+    function pageLookR(v) {
         var pde, ppde, pte, ppte, q, userable;
-
-        if (!paging) {
-            return pushtlb(v, v, 1, 1);
+        if (!regPaging) {
+            return pushTLB(v, v, 1, 1);
         }
-        ppde = pdir + ((v >>> 22) << 2);
-        pde = mem.readUInt32LE(ppde);
-
-
+        ppde = regPdir + ((v >>> 22) << 2);
+        pde = hdrMem.readUInt32LE(ppde);
         if (pde & PTE_P) {
             if (!(pde & PTE_A)) {
-                mem.writeUInt32LE(pde | PTE_A, ppde);
+                hdrMem.writeUInt32LE(pde | PTE_A, ppde);
             }
-            if (pde >= memsz) {
-                trap = FMEM;
-                vadr = v;
+            if (pde >= hdrMemSz) {
+                regTrap = FMEM;
+                regVadr = v;
                 return 0;
             }
-
             ppte = (pde & -4096) + ((v >>> 10) & 0xffc);
-            pte = mem.readUInt32LE(ppte);
+            pte = hdrMem.readUInt32LE(ppte);
             if (pte & PTE_P) {
-
                 q = pte & pde;
                 userable = q & PTE_U;
-                if (userable || !user) {
+                if (userable || !regUser) {
                     if (!(pte & PTE_A)) {
-                        mem.writeUInt32LE(pte | PTE_A, ppte);
+                        hdrMem.writeUInt32LE(pte | PTE_A, ppte);
                     }
-                    return pushtlb(v, pte, (pte & PTE_D) && (q & PTE_W),
+                    return pushTLB(v, pte, (pte & PTE_D) && (q & PTE_W),
                         userable);
                 }
             }
         }
-        trap = FRPAGE;
-
-        vadr = v;
+        regTrap = FRPAGE;
+        regVadr = v;
         return 0;
     }
 
-    function wlook(v) {
+    function pageLookW(v) {
         var pde, ppde, pte, ppte, q, userable;
-
-        if (!paging) {
-            return pushtlb(v, v, 1, 1);
+        if (!regPaging) {
+            return pushTLB(v, v, 1, 1);
         }
-        ppde = pdir + ((v >>> 22) << 2);
-        pde = mem.readUInt32LE(ppde);
+        ppde = regPdir + ((v >>> 22) << 2);
+        pde = hdrMem.readUInt32LE(ppde);
         if (pde & PTE_P) {
             if (!(pde & PTE_A)) {
-                mem.writeUInt32LE(pde | PTE_A, ppde);
+                hdrMem.writeUInt32LE(pde | PTE_A, ppde);
             }
-            if (pde >= memsz) {
-                trap = FMEM;
-                vadr = v;
+            if (pde >= hdrMemSz) {
+                regTrap = FMEM;
+                regVadr = v;
                 return 0;
             }
             ppte = (pde & -4096) + ((v >>> 10) & 0xffc);
-            pte = mem.readUInt32LE(ppte);
+            pte = hdrMem.readUInt32LE(ppte);
             if (pte & PTE_P) {
                 q = pte & pde;
                 userable = q & PTE_U;
-                if ((userable || !user) && (q & PTE_W)) {
+                if ((userable || !regUser) && (q & PTE_W)) {
                     if ((pte & (PTE_D | PTE_A)) !== (PTE_D | PTE_A)) {
-                        mem.writeUInt32LE(pte | (PTE_D | PTE_A), ppte);
+                        hdrMem.writeUInt32LE(pte | (PTE_D | PTE_A), ppte);
                     }
-                    return pushtlb(v, pte, q & PTE_W, userable);
+                    return pushTLB(v, pte, q & PTE_W, userable);
                 }
             }
         }
-        trap = FWPAGE;
-        vadr = v;
+        regTrap = FWPAGE;
+        regVadr = v;
         return 0;
     }
 
-    function execUpdateSyms() {
-        var p, v, s, t, m;
-
-        if (updateForOS) {
-            v = 0;
-        } else {
-            v = 16;
-        }
-        p = tr.readUInt32LE((v >>> 12) * 4);
-        if (!p) {
-            p = rlook(v);
-            if (!p) {
-                follower = exception;
-                return;
-            }
-        }
-        p = ((v ^ p) & -4) >>> 0;
-        m = mem.readUInt32LE(p);
-        s = '';
-        p = p + 4;
-        while (true) {
-            t = mem.readUInt8(p);
-            if (0 <= t && t <= 0x7F) {
-                if (t === 0) {
-                    break;
-                }
-                s = s + String.fromCharCode(t);
-            } else {
-                console.log("execUpdateSyms: incorrect string");
-            }
-            p = p + 1;
-        }
-        if (dsyms[s] && m === 0xff3223ff) {
-            currentSym = s;
-        }
-        toUpdateSyms = false;
-        updateForOS = false;
-        follower = chkpc;
-        return;
-    }
-
     function execHALT() {
-        if (user) {
-            putstr(2, "halt(" + a.toString() + ") cycle = " +
-                ((cycle + ((xpc - xcycle) | 0) / 4) >>> 0).toString() + "\n");
+        var tmp;
+        if (regUser) {
+            tmp = ((regCycle + ((regXPc - regXCycle) | 0) / 4) >>> 0);
+            printOut(2, "halt(" + regA.toString() + ") cycle = " +
+                tmp.toString() + "\n");
         }
-        follower = 0;
+        regNextHdlr = 0;
         return;
     }
 
     function execIDLE() {
-        var ch;
-
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        var ch, tmp;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        if (!iena) {
-            trap = FINST;
-            follower = exception;
+        if (!regIena) {
+            regTrap = FINST;
+            regNextHdlr = hdlrExcpt;
             return;
         }
         while (true) {
-            ch = probekb();
+            ch = (kbBuffer[0] ? kbBuffer.shift() : -1);
             if (ch !== -1) {
-                kbchar = ch;
-                if (kbchar === '`'.charCodeAt(0)) {
-                    putstr(2, "ungraceful exit. cycle = " +
-                        ((cycle + ((xpc - xcycle) | 0) / 4) >>> 0).toString() +
-                        "\n");
-                    follower = 0;
+                regKbChar = ch;
+                if (regKbChar === '`'.charCodeAt(0)) {
+                    tmp = ((regCycle + ((regXPc - regXCycle) | 0) / 4) >>> 0);
+                    printOut(2, "ungraceful exit. cycle = " +
+                        tmp.toString() + "\n");
+                    regNextHdlr = 0;
                     return;
                 }
-                trap = FKEYBD;
-                iena = 0;
-                follower = interrupt;
+                regTrap = FKEYBD;
+                regIena = 0;
+                regNextHdlr = hdlrItrpt;
                 return;
             }
-            cycle = cycle + delta;
-            if (timeout) {
-                timer = timer + delta;
-                if (timer >= timeout) {
-                    timer = 0;
-                    trap = FTIMER;
-                    iena = 0;
-                    follower = interrupt;
+            regCycle = regCycle + 4096;
+            if (regTimeOut) {
+                regTimer = regTimer + 4096;
+                if (regTimer >= regTimeOut) {
+                    regTimer = 0;
+                    regTrap = FTIMER;
+                    regIena = 0;
+                    regNextHdlr = hdlrItrpt;
                     return;
                 }
             }
         }
-        follower = exception;
+        regNextHdlr = hdlrExcpt;
         return;
     }
 
     function execMCPY() {
         var t, p, u, v;
-
-        while (c) {
-            t = tr.readUInt32LE((b >>> 12) * 4);
+        while (regC) {
+            t = regTr.readUInt32LE((regB >>> 12) * 4);
             if (!t) {
-                t = rlook(b);
+                t = pageLookR(regB);
                 if (!t) {
-                    follower = exception;
+                    regNextHdlr = hdlrExcpt;
                     return;
                 }
             }
-            p = tw.readUInt32LE((a >>> 12) * 4);
+            p = regTw.readUInt32LE((regA >>> 12) * 4);
             if (!p) {
-                p = wlook(a);
+                p = pageLookW(regA);
                 if (!p) {
-                    follower = exception;
+                    regNextHdlr = hdlrExcpt;
                     return;
                 }
             }
-            v = 4096 - (a & 4095);
-            if (v > c) {
-                v = c;
+            v = 4096 - (regA & 4095);
+            if (v > regC) {
+                v = regC;
             }
-            u = 4096 - (b & 4095);
+            u = 4096 - (regB & 4095);
             if (u > v) {
                 u = v;
             }
-            p = a ^ (p & -2);
-            t = b ^ (t & -2);
-            mem.copy(mem, p, t, t + u);
-            a = a + u;
-            b = b + u;
-            c = c - u;
+            p = regA ^ (p & -2);
+            t = regB ^ (t & -2);
+            hdrMem.copy(hdrMem, p, t, t + u);
+            regA = regA + u;
+            regB = regB + u;
+            regC = regC - u;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMCMP() {
-        var t, p, u, v;
-
+        var t, p, u, v, memCmp;
+        memCmp = function(arrA, arrB) {
+            var i, j, x, y;
+            j = arrA.length;
+            i = arrB.length;
+            if (j > i) {
+                j = i;
+            }
+            for (i = 0; i < j; i = i + 1) {
+                x = arrA.readUInt8(i);
+                y = arrB.readUInt8(i);
+                if (x !== y) {
+                    return x - y;
+                }
+            }
+            return 0;
+        };
         while (true) {
-            if (!c) {
-                a = 0;
+            if (!regC) {
+                regA = 0;
                 break;
             }
-            t = tr.readUInt32LE((b >>> 12) * 4);
+            t = regTr.readUInt32LE((regB >>> 12) * 4);
             if (!t) {
-                t = rlook(b);
+                t = pageLookR(regB);
                 if (!t) {
-                    follower = exception;
+                    regNextHdlr = hdlrExcpt;
                     return;
                 }
             }
-            p = tr.readUInt32LE((a >>> 12) * 4);
+            p = regTr.readUInt32LE((regA >>> 12) * 4);
             if (!p) {
-                p = rlook(a);
+                p = pageLookR(regA);
                 if (!p) {
-                    follower = exception;
+                    regNextHdlr = hdlrExcpt;
                     return;
                 }
             }
-            v = 4096 - (a & 4095);
-            if (v > c) {
-                v = c;
+            v = 4096 - (regA & 4095);
+            if (v > regC) {
+                v = regC;
             }
-            u = 4096 - (b & 4095);
+            u = 4096 - (regB & 4095);
             if (u > v) {
                 u = v;
             }
-            p = a ^ (p & -2);
-            t = b ^ (t & -2);
-            t = memcmp(mem.slice(p, p + u), mem.slice(t, t + u));
+            p = regA ^ (p & -2);
+            t = regB ^ (t & -2);
+            t = memCmp(hdrMem.slice(p, p + u), hdrMem.slice(t, t + u));
             if (t) {
-                a = t;
-                b = b + c;
-                c = 0;
+                regA = t;
+                regB = regB + regC;
+                regC = 0;
                 break;
             }
-            a = a + u;
-            b = b + u;
-            c = c - u;
+            regA = regA + u;
+            regB = regB + u;
+            regC = regC - u;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMCHR() {
         var t, p, u, v;
-
         while (true) {
-            if (c === 0) {
-                a = 0;
+            if (regC === 0) {
+                regA = 0;
                 break;
             }
-            p = tr.readUInt32LE((a >>> 12) * 4);
+            p = regTr.readUInt32LE((regA >>> 12) * 4);
             if (!p) {
-                p = rlook(a);
+                p = pageLookR(regA);
                 if (!p) {
-                    follower = exception;
+                    regNextHdlr = hdlrExcpt;
                     return;
                 }
             }
-            u = 4096 - (a & 4095);
-            if (u > c) {
-                u = c;
+            u = 4096 - (regA & 4095);
+            if (u > regC) {
+                u = regC;
             }
-            v = a ^ (p & -2);
-            t = mem.slice(v, v + u).indexOf(b);
+            v = regA ^ (p & -2);
+            t = hdrMem.slice(v, v + u).indexOf(regB);
             if (t !== -1) {
-                a = a + t;
-                c = 0;
+                regA = regA + t;
+                regC = 0;
                 break;
             }
-            a = a + u;
-            c = c - u;
+            regA = regA + u;
+            regC = regC - u;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMSET() {
         var p, u, v;
 
-        while (c) {
-            p = tw.readUInt32LE((a >>> 12) * 4);
+        while (regC) {
+            p = regTw.readUInt32LE((regA >>> 12) * 4);
             if (!p) {
-                p = wlook(a);
+                p = pageLookW(regA);
                 if (!p) {
-                    follower = exception;
+                    regNextHdlr = hdlrExcpt;
                     return;
                 }
             }
-            u = 4096 - (a & 4095);
-            if (u > c) {
-                u = c;
+            u = 4096 - (regA & 4095);
+            if (u > regC) {
+                u = regC;
             }
-            v = a ^ (p & -2);
-            mem.fill(b, v, v + u);
-            a = a + u;
-            c = c - u;
+            v = regA ^ (p & -2);
+            hdrMem.fill(regB, v, v + u);
+            regA = regA + u;
+            regC = regC - u;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execPOW() {
-        f = Math.pow(f, g);
-        follower = chkpc;
+        regF = Math.pow(regF, regG);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execATN2() {
-        f = Math.atan2(f, g);
-        follower = chkpc;
+        regF = Math.atan2(regF, regG);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execFABS() {
-        f = Math.abs(f);
-        follower = chkpc;
+        regF = Math.abs(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execATAN() {
-        f = Math.atan(f);
-        follower = chkpc;
+        regF = Math.atan(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLOG() {
-        f = Math.log(f);
-        follower = chkpc;
+        regF = Math.log(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLOGT() {
-        f = Math.log10(f);
-        follower = chkpc;
+        regF = Math.log10(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execEXP() {
-        f = Math.exp(f);
-        follower = chkpc;
+        regF = Math.exp(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execFLOR() {
-        f = Math.floor(f);
-        follower = chkpc;
+        regF = Math.floor(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execCEIL() {
-        f = Math.ceil(f);
-        follower = chkpc;
+        regF = Math.ceil(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execHYPO() {
-        f = Math.hypot(f, g);
-        follower = chkpc;
+        regF = Math.hypot(regF, regG);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSIN() {
-        f = Math.sin(f);
-        follower = chkpc;
+        regF = Math.sin(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execCOS() {
-        f = Math.cos(f);
-        follower = chkpc;
+        regF = Math.cos(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execTAN() {
-        f = Math.tan(f);
-        follower = chkpc;
+        regF = Math.tan(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execASIN() {
-        f = Math.asin(f);
-        follower = chkpc;
+        regF = Math.asin(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execACOS() {
-        f = Math.acos(f);
-        follower = chkpc;
+        regF = Math.acos(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSINH() {
-        f = Math.sinh(f);
-        follower = chkpc;
+        regF = Math.sinh(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execCOSH() {
-        f = Math.cosh(f);
-        follower = chkpc;
+        regF = Math.cosh(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execTANH() {
-        f = Math.tanh(f);
-        follower = chkpc;
+        regF = Math.tanh(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSQRT() {
-        f = Math.sqrt(f);
-        follower = chkpc;
+        regF = Math.sqrt(regF);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execFMOD() {
-        f = Math.fmod(f, g);
-        follower = chkpc;
+        regF = Math.fmod(regF, regG);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execENT() {
-        if (fsp) {
-            fsp = fsp - (ir & -256);
-            if (fsp < 0 || fsp > (4096 << 8)) {
-                fsp = 0;
+        if (regFSP) {
+            regFSP = regFSP - (regIr & -256);
+            if (regFSP < 0 || regFSP > (4096 << 8)) {
+                regFSP = 0;
             }
         }
-        xsp = xsp + (ir >> 8);
-        if (fsp) {
-            follower = chkpc;
+        regXSp = regXSp + (regIr >> 8);
+        if (regFSP) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLEV() {
         var t, p, v;
-
-        if (ir < fsp) {
-            t = mem.readUInt32LE(xsp + (ir >> 8)) + tpc;
-            fsp = fsp - ((ir + (8 << 8)) & -256);
+        if (regIr < regFSP) {
+            t = hdrMem.readUInt32LE(regXSp + (regIr >> 8)) + regTPc;
+            regFSP = regFSP - ((regIr + (8 << 8)) & -256);
         } else {
-            v = xsp - tsp + (ir >> 8);
-            p = tr.readUInt32LE((v >>> 12) * 4);
+            v = regXSp - regTSp + (regIr >> 8);
+            p = regTr.readUInt32LE((v >>> 12) * 4);
             if (!p) {
-                p = rlook(v);
+                p = pageLookR(v);
                 if (!p) {
-                    follower = exception;
+                    regNextHdlr = hdlrExcpt;
                     return;
                 }
             }
-            t = mem.readUInt32LE((v ^ p) & -8) + tpc;
-            fsp = 0;
+            t = hdrMem.readUInt32LE((v ^ p) & -8) + regTPc;
+            regFSP = 0;
         }
-        xsp = xsp + ((ir >> 8) + 8);
-        xcycle = xcycle + t - xpc;
-        xpc = t;
-        if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-            follower = fixpc;
+        regXSp = regXSp + ((regIr >> 8) + 8);
+        regXCycle = regXCycle + t - regXPc;
+        regXPc = t;
+        if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+            regNextHdlr = hdlrFixpc;
             return;
         }
-        follower = chkio;
+        regNextHdlr = hdlrChkio;
         return;
     }
 
     function execJMP() {
-        xcycle = xcycle + (ir >> 8);
-        xpc = xpc + ((ir >> 10) << 2);
-        if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-            follower = fixpc;
+        regXCycle = regXCycle + (regIr >> 8);
+        regXPc = regXPc + ((regIr >> 10) << 2);
+        if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+            regNextHdlr = hdlrFixpc;
             return;
         }
-        follower = chkio;
+        regNextHdlr = hdlrChkio;
         return;
     }
 
     function execJMPI() {
         var t, p, v;
-
-        v = xpc - tpc + (ir >> 8) + (a << 2);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8) + (regA << 2);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        t = mem.readUInt32LE((v ^ p) & -4);
-        xcycle = xcycle + t;
-        xpc = xpc + t;
-        if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-            follower = fixpc;
+        t = hdrMem.readUInt32LE((v ^ p) & -4);
+        regXCycle = regXCycle + t;
+        regXPc = regXPc + t;
+        if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+            regNextHdlr = hdlrFixpc;
             return;
         }
-        follower = chkio;
+        regNextHdlr = hdlrChkio;
         return;
     }
 
     function execJSR() {
         var p, v;
-
-        if (fsp & (4095 << 8)) {
-            xsp = xsp - 8;
-            fsp = fsp + (8 << 8);
-            mem.writeUInt32LE((xpc - tpc) >>> 0, xsp);
+        if (regFSP & (4095 << 8)) {
+            regXSp = regXSp - 8;
+            regFSP = regFSP + (8 << 8);
+            hdrMem.writeUInt32LE((regXPc - regTPc) >>> 0, regXSp);
         } else {
-            v = xsp - tsp - 8;
-            p = tw.readUInt32LE((v >>> 12) * 4);
+            v = regXSp - regTSp - 8;
+            p = regTw.readUInt32LE((v >>> 12) * 4);
             if (!p) {
-                p = wlook(v);
+                p = pageLookW(v);
                 if (!p) {
-                    follower = exception;
+                    regNextHdlr = hdlrExcpt;
                     return;
                 }
             }
-            mem.writeUInt32LE((xpc - tpc) >>> 0, (v ^ p) & -8);
-            fsp = 0;
-            xsp = xsp - 8;
+            hdrMem.writeUInt32LE((regXPc - regTPc) >>> 0, (v ^ p) & -8);
+            regFSP = 0;
+            regXSp = regXSp - 8;
         }
-        xcycle = xcycle + (ir >> 8); // Why not ((ir >> 10) << 2)?
-        xpc = xpc + ((ir >> 10) << 2);
-        if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-            follower = fixpc;
+        regXCycle = regXCycle + (regIr >> 8); // Why not ((ir >> 10) << 2)?
+        regXPc = regXPc + ((regIr >> 10) << 2);
+        if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+            regNextHdlr = hdlrFixpc;
             return;
         }
-        follower = chkio;
+        regNextHdlr = hdlrChkio;
         return;
     }
 
     function execJSRA() {
         var p, v;
-
-        if (fsp & (4095 << 8)) {
-            xsp = xsp - 8;
-            fsp = fsp + (8 << 8);
-            mem.writeUInt32LE((xpc - tpc) >>> 0, xsp);
+        if (regFSP & (4095 << 8)) {
+            regXSp = regXSp - 8;
+            regFSP = regFSP + (8 << 8);
+            hdrMem.writeUInt32LE((regXPc - regTPc) >>> 0, regXSp);
         } else {
-            v = xsp - tsp - 8;
-            p = tw.readUInt32LE((v >>> 12) * 4);
+            v = regXSp - regTSp - 8;
+            p = regTw.readUInt32LE((v >>> 12) * 4);
             if (!p) {
-                p = wlook(v);
+                p = pageLookW(v);
                 if (!p) {
-                    follower = exception;
+                    regNextHdlr = hdlrExcpt;
                     return;
                 }
             }
-            mem.writeUInt32LE((xpc - tpc) >>> 0, (v ^ p) & -8);
-            fsp = 0;
-            xsp = xsp - 8;
+            hdrMem.writeUInt32LE((regXPc - regTPc) >>> 0, (v ^ p) & -8);
+            regFSP = 0;
+            regXSp = regXSp - 8;
         }
-        xcycle = xcycle + a + tpc - xpc;
-        xpc = a + tpc;
-        if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-            follower = fixpc;
+        regXCycle = regXCycle + regA + regTPc - regXPc;
+        regXPc = regA + regTPc;
+        if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+            regNextHdlr = hdlrFixpc;
             return;
         }
-        follower = chkio;
+        regNextHdlr = hdlrChkio;
         return;
     }
 
     function execPSHA() {
         var p, v;
-
-        if (fsp & (4095 << 8)) {
-            xsp = xsp - 8;
-            fsp = fsp + (8 << 8);
-            mem.writeUInt32LE(a, xsp);
-            follower = chkpc;
+        if (regFSP & (4095 << 8)) {
+            regXSp = regXSp - 8;
+            regFSP = regFSP + (8 << 8);
+            hdrMem.writeUInt32LE(regA, regXSp);
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp - 8;
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp - 8;
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt32LE(a, (v ^ p) & -8);
-        xsp = xsp - 8;
-        fsp = 0;
-        follower = fixsp;
+        hdrMem.writeUInt32LE(regA, (v ^ p) & -8);
+        regXSp = regXSp - 8;
+        regFSP = 0;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execPSHB() {
         var p, v;
-
-        if (fsp & (4095 << 8)) {
-            xsp = xsp - 8;
-            fsp = fsp + (8 << 8);
-            mem.writeUInt32LE(b, xsp);
-            follower = chkpc;
+        if (regFSP & (4095 << 8)) {
+            regXSp = regXSp - 8;
+            regFSP = regFSP + (8 << 8);
+            hdrMem.writeUInt32LE(regB, regXSp);
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp - 8;
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp - 8;
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt32LE(b, (v ^ p) & -8);
-        xsp = xsp - 8;
-        fsp = 0;
-        follower = fixsp;
+        hdrMem.writeUInt32LE(regB, (v ^ p) & -8);
+        regXSp = regXSp - 8;
+        regFSP = 0;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execPSHC() {
         var p, v;
-
-        if (fsp & (4095 << 8)) {
-            xsp = xsp - 8;
-            fsp = fsp + (8 << 8);
-            mem.writeUInt32LE(c, xsp);
-            follower = chkpc;
+        if (regFSP & (4095 << 8)) {
+            regXSp = regXSp - 8;
+            regFSP = regFSP + (8 << 8);
+            hdrMem.writeUInt32LE(regC, regXSp);
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp - 8;
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp - 8;
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt32LE(c, (v ^ p) & -8);
-        xsp = xsp - 8;
-        fsp = 0;
-        follower = fixsp;
+        hdrMem.writeUInt32LE(regC, (v ^ p) & -8);
+        regXSp = regXSp - 8;
+        regFSP = 0;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execPSHF() {
         var p, v;
-
-        if (fsp & (4095 << 8)) {
-            xsp = xsp - 8;
-            fsp = fsp + (8 << 8);
-            mem.writeDoubleLE(f, xsp);
-            follower = chkpc;
+        if (regFSP & (4095 << 8)) {
+            regXSp = regXSp - 8;
+            regFSP = regFSP + (8 << 8);
+            hdrMem.writeDoubleLE(regF, regXSp);
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp - 8;
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp - 8;
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeDoubleLE(f, (v ^ p) & -8);
-        xsp = xsp - 8;
-        fsp = 0;
-        follower = fixsp;
+        hdrMem.writeDoubleLE(regF, (v ^ p) & -8);
+        regXSp = regXSp - 8;
+        regFSP = 0;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execPSHG() {
         var p, v;
-
-        if (fsp & (4095 << 8)) {
-            xsp = xsp - 8;
-            fsp = fsp + (8 << 8);
-            mem.writeDoubleLE(g, xsp);
-            follower = chkpc;
+        if (regFSP & (4095 << 8)) {
+            regXSp = regXSp - 8;
+            regFSP = regFSP + (8 << 8);
+            hdrMem.writeDoubleLE(regG, regXSp);
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp - 8;
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp - 8;
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeDoubleLE(g, (v ^ p) & -8);
-        xsp = xsp - 8;
-        fsp = 0;
-        follower = fixsp;
+        hdrMem.writeDoubleLE(regG, (v ^ p) & -8);
+        regXSp = regXSp - 8;
+        regFSP = 0;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execPSHI() {
         var p, v;
-
-        if (fsp & (4095 << 8)) {
-            xsp = xsp - 8;
-            fsp = fsp + (8 << 8);
-            mem.writeInt32LE((ir >> 8), xsp);
-            follower = chkpc;
+        if (regFSP & (4095 << 8)) {
+            regXSp = regXSp - 8;
+            regFSP = regFSP + (8 << 8);
+            hdrMem.writeInt32LE((regIr >> 8), regXSp);
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp - 8;
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp - 8;
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeInt32LE(ir >> 8, (v ^ p) & -8);
-        xsp = xsp - 8;
-        fsp = 0;
-        follower = fixsp;
+        hdrMem.writeInt32LE(regIr >> 8, (v ^ p) & -8);
+        regXSp = regXSp - 8;
+        regFSP = 0;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execPOPA() {
         var p, v;
-
-        if (fsp) {
-            a = mem.readUInt32LE(xsp);
-            xsp = xsp + 8;
-            fsp = fsp - (8 << 8);
-            follower = chkpc;
+        if (regFSP) {
+            regA = hdrMem.readUInt32LE(regXSp);
+            regXSp = regXSp + 8;
+            regFSP = regFSP - (8 << 8);
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp;
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp;
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readUInt32LE((v ^ p) & -8);
-        xsp = xsp + 8;
-        follower = fixsp;
+        regA = hdrMem.readUInt32LE((v ^ p) & -8);
+        regXSp = regXSp + 8;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execPOPB() {
         var p, v;
-
-        if (fsp) {
-            b = mem.readUInt32LE(xsp);
-            xsp = xsp + 8;
-            fsp = fsp - (8 << 8);
-            follower = chkpc;
+        if (regFSP) {
+            regB = hdrMem.readUInt32LE(regXSp);
+            regXSp = regXSp + 8;
+            regFSP = regFSP - (8 << 8);
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp;
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp;
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readUInt32LE((v ^ p) & -8);
-        xsp = xsp + 8;
-        follower = fixsp;
+        regB = hdrMem.readUInt32LE((v ^ p) & -8);
+        regXSp = regXSp + 8;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execPOPC() {
         var p, v;
-
-        if (fsp) {
-            c = mem.readUInt32LE(xsp);
-            xsp = xsp + 8;
-            fsp = fsp - (8 << 8);
-            follower = chkpc;
+        if (regFSP) {
+            regC = hdrMem.readUInt32LE(regXSp);
+            regXSp = regXSp + 8;
+            regFSP = regFSP - (8 << 8);
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp;
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp;
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        c = mem.readUInt32LE((v ^ p) & -8);
-        xsp = xsp + 8;
-        follower = fixsp;
+        regC = hdrMem.readUInt32LE((v ^ p) & -8);
+        regXSp = regXSp + 8;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execPOPF() {
         var p, v;
-
-        if (fsp) {
-            f = mem.readDoubleLE(xsp);
-            xsp = xsp + 8;
-            fsp = fsp - (8 << 8);
-            follower = chkpc;
+        if (regFSP) {
+            regF = hdrMem.readDoubleLE(regXSp);
+            regXSp = regXSp + 8;
+            regFSP = regFSP - (8 << 8);
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp;
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp;
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        f = mem.readDoubleLE((v ^ p) & -8);
-        xsp = xsp + 8;
-        follower = fixsp;
+        regF = hdrMem.readDoubleLE((v ^ p) & -8);
+        regXSp = regXSp + 8;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execPOPG() {
         var p, v;
-
-        if (fsp) {
-            g = mem.readDoubleLE(xsp);
-            xsp = xsp + 8;
-            fsp = fsp - (8 << 8);
-            follower = chkpc;
+        if (regFSP) {
+            regG = hdrMem.readDoubleLE(regXSp);
+            regXSp = regXSp + 8;
+            regFSP = regFSP - (8 << 8);
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp;
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp;
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        g = mem.readDoubleLE((v ^ p) & -8);
-        xsp = xsp + 8;
-        follower = fixsp;
+        regG = hdrMem.readDoubleLE((v ^ p) & -8);
+        regXSp = regXSp + 8;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLEA() {
-        a = xsp - tsp + (ir >> 8);
-        follower = chkpc;
+        regA = regXSp - regTSp + (regIr >> 8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLEAG() {
-        a = xpc - tpc + (ir >> 8);
-        follower = chkpc;
+        regA = regXPc - regTPc + (regIr >> 8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLL() {
         var p, v;
-
-        if (ir < fsp) {
-            a = mem.readUInt32LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = hdrMem.readUInt32LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readUInt32LE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = hdrMem.readUInt32LE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLLS() {
         var p, v;
-
-        if (ir < fsp) {
-            a = mem.readInt16LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = hdrMem.readInt16LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readInt16LE((v ^ p) & -2);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = hdrMem.readInt16LE((v ^ p) & -2);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLLH() {
         var p, v;
-
-        if (ir < fsp) {
-            a = mem.readUInt16LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = hdrMem.readUInt16LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readUInt16LE((v ^ p) & -2);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = hdrMem.readUInt16LE((v ^ p) & -2);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLLC() {
         var p, v;
-
-        if (ir < fsp) {
-            a = mem.readInt8(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = hdrMem.readInt8(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readInt8(v ^ p & -2);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = hdrMem.readInt8(v ^ p & -2);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLLB() {
         var p, v;
-
-        if (ir < fsp) {
-            a = mem.readUInt8(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = hdrMem.readUInt8(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readUInt8(v ^ p & -2);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = hdrMem.readUInt8(v ^ p & -2);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLLD() {
         var p, v;
-
-        if (ir < fsp) {
-            f = mem.readDoubleLE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regF = hdrMem.readDoubleLE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        f = mem.readDoubleLE((v ^ p) & -8);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regF = hdrMem.readDoubleLE((v ^ p) & -8);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLLF() {
         var p, v;
-
-        if (ir < fsp) {
-            f = mem.readFloatLE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regF = hdrMem.readFloatLE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        f = mem.readFloatLE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regF = hdrMem.readFloatLE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLG() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readUInt32LE((v ^ p) & -4);
-        follower = chkpc;
+        regA = hdrMem.readUInt32LE((v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLGS() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readInt16LE((v ^ p) & -2);
-        follower = chkpc;
+        regA = hdrMem.readInt16LE((v ^ p) & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLGH() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readUInt16LE((v ^ p) & -2);
-        follower = chkpc;
+        regA = hdrMem.readUInt16LE((v ^ p) & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLGC() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readInt8(v ^ p & -2);
-        follower = chkpc;
+        regA = hdrMem.readInt8(v ^ p & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLGB() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readUInt8(v ^ p & -2);
-        follower = chkpc;
+        regA = hdrMem.readUInt8(v ^ p & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLGD() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        f = mem.readDoubleLE((v ^ p) & -8);
-        follower = chkpc;
+        regF = hdrMem.readDoubleLE((v ^ p) & -8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLGF() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        f = mem.readFloatLE((v ^ p) & -4);
-        follower = chkpc;
+        regF = hdrMem.readFloatLE((v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLX() {
         var p, v;
-
-        v = a + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regA + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readUInt32LE((v ^ p) & -4);
-        follower = chkpc;
+        regA = hdrMem.readUInt32LE((v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLXS() {
         var p, v;
-
-        v = a + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regA + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readInt16LE((v ^ p) & -2);
-        follower = chkpc;
+        regA = hdrMem.readInt16LE((v ^ p) & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLXH() {
         var p, v;
-
-        v = a + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regA + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readUInt16LE((v ^ p) & -2);
-        follower = chkpc;
+        regA = hdrMem.readUInt16LE((v ^ p) & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLXC() {
         var p, v;
-
-        v = a + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regA + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readInt8(v ^ p & -2);
-        follower = chkpc;
+        regA = hdrMem.readInt8(v ^ p & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLXB() {
         var p, v;
-
-        v = a + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regA + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = mem.readUInt8(v ^ p & -2);
-        follower = chkpc;
+        regA = hdrMem.readUInt8(v ^ p & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLXD() {
         var p, v;
-
-        v = a + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regA + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        f = mem.readDoubleLE((v ^ p) & -8);
-        follower = chkpc;
+        regF = hdrMem.readDoubleLE((v ^ p) & -8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLXF() {
         var p, v;
-
-        v = a + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regA + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        f = mem.readFloatLE((v ^ p) & -4);
-        follower = chkpc;
+        regF = hdrMem.readFloatLE((v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLI() {
-        a = ir >> 8;
-        follower = chkpc;
+        regA = regIr >> 8;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLHI() {
-        a = (a << 24) | (ir >>> 8);
-        follower = chkpc;
+        regA = (regA << 24) | (regIr >>> 8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLIF() {
-        f = (ir >> 8) / 256.0;
-        follower = chkpc;
+        regF = (regIr >> 8) / 256.0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBL() {
         var p, v;
-
-        if (ir < fsp) {
-            b = mem.readUInt32LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regB = hdrMem.readUInt32LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readUInt32LE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regB = hdrMem.readUInt32LE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLBLS() {
         var p, v;
-
-        if (ir < fsp) {
-            b = mem.readInt16LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regB = hdrMem.readInt16LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readInt16LE((v ^ p) & -2);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regB = hdrMem.readInt16LE((v ^ p) & -2);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLBLH() {
         var p, v;
-
-        if (ir < fsp) {
-            b = mem.readUInt16LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regB = hdrMem.readUInt16LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readUInt16LE((v ^ p) & -2);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regB = hdrMem.readUInt16LE((v ^ p) & -2);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLBLC() {
         var p, v;
-
-        if (ir < fsp) {
-            b = (mem.readInt8(xsp + (ir >> 8)));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regB = (hdrMem.readInt8(regXSp + (regIr >> 8)));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readInt8(v ^ p & -2);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regB = hdrMem.readInt8(v ^ p & -2);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLBLB() {
         var p, v;
-
-        if (ir < fsp) {
-            b = (mem.readUInt8(xsp + (ir >> 8)));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regB = (hdrMem.readUInt8(regXSp + (regIr >> 8)));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readUInt8(v ^ p & -2);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regB = hdrMem.readUInt8(v ^ p & -2);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLBLD() {
         var p, v;
-
-        if (ir < fsp) {
-            g = mem.readDoubleLE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regG = hdrMem.readDoubleLE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readDoubleLE((v ^ p) & -8);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regB = hdrMem.readDoubleLE((v ^ p) & -8);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLBLF() {
         var p, v;
-
-        if (ir < fsp) {
-            g = mem.readFloatLE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regG = hdrMem.readFloatLE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readFloatLE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regB = hdrMem.readFloatLE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLBG() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readUInt32LE((v ^ p) & -4);
-        follower = chkpc;
+        regB = hdrMem.readUInt32LE((v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBGS() {
         var p, v;
 
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readInt16LE((v ^ p) & -2);
-        follower = chkpc;
+        regB = hdrMem.readInt16LE((v ^ p) & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBGH() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readUInt16LE((v ^ p) & -2);
-        follower = chkpc;
+        regB = hdrMem.readUInt16LE((v ^ p) & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBGC() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readInt8(v ^ p & -2);
-        follower = chkpc;
+        regB = hdrMem.readInt8(v ^ p & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBGB() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readUInt8(v ^ p & -2);
-        follower = chkpc;
+        regB = hdrMem.readUInt8(v ^ p & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBGD() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        g = mem.readDoubleLE((v ^ p) & -8);
-        follower = chkpc;
+        regG = hdrMem.readDoubleLE((v ^ p) & -8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBGF() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        g = mem.readFloatLE((v ^ p) & -4);
-        follower = chkpc;
+        regG = hdrMem.readFloatLE((v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBX() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readUInt32LE((v ^ p) & -4);
-        follower = chkpc;
+        regB = hdrMem.readUInt32LE((v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBXS() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readInt16LE((v ^ p) & -2);
-        follower = chkpc;
+        regB = hdrMem.readInt16LE((v ^ p) & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBXH() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readUInt16LE((v ^ p) & -2);
-        follower = chkpc;
+        regB = hdrMem.readUInt16LE((v ^ p) & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBXC() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readInt8(v ^ p & -2);
-        follower = chkpc;
+        regB = hdrMem.readInt8(v ^ p & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBXB() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        b = mem.readUInt8(v ^ p & -2);
-        follower = chkpc;
+        regB = hdrMem.readUInt8(v ^ p & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBXD() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        g = mem.readDoubleLE((v ^ p) & -8);
-        follower = chkpc;
+        regG = hdrMem.readDoubleLE((v ^ p) & -8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBXF() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        g = mem.readFloatLE((v ^ p) & -4);
-        follower = chkpc;
+        regG = hdrMem.readFloatLE((v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBI() {
-        b = ir >> 8;
-        follower = chkpc;
+        regB = regIr >> 8;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBHI() {
-        b = (b << 24) | (ir >>> 8);
-        follower = chkpc;
+        regB = (regB << 24) | (regIr >>> 8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBIF() {
-        g = (ir >> 8) / 256.0;
-        follower = chkpc;
+        regG = (regIr >> 8) / 256.0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLCL() {
         var p, v;
-
-        if (ir < fsp) {
-            c = mem.readUInt32LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regC = hdrMem.readUInt32LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        c = mem.readUInt32LE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regC = hdrMem.readUInt32LE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execLBA() {
-        b = a;
-        follower = chkpc;
+        regB = regA;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLCA() {
-        c = a;
-        follower = chkpc;
+        regC = regA;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLBAD() {
-        g = f;
-        follower = chkpc;
+        regG = regF;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSL() {
         var p, v;
-
-        if (ir < fsp) {
-            mem.writeUInt32LE(a, xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            hdrMem.writeUInt32LE(regA, regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt32LE(a, (v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        hdrMem.writeUInt32LE(regA, (v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execSLH() {
         var p, v;
-
-        if (ir < fsp) {
-            mem.writeUInt16LE(a, xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            hdrMem.writeUInt16LE(regA, regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt16LE(a, (v ^ p) & -2);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        hdrMem.writeUInt16LE(regA, (v ^ p) & -2);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execSLB() {
         var p, v;
-
-        if (ir < fsp) {
-            mem.writeUInt8(a, xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            hdrMem.writeUInt8(regA, regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt8(a, v ^ p & -2);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        hdrMem.writeUInt8(regA, v ^ p & -2);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execSLD() {
         var p, v;
-
-        if (ir < fsp) {
-            mem.writeDoubleLE(f, xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            hdrMem.writeDoubleLE(regF, regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeDoubleLE(f, (v ^ p) & -8);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        hdrMem.writeDoubleLE(regF, (v ^ p) & -8);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execSLF() {
         var p, v;
-
-        if (ir < fsp) {
-            mem.writeFloatLE(f, xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            hdrMem.writeFloatLE(regF, regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeFloatLE(f, (v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        hdrMem.writeFloatLE(regF, (v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execSG() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt32LE(a, (v ^ p) & -4);
-        follower = chkpc;
+        hdrMem.writeUInt32LE(regA, (v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSGH() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt16LE(a, (v ^ p) & -2);
-        follower = chkpc;
+        hdrMem.writeUInt16LE(regA, (v ^ p) & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSGB() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt8(a, v ^ p & -2);
-        follower = chkpc;
+        hdrMem.writeUInt8(regA, v ^ p & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSGD() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeDoubleLE(f, (v ^ p) & -8);
-        follower = chkpc;
+        hdrMem.writeDoubleLE(regF, (v ^ p) & -8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSGF() {
         var p, v;
-
-        v = xpc - tpc + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regXPc - regTPc + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeFloatLE(f, (v ^ p) & -4);
-        follower = chkpc;
+        hdrMem.writeFloatLE(regF, (v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSX() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt32LE(a, (v ^ p) & -4);
-        follower = chkpc;
+        hdrMem.writeUInt32LE(regA, (v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSXH() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt16LE(a, (v ^ p) & -2);
-        follower = chkpc;
+        hdrMem.writeUInt16LE(regA, (v ^ p) & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSXB() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeUInt8(a, v ^ p & -2);
-        follower = chkpc;
+        hdrMem.writeUInt8(regA, v ^ p & -2);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSXD() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeDoubleLE(f, (v ^ p) & -8);
-        follower = chkpc;
+        hdrMem.writeDoubleLE(regF, (v ^ p) & -8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSXF() {
         var p, v;
-
-        v = b + (ir >> 8);
-        p = tw.readUInt32LE((v >>> 12) * 4);
+        v = regB + (regIr >> 8);
+        p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = wlook(v);
+            p = pageLookW(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        mem.writeFloatLE(f, (v ^ p) & -4);
-        follower = chkpc;
+        hdrMem.writeFloatLE(regF, (v ^ p) & -4);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execADDF() {
-        f = f + g;
-        follower = chkpc;
+        regF = regF + regG;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSUBF() {
-        f = f - g;
-        follower = chkpc;
+        regF = regF - regG;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMULF() {
-        f = f * g;
-        follower = chkpc;
+        regF = regF * regG;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execDIVF() {
-        if (g === 0.0) {
-            trap = FARITH;
-            follower = exception;
+        if (regG === 0.0) {
+            regTrap = FARITH;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        f = f / g;
-        follower = chkpc;
+        regF = regF / regG;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execADD() {
-        a = a + b;
-        follower = chkpc;
+        regA = regA + regB;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execADDI() {
-        a = a + (ir >> 8);
-        follower = chkpc;
+        regA = regA + (regIr >> 8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execADDL() {
         var p, v;
-
-        if (ir < fsp) {
-            a = a + mem.readUInt32LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = regA + hdrMem.readUInt32LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = a + mem.readUInt32LE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = regA + hdrMem.readUInt32LE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execSUB() {
-        a = a - b;
-        follower = chkpc;
+        regA = regA - regB;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSUBI() {
-        a = a - (ir >> 8);
-        follower = chkpc;
+        regA = regA - (regIr >> 8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSUBL() {
         var p, v;
-
-        if (ir < fsp) {
-            a = a - mem.readUInt32LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = regA - hdrMem.readUInt32LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = a - mem.readUInt32LE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = regA - hdrMem.readUInt32LE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execMUL() {
-        a = a * b;
-        follower = chkpc;
+        regA = regA * regB;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMULI() {
-        a = a * (ir >> 8);
-        follower = chkpc;
+        regA = regA * (regIr >> 8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMULL() {
         var p, v;
-
-        if (ir < fsp) {
-            a = a * mem.readInt32LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = regA * hdrMem.readInt32LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = a * mem.readInt32LE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = regA * hdrMem.readInt32LE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execDIV() {
-        if (!b) {
-            trap = FARITH;
-            follower = exception;
+        if (!regB) {
+            regTrap = FARITH;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        a = (a / b) >>> 0;
-        follower = chkpc;
+        regA = (regA / regB) >>> 0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execDIVI() {
         var t;
-
-        t = ir >> 8;
+        t = regIr >> 8;
         if (!t) {
-            trap = FARITH;
-            follower = exception;
+            regTrap = FARITH;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        a = (a / t) >>> 0;
-        follower = chkpc;
+        regA = (regA / t) >>> 0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execDIVL() {
         var p, v, t;
-
-        if (ir < fsp) {
-            t = mem.readUInt32LE(xsp + (ir >> 8));
+        if (regIr < regFSP) {
+            t = hdrMem.readUInt32LE(regXSp + (regIr >> 8));
             if (!t) {
-                trap = FARITH;
-                follower = exception;
+                regTrap = FARITH;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
-            a = (a / t) >>> 0;
-            follower = chkpc;
+            regA = (regA / t) >>> 0;
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        t = mem.readUInt32LE((v ^ p) & -4);
+        t = hdrMem.readUInt32LE((v ^ p) & -4);
         if (!t) {
-            trap = FARITH;
-            follower = exception;
+            regTrap = FARITH;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        a = (a / t) >>> 0;
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = (regA / t) >>> 0;
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execDVU() {
-        if (!b) {
-            trap = FARITH;
-            follower = exception;
+        if (!regB) {
+            regTrap = FARITH;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        a = (a / b) >>> 0;
-        follower = chkpc;
+        regA = (regA / regB) >>> 0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execDVUI() {
         var t;
-
-        t = (ir >> 8);
+        t = (regIr >> 8);
         if (!t) {
-            trap = FARITH;
-            follower = exception;
+            regTrap = FARITH;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        a = (a / t) >>> 0;
-        follower = chkpc;
+        regA = (regA / t) >>> 0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execDVUL() {
         var p, v, t;
-
-        if (ir < fsp) {
-            t = mem.readUInt32LE(xsp + (ir >> 8));
+        if (regIr < regFSP) {
+            t = hdrMem.readUInt32LE(regXSp + (regIr >> 8));
             if (!t) {
-                trap = FARITH;
-                follower = exception;
+                regTrap = FARITH;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
-            a = (a / t) >>> 0;
-            follower = chkpc;
+            regA = (regA / t) >>> 0;
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        t = mem.readUInt32LE((v ^ p) & -4);
+        t = hdrMem.readUInt32LE((v ^ p) & -4);
         if (!t) {
-            trap = FARITH;
-            follower = exception;
+            regTrap = FARITH;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        a = (a / t) >>> 0;
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = (regA / t) >>> 0;
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execMOD() {
-        a = (a % b);
-        follower = chkpc;
+        regA = (regA % regB);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMODI() {
-        a = (a % (ir >> 8));
-        follower = chkpc;
+        regA = (regA % (regIr >> 8));
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMODL() {
         var p, v;
-
-        if (ir < fsp) {
-            a = (a % mem.readUInt32LE(xsp + (ir >> 8)));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = (regA % hdrMem.readUInt32LE(regXSp + (regIr >> 8)));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = (a % mem.readUInt32LE((v ^ p) & -4));
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = (regA % hdrMem.readUInt32LE((v ^ p) & -4));
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execMDU() {
-        a %= b;
-        follower = chkpc;
+        regA %= regB;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMDUI() {
-        a %= (ir >> 8);
-        follower = chkpc;
+        regA %= (regIr >> 8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMDUL() {
         var p, v;
-
-        if (ir < fsp) {
-            a %= mem.readUInt32LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA %= hdrMem.readUInt32LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a %= mem.readUInt32LE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA %= hdrMem.readUInt32LE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execAND() {
-        a &= b;
-        follower = chkpc;
+        regA &= regB;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execANDI() {
-        a &= ir >> 8;
-        follower = chkpc;
+        regA &= regIr >> 8;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execANDL() {
         var p, v;
-
-        if (ir < fsp) {
-            a &= mem.readUInt32LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA &= hdrMem.readUInt32LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a &= mem.readUInt32LE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA &= hdrMem.readUInt32LE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execOR() {
-        a = a | b;
-        follower = chkpc;
+        regA = regA | regB;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execORI() {
-        a = a | (ir >> 8);
-        follower = chkpc;
+        regA = regA | (regIr >> 8);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execORL() {
         var p, v;
-
-        if (ir < fsp) {
-            a = (a | mem.readUInt32LE(xsp + (ir >> 8)));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = (regA | hdrMem.readUInt32LE(regXSp + (regIr >> 8)));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = (a | mem.readUInt32LE((v ^ p) & -4));
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = (regA | hdrMem.readUInt32LE((v ^ p) & -4));
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execXOR() {
-        a ^= b;
-        follower = chkpc;
+        regA ^= regB;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execXORI() {
-        a ^= ir >> 8;
-        follower = chkpc;
+        regA ^= regIr >> 8;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execXORL() {
         var p, v;
-
-        if (ir < fsp) {
-            a ^= mem.readUInt32LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA ^= hdrMem.readUInt32LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a ^= mem.readUInt32LE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA ^= hdrMem.readUInt32LE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execSHL() {
-        a <<= b;
-        follower = chkpc;
+        regA <<= regB;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSHLI() {
-        a <<= ir >> 8;
-        follower = chkpc;
+        regA <<= regIr >> 8;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSHLL() {
         var p, v;
-
-        if (ir < fsp) {
-            a <<= mem.readUInt32LE(xsp + (ir >> 8));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA <<= hdrMem.readUInt32LE(regXSp + (regIr >> 8));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a <<= mem.readUInt32LE((v ^ p) & -4);
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA <<= hdrMem.readUInt32LE((v ^ p) & -4);
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execSHR() {
-        a = (a >> b);
-        follower = chkpc;
+        regA = (regA >> regB);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSHRI() {
-        a = (a >> (ir >> 8));
-        follower = chkpc;
+        regA = (regA >> (regIr >> 8));
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSHRL() {
         var p, v;
-
-        if (ir < fsp) {
-            a = (a >> mem.readUInt32LE(xsp + (ir >> 8)));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = (regA >> hdrMem.readUInt32LE(regXSp + (regIr >> 8)));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = (a >> mem.readUInt32LE((v ^ p) & -4));
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = (regA >> hdrMem.readUInt32LE((v ^ p) & -4));
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execSRU() {
-        a >>= b;
-        follower = chkpc;
+        regA >>= regB;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSRUI() {
-        a >>>= ir >> 8;
-        follower = chkpc;
+        regA >>>= regIr >> 8;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSRUL() {
         var p, v;
-
-        if (ir < fsp) {
-            a = (a >> mem.readUInt32LE(xsp + (ir >> 8)));
-            follower = chkpc;
+        if (regIr < regFSP) {
+            regA = (regA >> hdrMem.readUInt32LE(regXSp + (regIr >> 8)));
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        v = xsp - tsp + (ir >> 8);
-        p = tr.readUInt32LE((v >>> 12) * 4);
+        v = regXSp - regTSp + (regIr >> 8);
+        p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
-            p = rlook(v);
+            p = pageLookR(v);
             if (!p) {
-                follower = exception;
+                regNextHdlr = hdlrExcpt;
                 return;
             }
         }
-        a = (a >> mem.readUInt32LE((v ^ p) & -4));
-        if (fsp || (v ^ (xsp - tsp)) & -4096) {
-            follower = chkpc;
+        regA = (regA >> hdrMem.readUInt32LE((v ^ p) & -4));
+        if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        follower = fixsp;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execEQ() {
-        a = (a === b);
-        follower = chkpc;
+        regA = (regA === regB);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execEQF() {
-        a = (f === g);
-        follower = chkpc;
+        regA = (regF === regG);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execNE() {
-        a = (a !== b);
-        follower = chkpc;
+        regA = (regA !== regB);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execNEF() {
-        a = (f !== g);
-        follower = chkpc;
+        regA = (regF !== regG);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLT() {
-        a = (a < b);
-        follower = chkpc;
+        regA = (regA < regB);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLTU() {
-        a = (a < b);
-        follower = chkpc;
+        regA = (regA < regB);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLTF() {
-        a = (f < g);
-        follower = chkpc;
+        regA = (regF < regG);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execGE() {
-        a = (a >= b);
-        follower = chkpc;
+        regA = (regA >= regB);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execGEU() {
-        a = (a >= b);
-        follower = chkpc;
+        regA = (regA >= regB);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execGEF() {
-        a = (f >= g);
-        follower = chkpc;
+        regA = (regF >= regG);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBZ() {
-        if (!a) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (!regA) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBZF() {
-        if (!f) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (!regF) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBNZ() {
-        if (a) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (regA) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBNZF() {
-        if (f) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (regF) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBE() {
-        if (a === b) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (regA === regB) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBEF() {
-        if (f === g) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (regF === regG) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBNE() {
-        if (a !== b) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (regA !== regB) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBNEF() {
-        if (f !== g) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (regF !== regG) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBLT() {
-        if (a < b) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (regA < regB) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBLTU() {
-        if (a < b) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (regA < regB) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBLTF() {
-        if (f < g) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (regF < regG) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBGE() {
-        if ((a | 0) >= (b | 0)) {
-            xcycle = xcycle + (ir >> 8);
-            xpc = xpc + ((ir >> 10) << 2);
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if ((regA | 0) >= (regB | 0)) {
+            regXCycle = regXCycle + (regIr >> 8);
+            regXPc = regXPc + ((regIr >> 10) << 2);
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBGEU() {
-        if (a >= b) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (regA >= regB) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBGEF() {
-        if (f >= g) {
-            xcycle = (xcycle + (ir >> 8));
-            xpc = (xpc + ((ir >> 10) << 2));
-            if ((xpc - fpc) >>> 0 < (-4096) >>> 0) {
-                follower = fixpc;
+        if (regF >= regG) {
+            regXCycle = (regXCycle + (regIr >> 8));
+            regXPc = (regXPc + ((regIr >> 10) << 2));
+            if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
+                regNextHdlr = hdlrFixpc;
                 return;
             }
-            follower = chkio;
+            regNextHdlr = hdlrChkio;
             return;
         }
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execCID() {
-        f = a | 0;
-        follower = chkpc;
+        regF = regA | 0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execCUD() {
-        f = a >>> 0;
-        follower = chkpc;
+        regF = regA >>> 0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execCDI() {
-        a = f | 0;
-        follower = chkpc;
+        regA = regF | 0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execCDU() {
-        a = f >>> 0;
-        follower = chkpc;
+        regA = regF >>> 0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBIN() {
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        a = kbchar;
-        kbchar = -1;
-        follower = chkpc;
+        regA = regKbChar;
+        regKbChar = -1;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execBOUT() {
-        var ch;
-
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        if (a !== 1) {
-            putstr(2, "bad write a=" + a.toString() + "\n");
-            follower = 0;
+        if (regA !== 1) {
+            printOut(2, "bad write a=" + regA.toString() + "\n");
+            regNextHdlr = 0;
             return;
         }
-        ch = b;
-        a = printch(ch);
-        follower = chkpc;
+        regA = (printOut(1, String.fromCharCode(regB)) ? 1 : -1);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSSP() {
-        xsp = a;
-        tsp = 0;
-        fsp = 0;
-        follower = fixsp;
+        regXSp = regA;
+        regTSp = 0;
+        regFSP = 0;
+        regNextHdlr = hdlrFixsp;
         return;
     }
 
     function execNOP() {
-        follower = chkpc;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execCYC() {
-        a = (cycle + ((xpc - xcycle) | 0) / 4) >>> 0;
-        follower = chkpc;
+        regA = (regCycle + ((regXPc - regXCycle) | 0) / 4) >>> 0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMSIZ() {
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        a = memsz;
-        follower = chkpc;
+        regA = hdrMemSz;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execCLI() {
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        a = iena;
-        iena = 0;
-        follower = chkpc;
+        regA = regIena;
+        regIena = 0;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSTI() {
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        if (ipend) {
-            trap = (ipend & -ipend);
-            ipend ^= trap;
-            iena = 0;
-            follower = interrupt;
+        if (regIpend) {
+            regTrap = (regIpend & -regIpend);
+            regIpend ^= regTrap;
+            regIena = 0;
+            regNextHdlr = hdlrItrpt;
             return;
         }
-        iena = (1);
-        follower = chkpc;
+        regIena = (1);
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execRTI() {
         var t, p, pc;
-
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        xsp = (xsp - tsp);
-        tsp = 0;
-        fsp = 0;
-        p = (tr.readUInt32LE((xsp >>> 12) * 4));
+        regXSp = (regXSp - regTSp);
+        regTSp = 0;
+        regFSP = 0;
+        p = (regTr.readUInt32LE((regXSp >>> 12) * 4));
         if (!p) {
-            p = (rlook(xsp));
+            p = (pageLookR(regXSp));
             if (!p) {
-                putstr(2, "RTI kstack fault\n");
-                follower = fatal;
+                printOut(2, "RTI kstack fault\n");
+                regNextHdlr = hdlrFatal;
                 return;
             }
         }
-        t = (mem.readUInt32LE((xsp ^ p) & -8));
-        xsp = xsp + 8;
-        p = (tr.readUInt32LE((xsp >>> 12) * 4));
+        t = (hdrMem.readUInt32LE((regXSp ^ p) & -8));
+        regXSp = regXSp + 8;
+        p = (regTr.readUInt32LE((regXSp >>> 12) * 4));
         if (!p) {
-            p = (rlook(xsp));
+            p = (pageLookR(regXSp));
             if (!p) {
-                putstr(2, "RTI kstack fault\n");
-                follower = fatal;
+                printOut(2, "RTI kstack fault\n");
+                regNextHdlr = hdlrFatal;
                 return;
             }
         }
-        pc = (mem.readUInt32LE((xsp ^ p) & -8) + tpc);
-        xcycle = (xcycle + (pc - xpc));
-        xsp = xsp + 8;
-        xpc = pc;
-        if (t & USER) {
-            ssp = xsp;
-            xsp = usp;
-            user = 1;
-            tr = tru;
-            tw = twu;
+        pc = (hdrMem.readUInt32LE((regXSp ^ p) & -8) + regTPc);
+        regXCycle = (regXCycle + (pc - regXPc));
+        regXSp = regXSp + 8;
+        regXPc = pc;
+        if (t & FUSER) {
+            regSSp = regXSp;
+            regXSp = regUSp;
+            regUser = 1;
+            regTr = hdrTrU;
+            regTw = hdrTwU;
         }
-        if (!iena) {
-            if (ipend) {
-                trap = (ipend & -ipend);
-                ipend ^= trap;
-                follower = interrupt;
+        if (!regIena) {
+            if (regIpend) {
+                regTrap = (regIpend & -regIpend);
+                regIpend ^= regTrap;
+                regNextHdlr = hdlrItrpt;
                 return;
             }
-            iena = (1);
+            regIena = (1);
         }
-        follower = fixpc;
+        regNextHdlr = hdlrFixpc;
         return;
     }
 
     function execIVEC() {
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        ivec = a;
-        follower = chkpc;
+        regIvec = regA;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execPDIR() {
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        if (a > memsz) {
-            trap = FMEM;
-            follower = exception;
+        if (regA > hdrMemSz) {
+            regTrap = FMEM;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        pdir = a & -4096;
-        cleartlb();
-        fsp = 0;
-        follower = fixpc;
-        toUpdateSyms = true;
+        regPdir = regA & -4096;
+        clearTLB();
+        regFSP = 0;
+        regNextHdlr = hdlrFixpc;
+        regLoadInfo = true;
         return;
     }
 
     function execSPAG() {
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        if (a && !pdir) {
-            trap = FMEM;
-            follower = exception;
+        if (regA && !regPdir) {
+            regTrap = FMEM;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        paging = a;
-        cleartlb();
-        fsp = 0;
-        follower = fixpc;
+        regPaging = regA;
+        clearTLB();
+        regFSP = 0;
+        regNextHdlr = hdlrFixpc;
         return;
     }
 
     function execTIME() {
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        if (ir >> 8) {
-            putstr(2, "timer" + (ir >> 8).toString() + "=" + timer.toString() +
-                " timeout=" + timeout.toString() + "\n");
-            follower = chkpc;
+        if (regIr >> 8) {
+            printOut(2, "timer" + (regIr >> 8).toString() +
+                "=" + regTimer.toString() +
+                " timeout=" + regTimeOut.toString() + "\n");
+            regNextHdlr = hdlrChkpc;
             return;
         }
-        timeout = a;
-        follower = chkpc;
+        regTimeOut = regA;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execLVAD() {
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        a = vadr;
-        follower = chkpc;
+        regA = regVadr;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execTRAP() {
-        trap = FSYS;
-        follower = exception;
+        regTrap = FSYSCL;
+        regNextHdlr = hdlrExcpt;
         return;
     }
 
     function execLUSP() {
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        a = usp;
-        follower = chkpc;
+        regA = regUSp;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSUSP() {
-        if (user) {
-            trap = FPRIV;
-            follower = exception;
+        if (regUser) {
+            regTrap = FPRIV;
+            regNextHdlr = hdlrExcpt;
             return;
         }
-        usp = a;
-        follower = chkpc;
+        regUSp = regA;
+        regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execDefault() {
-        putstr(2, (ir & 0xFF).toString() + " not implemented!\n");
-        trap = FINST;
-        follower = exception;
+        printOut(2, (regIr & 0xFF).toString() + " not implemented!\n");
+        regTrap = FINST;
+        regNextHdlr = hdlrExcpt;
         return;
     }
 
-    function assemble() {
-        var i;
-
-        execs = [];
-        for (i = 0; i <= 0xFF; i = i + 1) {
-            execs.push(execDefault);
-        }
-        execs[0] = execHALT;
-        execs[1] = execENT;
-        execs[2] = execLEV;
-        execs[3] = execJMP;
-        execs[4] = execJMPI;
-        execs[5] = execJSR;
-        execs[6] = execJSRA;
-        execs[7] = execLEA;
-        execs[8] = execLEAG;
-        execs[9] = execCYC;
-        execs[10] = execMCPY;
-        execs[11] = execMCMP;
-        execs[12] = execMCHR;
-        execs[13] = execMSET;
-        execs[14] = execLL;
-        execs[15] = execLLS;
-        execs[16] = execLLH;
-        execs[17] = execLLC;
-        execs[18] = execLLB;
-        execs[19] = execLLD;
-        execs[20] = execLLF;
-        execs[21] = execLG;
-        execs[22] = execLGS;
-        execs[23] = execLGH;
-        execs[24] = execLGC;
-        execs[25] = execLGB;
-        execs[26] = execLGD;
-        execs[27] = execLGF;
-        execs[28] = execLX;
-        execs[29] = execLXS;
-        execs[30] = execLXH;
-        execs[31] = execLXC;
-        execs[32] = execLXB;
-        execs[33] = execLXD;
-        execs[34] = execLXF;
-        execs[35] = execLI;
-        execs[36] = execLHI;
-        execs[37] = execLIF;
-        execs[38] = execLBL;
-        execs[39] = execLBLS;
-        execs[40] = execLBLH;
-        execs[41] = execLBLC;
-        execs[42] = execLBLB;
-        execs[43] = execLBLD;
-        execs[44] = execLBLF;
-        execs[45] = execLBG;
-        execs[46] = execLBGS;
-        execs[47] = execLBGH;
-        execs[48] = execLBGC;
-        execs[49] = execLBGB;
-        execs[50] = execLBGD;
-        execs[51] = execLBGF;
-        execs[52] = execLBX;
-        execs[53] = execLBXS;
-        execs[54] = execLBXH;
-        execs[55] = execLBXC;
-        execs[56] = execLBXB;
-        execs[57] = execLBXD;
-        execs[58] = execLBXF;
-        execs[59] = execLBI;
-        execs[60] = execLBHI;
-        execs[61] = execLBIF;
-        execs[62] = execLBA;
-        execs[63] = execLBAD;
-        execs[64] = execSL;
-        execs[65] = execSLH;
-        execs[66] = execSLB;
-        execs[67] = execSLD;
-        execs[68] = execSLF;
-        execs[69] = execSG;
-        execs[70] = execSGH;
-        execs[71] = execSGB;
-        execs[72] = execSGD;
-        execs[73] = execSGF;
-        execs[74] = execSX;
-        execs[75] = execSXH;
-        execs[76] = execSXB;
-        execs[77] = execSXD;
-        execs[78] = execSXF;
-        execs[79] = execADDF;
-        execs[80] = execSUBF;
-        execs[81] = execMULF;
-        execs[82] = execDIVF;
-        execs[83] = execADD;
-        execs[84] = execADDI;
-        execs[85] = execADDL;
-        execs[86] = execSUB;
-        execs[87] = execSUBI;
-        execs[88] = execSUBL;
-        execs[89] = execMUL;
-        execs[90] = execMULI;
-        execs[91] = execMULL;
-        execs[92] = execDIV;
-        execs[93] = execDIVI;
-        execs[94] = execDIVL;
-        execs[95] = execDVU;
-        execs[96] = execDVUI;
-        execs[97] = execDVUL;
-        execs[98] = execMOD;
-        execs[99] = execMODI;
-        execs[100] = execMODL;
-        execs[101] = execMDU;
-        execs[102] = execMDUI;
-        execs[103] = execMDUL;
-        execs[104] = execAND;
-        execs[105] = execANDI;
-        execs[106] = execANDL;
-        execs[107] = execOR;
-        execs[108] = execORI;
-        execs[109] = execORL;
-        execs[110] = execXOR;
-        execs[111] = execXORI;
-        execs[112] = execXORL;
-        execs[113] = execSHL;
-        execs[114] = execSHLI;
-        execs[115] = execSHLL;
-        execs[116] = execSHR;
-        execs[117] = execSHRI;
-        execs[118] = execSHRL;
-        execs[119] = execSRU;
-        execs[120] = execSRUI;
-        execs[121] = execSRUL;
-        execs[122] = execEQ;
-        execs[123] = execEQF;
-        execs[124] = execNE;
-        execs[125] = execNEF;
-        execs[126] = execLT;
-        execs[127] = execLTU;
-        execs[128] = execLTF;
-        execs[129] = execGE;
-        execs[130] = execGEU;
-        execs[131] = execGEF;
-        execs[132] = execBZ;
-        execs[133] = execBZF;
-        execs[134] = execBNZ;
-        execs[135] = execBNZF;
-        execs[136] = execBE;
-        execs[137] = execBEF;
-        execs[138] = execBNE;
-        execs[139] = execBNEF;
-        execs[140] = execBLT;
-        execs[141] = execBLTU;
-        execs[142] = execBLTF;
-        execs[143] = execBGE;
-        execs[144] = execBGEU;
-        execs[145] = execBGEF;
-        execs[146] = execCID;
-        execs[147] = execCUD;
-        execs[148] = execCDI;
-        execs[149] = execCDU;
-        execs[150] = execCLI;
-        execs[151] = execSTI;
-        execs[152] = execRTI;
-        execs[153] = execBIN;
-        execs[154] = execBOUT;
-        execs[155] = execNOP;
-        execs[156] = execSSP;
-        execs[157] = execPSHA;
-        execs[158] = execPSHI;
-        execs[159] = execPSHF;
-        execs[160] = execPSHB;
-        execs[161] = execPOPB;
-        execs[162] = execPOPF;
-        execs[163] = execPOPA;
-        execs[164] = execIVEC;
-        execs[165] = execPDIR;
-        execs[166] = execSPAG;
-        execs[167] = execTIME;
-        execs[168] = execLVAD;
-        execs[169] = execTRAP;
-        execs[170] = execLUSP;
-        execs[171] = execSUSP;
-        execs[172] = execLCL;
-        execs[173] = execLCA;
-        execs[174] = execPSHC;
-        execs[175] = execPOPC;
-        execs[176] = execMSIZ;
-        execs[177] = execPSHG;
-        execs[178] = execPOPG;
-        execs[188] = execPOW;
-        execs[189] = execATN2;
-        execs[190] = execFABS;
-        execs[191] = execATAN;
-        execs[192] = execLOG;
-        execs[193] = execLOGT;
-        execs[194] = execEXP;
-        execs[195] = execFLOR;
-        execs[196] = execCEIL;
-        execs[197] = execHYPO;
-        execs[198] = execSIN;
-        execs[199] = execCOS;
-        execs[200] = execTAN;
-        execs[201] = execASIN;
-        execs[202] = execACOS;
-        execs[203] = execSINH;
-        execs[204] = execCOSH;
-        execs[205] = execTANH;
-        execs[206] = execSQRT;
-        execs[207] = execFMOD;
-        execs[208] = execIDLE;
-        fatal = function() {
-            putstr(2, "processor halted! cycle = " +
-                ((cycle + ((xpc - xcycle) | 0) / 4) >>> 0).toString() +
-                " pc = " + hexstr(xpc - tpc) +
-                " ir = " + hexstr(ir) +
-                " sp = " + hexstr(xsp - tsp) +
-                " a = " + a.toString() +
-                " b = " + b.toString() +
-                " c = " + c.toString() +
-                " trap = " + trap.toString() + "\n");
-            follower = 0;
-        };
-        exception = function() {
-            if (!iena) {
-                putstr(2, "exception in interrupt handler\n");
-                follower = fatal;
-            } else {
-                follower = interrupt;
+    function setupHardware() {
+        var setupDecoder, setupLogic, setupMemory;
+        setupDecoder = function() {
+            var i;
+            executors = [];
+            for (i = 0; i <= 0xFF; i = i + 1) {
+                executors.push(execDefault);
             }
+            executors[0] = execHALT;
+            executors[1] = execENT;
+            executors[2] = execLEV;
+            executors[3] = execJMP;
+            executors[4] = execJMPI;
+            executors[5] = execJSR;
+            executors[6] = execJSRA;
+            executors[7] = execLEA;
+            executors[8] = execLEAG;
+            executors[9] = execCYC;
+            executors[10] = execMCPY;
+            executors[11] = execMCMP;
+            executors[12] = execMCHR;
+            executors[13] = execMSET;
+            executors[14] = execLL;
+            executors[15] = execLLS;
+            executors[16] = execLLH;
+            executors[17] = execLLC;
+            executors[18] = execLLB;
+            executors[19] = execLLD;
+            executors[20] = execLLF;
+            executors[21] = execLG;
+            executors[22] = execLGS;
+            executors[23] = execLGH;
+            executors[24] = execLGC;
+            executors[25] = execLGB;
+            executors[26] = execLGD;
+            executors[27] = execLGF;
+            executors[28] = execLX;
+            executors[29] = execLXS;
+            executors[30] = execLXH;
+            executors[31] = execLXC;
+            executors[32] = execLXB;
+            executors[33] = execLXD;
+            executors[34] = execLXF;
+            executors[35] = execLI;
+            executors[36] = execLHI;
+            executors[37] = execLIF;
+            executors[38] = execLBL;
+            executors[39] = execLBLS;
+            executors[40] = execLBLH;
+            executors[41] = execLBLC;
+            executors[42] = execLBLB;
+            executors[43] = execLBLD;
+            executors[44] = execLBLF;
+            executors[45] = execLBG;
+            executors[46] = execLBGS;
+            executors[47] = execLBGH;
+            executors[48] = execLBGC;
+            executors[49] = execLBGB;
+            executors[50] = execLBGD;
+            executors[51] = execLBGF;
+            executors[52] = execLBX;
+            executors[53] = execLBXS;
+            executors[54] = execLBXH;
+            executors[55] = execLBXC;
+            executors[56] = execLBXB;
+            executors[57] = execLBXD;
+            executors[58] = execLBXF;
+            executors[59] = execLBI;
+            executors[60] = execLBHI;
+            executors[61] = execLBIF;
+            executors[62] = execLBA;
+            executors[63] = execLBAD;
+            executors[64] = execSL;
+            executors[65] = execSLH;
+            executors[66] = execSLB;
+            executors[67] = execSLD;
+            executors[68] = execSLF;
+            executors[69] = execSG;
+            executors[70] = execSGH;
+            executors[71] = execSGB;
+            executors[72] = execSGD;
+            executors[73] = execSGF;
+            executors[74] = execSX;
+            executors[75] = execSXH;
+            executors[76] = execSXB;
+            executors[77] = execSXD;
+            executors[78] = execSXF;
+            executors[79] = execADDF;
+            executors[80] = execSUBF;
+            executors[81] = execMULF;
+            executors[82] = execDIVF;
+            executors[83] = execADD;
+            executors[84] = execADDI;
+            executors[85] = execADDL;
+            executors[86] = execSUB;
+            executors[87] = execSUBI;
+            executors[88] = execSUBL;
+            executors[89] = execMUL;
+            executors[90] = execMULI;
+            executors[91] = execMULL;
+            executors[92] = execDIV;
+            executors[93] = execDIVI;
+            executors[94] = execDIVL;
+            executors[95] = execDVU;
+            executors[96] = execDVUI;
+            executors[97] = execDVUL;
+            executors[98] = execMOD;
+            executors[99] = execMODI;
+            executors[100] = execMODL;
+            executors[101] = execMDU;
+            executors[102] = execMDUI;
+            executors[103] = execMDUL;
+            executors[104] = execAND;
+            executors[105] = execANDI;
+            executors[106] = execANDL;
+            executors[107] = execOR;
+            executors[108] = execORI;
+            executors[109] = execORL;
+            executors[110] = execXOR;
+            executors[111] = execXORI;
+            executors[112] = execXORL;
+            executors[113] = execSHL;
+            executors[114] = execSHLI;
+            executors[115] = execSHLL;
+            executors[116] = execSHR;
+            executors[117] = execSHRI;
+            executors[118] = execSHRL;
+            executors[119] = execSRU;
+            executors[120] = execSRUI;
+            executors[121] = execSRUL;
+            executors[122] = execEQ;
+            executors[123] = execEQF;
+            executors[124] = execNE;
+            executors[125] = execNEF;
+            executors[126] = execLT;
+            executors[127] = execLTU;
+            executors[128] = execLTF;
+            executors[129] = execGE;
+            executors[130] = execGEU;
+            executors[131] = execGEF;
+            executors[132] = execBZ;
+            executors[133] = execBZF;
+            executors[134] = execBNZ;
+            executors[135] = execBNZF;
+            executors[136] = execBE;
+            executors[137] = execBEF;
+            executors[138] = execBNE;
+            executors[139] = execBNEF;
+            executors[140] = execBLT;
+            executors[141] = execBLTU;
+            executors[142] = execBLTF;
+            executors[143] = execBGE;
+            executors[144] = execBGEU;
+            executors[145] = execBGEF;
+            executors[146] = execCID;
+            executors[147] = execCUD;
+            executors[148] = execCDI;
+            executors[149] = execCDU;
+            executors[150] = execCLI;
+            executors[151] = execSTI;
+            executors[152] = execRTI;
+            executors[153] = execBIN;
+            executors[154] = execBOUT;
+            executors[155] = execNOP;
+            executors[156] = execSSP;
+            executors[157] = execPSHA;
+            executors[158] = execPSHI;
+            executors[159] = execPSHF;
+            executors[160] = execPSHB;
+            executors[161] = execPOPB;
+            executors[162] = execPOPF;
+            executors[163] = execPOPA;
+            executors[164] = execIVEC;
+            executors[165] = execPDIR;
+            executors[166] = execSPAG;
+            executors[167] = execTIME;
+            executors[168] = execLVAD;
+            executors[169] = execTRAP;
+            executors[170] = execLUSP;
+            executors[171] = execSUSP;
+            executors[172] = execLCL;
+            executors[173] = execLCA;
+            executors[174] = execPSHC;
+            executors[175] = execPOPC;
+            executors[176] = execMSIZ;
+            executors[177] = execPSHG;
+            executors[178] = execPOPG;
+            executors[188] = execPOW;
+            executors[189] = execATN2;
+            executors[190] = execFABS;
+            executors[191] = execATAN;
+            executors[192] = execLOG;
+            executors[193] = execLOGT;
+            executors[194] = execEXP;
+            executors[195] = execFLOR;
+            executors[196] = execCEIL;
+            executors[197] = execHYPO;
+            executors[198] = execSIN;
+            executors[199] = execCOS;
+            executors[200] = execTAN;
+            executors[201] = execASIN;
+            executors[202] = execACOS;
+            executors[203] = execSINH;
+            executors[204] = execCOSH;
+            executors[205] = execTANH;
+            executors[206] = execSQRT;
+            executors[207] = execFMOD;
+            executors[208] = execIDLE;
         };
-        interrupt = function() {
-            var p;
-
-            xsp = xsp - tsp;
-            tsp = 0;
-            fsp = 0;
-            if (user) {
-                usp = xsp;
-                xsp = ssp;
-                user = 0;
-                tr = trk;
-                tw = twk;
-                trap = trap | USER;
-            }
-            xsp = xsp - 8;
-            p = tw.readUInt32LE((xsp >>> 12) * 4);
-            if (!p) {
-                p = wlook(xsp);
-                if (!p) {
-                    putstr(2, "kstack fault!\n");
-                    follower = fatal;
-                    return;
-                }
-            }
-            mem.writeUInt32LE((xpc - tpc) >>> 0, (xsp ^ p) & -8);
-            xsp = xsp - 8;
-            p = tw.readUInt32LE((xsp >>> 12) * 4);
-            if (!p) {
-                p = wlook(xsp);
-                if (!p) {
-                    putstr(2, "kstack fault\n");
-                    follower = fatal;
-                    return;
-                }
-            }
-            mem.writeUInt32LE(trap, (xsp ^ p) & -8);
-            xcycle = xcycle + ivec + tpc - xpc;
-            xpc = ivec + tpc;
-            follower = fixpc;
-        };
-        fixsp = function() {
-            var v, p;
-
-            v = xsp - tsp;
-            p = tw.readUInt32LE((v >>> 12) * 4);
-            if (p) {
-                xsp = v ^ (p - 1);
-                tsp = xsp - v;
-                fsp = (4096 - (xsp & 4095)) << 8;
-            }
-            follower = chkpc;
-        };
-        chkpc = function() {
-            if (xpc === fpc) {
-                follower = fixpc;
-            } else {
-                follower = decode;
-            }
-        };
-        fixpc = function() {
-            var v, p;
-
-            v = xpc - tpc;
-            p = tr.readUInt32LE((v >>> 12) * 4);
-            if (!p) {
-                p = rlook(v);
-                if (!p) {
-                    trap = FIPAGE;
-                    follower = exception;
-                    return;
-                }
-            }
-            xcycle = xcycle - tpc;
-            xpc = v ^ (p - 1);
-            tpc = xpc - v;
-            xcycle = xcycle + tpc;
-            fpc = (xpc + 4096) & -4096;
-            follower = chkio;
-        };
-        chkio = function() {
-            var ch;
-
-            if (xpc > xcycle) {
-                cycle = cycle + delta;
-                xcycle = xcycle + delta * 4;
-                if (iena || !(ipend & FKEYBD)) {
-                    ch = probekb();
-                    if (ch !== -1) {
-                        kbchar = ch;
-                        if (kbchar === '`'.charCodeAt(0)) {
-                            putstr(2, "ungraceful exit. cycle = %d\n",
-                                (cycle + ((xpc - xcycle) | 0) / 4) >>> 0);
-                            follower = 0;
-                            return;
-                        }
-                        if (iena) {
-                            trap = FKEYBD;
-                            iena = 0;
-                            follower = interrupt;
-                            return;
-                        }
-                        ipend = ipend | FKEYBD;
-                    }
-                }
-                if (timeout) {
-                    timer = timer + delta;
-                    if (timer >= timeout) {
-                        timer = 0;
-                        if (iena) {
-                            trap = FTIMER;
-                            iena = 0;
-                            follower = interrupt;
-                            return;
-                        }
-                        ipend = ipend | FTIMER;
-                    }
-                }
-            }
-            follower = decode;
-        };
-        decode = function() {
-            ir = mem.readUInt32LE(xpc);
-            xpc = xpc + 4;
-            (execs[ir & 0xFF])();
-        };
-    }
-
-    function mntdisk(diskbuf) {
-        var i, j, view;
-
-        view = new Uint8Array(diskbuf);
-        j = diskbuf.byteLength;
-        for (i = 0; i < j; i = i + 1) {
-            mem[memsz - FS_SZ + i] = view[i];
-        }
-        return 0;
-    }
-
-    function loados(osbuf) {
-        var i, j, hdrbuf, hdr, view;
-
-        view = new Uint8Array(osbuf);
-        hdrbuf = new buffer.Buffer(16);
-        for (i = 0; i < 16; i = i + 1) {
-            hdrbuf[i] = view[i];
-        }
-        hdr = {
-            magic: hdrbuf.readUInt32LE(0),
-            bss: hdrbuf.readUInt32LE(4),
-            entry: hdrbuf.readUInt32LE(8),
-            flags: hdrbuf.readUInt32LE(12)
-        };
-        if (hdr.magic !== 0xC0DEF00D) {
-            putstr(2, "failed to boot: bad hdr.magic\n");
-            return -1;
-        }
-        j = osbuf.byteLength;
-        for (i = 16; i < j; i = i + 1) {
-            mem[i - 16] = view[i];
-        }
-        return hdr;
-    }
-
-    function unsignall() {
-        a >>>= 0;
-        b >>>= 0;
-        c >>>= 0;
-        ssp >>>= 0;
-        usp >>>= 0;
-        xpc >>>= 0;
-        tpc >>>= 0;
-        fpc >>>= 0;
-        xsp >>>= 0;
-        tsp >>>= 0;
-        fsp >>>= 0;
-        trap >>>= 0;
-        delta >>>= 0;
-        cycle >>>= 0;
-        xcycle >>>= 0;
-        timer >>>= 0;
-        timeout >>>= 0;
-    }
-
-    function parseSymFile(d) {
-        var t, s, tlen, i, cur, x;
-
-        x = {};
-        t = d.split('\n');
-        tlen = t.length;
-        for (i = 0; i < tlen; i = i + 1) {
-            s = t[i];
-            if (s !== '') {
-                if (s[0] === 'A') {
-                    cur = Number(s.slice(2)) >>> 0;
-                    if (!x[cur]) {
-                        x[cur] = {};
-                    }
-                } else if (s[0] === 'F') {
-                    x[cur].file = s.slice(2).slice(4);
-                } else if (s[0] === 'L') {
-                    x[cur].line = Number(s.slice(2));
+        setupLogic = function() {
+            hdlrFatal = function() {
+                var hexStr, tmp;
+                hexStr = function(x) {
+                    return ("00000000" + (x >>> 0).toString(16)).substr(-8);
+                };
+                tmp = ((regCycle + ((regXPc - regXCycle) | 0) / 4) >>> 0);
+                printOut(2, "processor halted! cycle = " + tmp.toString() +
+                    " pc = " + hexStr(regXPc - regTPc) +
+                    " ir = " + hexStr(regIr) +
+                    " sp = " + hexStr(regXSp - regTSp) +
+                    " a = " + regA.toString() +
+                    " b = " + regB.toString() +
+                    " c = " + regC.toString() +
+                    " trap = " + regTrap.toString() + "\n");
+                regNextHdlr = 0;
+            };
+            hdlrExcpt = function() {
+                if (!regIena) {
+                    printOut(2, "exception in interrupt handler\n");
+                    regNextHdlr = hdlrFatal;
                 } else {
-                    console.log('In parseSymFile: not implemented.');
+                    regNextHdlr = hdlrItrpt;
                 }
-            }
-        }
-        return x;
+            };
+            hdlrItrpt = function() {
+                var p;
+                regXSp = regXSp - regTSp;
+                regTSp = 0;
+                regFSP = 0;
+                if (regUser) {
+                    regUSp = regXSp;
+                    regXSp = regSSp;
+                    regUser = 0;
+                    regTr = hdrTrK;
+                    regTw = hdrTwK;
+                    regTrap = regTrap | FUSER;
+                }
+                regXSp = regXSp - 8;
+                p = regTw.readUInt32LE((regXSp >>> 12) * 4);
+                if (!p) {
+                    p = pageLookW(regXSp);
+                    if (!p) {
+                        printOut(2, "kstack fault!\n");
+                        regNextHdlr = hdlrFatal;
+                        return;
+                    }
+                }
+                hdrMem.writeUInt32LE((regXPc - regTPc) >>> 0,
+                    (regXSp ^ p) & -8);
+                regXSp = regXSp - 8;
+                p = regTw.readUInt32LE((regXSp >>> 12) * 4);
+                if (!p) {
+                    p = pageLookW(regXSp);
+                    if (!p) {
+                        printOut(2, "kstack fault\n");
+                        regNextHdlr = hdlrFatal;
+                        return;
+                    }
+                }
+                hdrMem.writeUInt32LE(regTrap, (regXSp ^ p) & -8);
+                regXCycle = regXCycle + regIvec + regTPc - regXPc;
+                regXPc = regIvec + regTPc;
+                regNextHdlr = hdlrFixpc;
+            };
+            hdlrFixsp = function() {
+                var v, p;
+                v = regXSp - regTSp;
+                p = regTw.readUInt32LE((v >>> 12) * 4);
+                if (p) {
+                    regXSp = v ^ (p - 1);
+                    regTSp = regXSp - v;
+                    regFSP = (4096 - (regXSp & 4095)) << 8;
+                }
+                regNextHdlr = hdlrChkpc;
+            };
+            hdlrChkpc = function() {
+                if (regXPc === regFPc) {
+                    regNextHdlr = hdlrFixpc;
+                } else {
+                    regNextHdlr = hdlrInstr;
+                }
+            };
+            hdlrFixpc = function() {
+                var v, p;
+                v = regXPc - regTPc;
+                p = regTr.readUInt32LE((v >>> 12) * 4);
+                if (!p) {
+                    p = pageLookR(v);
+                    if (!p) {
+                        regTrap = FIPAGE;
+                        regNextHdlr = hdlrExcpt;
+                        return;
+                    }
+                }
+                regXCycle = regXCycle - regTPc;
+                regXPc = v ^ (p - 1);
+                regTPc = regXPc - v;
+                regXCycle = regXCycle + regTPc;
+                regFPc = (regXPc + 4096) & -4096;
+                regNextHdlr = hdlrChkio;
+            };
+            hdlrChkio = function() {
+                var ch, tmp;
+                if (regXPc > regXCycle) {
+                    regCycle = regCycle + 4096;
+                    regXCycle = regXCycle + 4096 * 4;
+                    if (regIena || !(regIpend & FKEYBD)) {
+                        ch = (kbBuffer[0] ? kbBuffer.shift() : -1);
+                        if (ch !== -1) {
+                            regKbChar = ch;
+                            if (regKbChar === '`'.charCodeAt(0)) {
+                                tmp = regCycle + ((regXPc - regXCycle) | 0) / 4;
+                                tmp = tmp >>> 0;
+                                printOut(2, "ungraceful exit. cycle = " +
+                                    tmp.toString() + '\n');
+                                regNextHdlr = 0;
+                                return;
+                            }
+                            if (regIena) {
+                                regTrap = FKEYBD;
+                                regIena = 0;
+                                regNextHdlr = hdlrItrpt;
+                                return;
+                            }
+                            regIpend = regIpend | FKEYBD;
+                        }
+                    }
+                    if (regTimeOut) {
+                        regTimer = regTimer + 4096;
+                        if (regTimer >= regTimeOut) {
+                            regTimer = 0;
+                            if (regIena) {
+                                regTrap = FTIMER;
+                                regIena = 0;
+                                regNextHdlr = hdlrItrpt;
+                                return;
+                            }
+                            regIpend = regIpend | FTIMER;
+                        }
+                    }
+                }
+                regNextHdlr = hdlrInstr;
+            };
+            hdlrInstr = function() {
+                regIr = hdrMem.readUInt32LE(regXPc);
+                regXPc = regXPc + 4;
+                (executors[regIr & 0xFF])();
+            };
+        };
+        setupMemory = function() {
+            hdrMemSz = 64 * 1024 * 1024;
+            hdrMem = new buffer.Buffer(hdrMemSz);
+            hdrTrK = new buffer.Buffer(1024 * 1024 * 4);
+            hdrTwK = new buffer.Buffer(1024 * 1024 * 4);
+            hdrTrU = new buffer.Buffer(1024 * 1024 * 4);
+            hdrTwU = new buffer.Buffer(1024 * 1024 * 4);
+            hdrTpage = new buffer.Buffer(4096 * 4);
+        };
+        setupDecoder();
+        setupLogic();
+        setupMemory();
+        cpuEvent = 0;
     }
 
-    function udpateStateInfo(pc) {
-        var info;
-
-        if (currentSym !== '') {
-            info = dsyms[currentSym];
-            if (!info) {
-                return;
+    function setupSoftware(abOS, abFS, infoStr) {
+        var cleanMemory, wipeMemory, wipeRegs, readInfo;
+        cleanMemory = function() {
+            hdrMem.fill(0);
+            hdrTrK.fill(0);
+            hdrTwK.fill(0);
+            hdrTrU.fill(0);
+            hdrTwU.fill(0);
+            hdrTpage.fill(0);
+        };
+        wipeMemory = function() {
+            var i, j, diskSz, hdr, view;
+            diskSz = 4 * 1024 * 1024;
+            view = new Uint8Array(abFS);
+            j = abFS.byteLength;
+            for (i = 0; i < j; i = i + 1) {
+                hdrMem[hdrMemSz - diskSz + i] = view[i];
             }
-            info = info[pc];
-            if (!info || !info.file || !info.line) {
-                return;
+            hdr = new buffer.Buffer(16);
+            view = new Uint8Array(abOS);
+            j = abOS.byteLength;
+            for (i = 0; i < 16; i = i + 1) {
+                hdr[i] = view[i];
             }
-            stateInfo.file = info.file;
-            stateInfo.line = info.line;
-        }
+            for (i = 16; i < j; i = i + 1) {
+                hdrMem[i - 16] = view[i];
+            }
+            hdr = {
+                magic: hdr.readUInt32LE(0),
+                bss: hdr.readUInt32LE(4),
+                entry: hdr.readUInt32LE(8),
+                flags: hdr.readUInt32LE(12)
+            };
+            if (hdr.magic !== 0xC0DEF00D) {
+                printOut(2, "bad hdr.magic\n");
+            }
+            regXPc = 0;
+            regTPc = -hdr.entry;
+            regFPc = 0;
+            regXSp = hdrMemSz - diskSz;
+            regTSp = 0;
+            regFSP = 0;
+        };
+        wipeRegs = function() {
+            regA = 0;
+            regB = 0;
+            regC = 0;
+            regF = 0.0;
+            regG = 0.0;
+            regIr = 0;
+            regCycle = 4096;
+            regXCycle = 4096 * 4;
+            regTimer = 0;
+            regTimeOut = 0;
+            regSSp = 0;
+            regUSp = 0;
+            regKbChar = -1;
+            kbBuffer = [];
+            regUser = 0;
+            regIena = 0;
+            regIpend = 0;
+            regTrap = 0;
+            regIvec = 0;
+            regVadr = 0;
+            regPaging = 0;
+            regPdir = 0;
+            regTpageCnt = 0;
+            regTr = hdrTrK;
+            regTw = hdrTwK;
+            regLoadInfo = true;
+            regNextHdlr = hdlrFixpc;
+        };
+        readInfo = function() {
+            var program, locals, split, addVarInfo;
+            split = function(s) {
+                return s.split(' ').filter(function(m) {
+                    return m.length > 0;
+                });
+            };
+            addVarInfo = function(varSet, line) {
+                line = split(line);
+                varSet[line[1]] = {
+                    space: line[2],
+                    offset: Number(line[3]),
+                    type: line[4]
+                };
+            };
+            infoPool = {};
+            infoStr.split('\n').forEach(function(line) {
+                var tmp;
+                line = line.trim();
+                if (line.length > 0 && line[0] !== '#') {
+                    if (line[0] === '=') {
+                        program = line.substr(2);
+                        infoPool[program] = {};
+                        infoPool[program].globals = {};
+                        infoPool[program].structs = {};
+                        infoPool[program].asms = {};
+                    } else if (line.startsWith('.data')) {
+                        infoPool[program].data = Number(split(line)[1]);
+                    } else if (line.startsWith('.bss')) {
+                        infoPool[program].bss = Number(split(line)[1]);
+                    } else if (line[0] === 'd') {
+                        tmp = split(line);
+                        infoPool[program].structs[tmp[2]] = tmp[3];
+                    } else if (line[0] === 'g') {
+                        addVarInfo(infoPool[program].globals, line);
+                    } else if (line[0] === '>') {
+                        locals = {};
+                    } else if (line[0] === 'l') {
+                        addVarInfo(locals, line);
+                    } else if (line[0] === 'i') {
+                        tmp = split(line);
+                        infoPool[program].asms[tmp[1]] = {
+                            point: tmp[2] + ' ' + tmp[3],
+                            locals: locals
+                        };
+                    } else {
+                        console.log('[readInfo] **' + line + '** unsupported');
+                    }
+                }
+            });
+        };
+        cleanMemory();
+        wipeMemory();
+        wipeRegs();
+        readInfo();
     }
 
-    v9.inithdr = function(putstrimpl) {
-        pendkeys = [];
-        putstr = putstrimpl;
-        memsz = MEM_SZ;
-        mem = new buffer.Buffer(memsz);
-        trk = new buffer.Buffer(TB_SZ * 4);
-        twk = new buffer.Buffer(TB_SZ * 4);
-        tru = new buffer.Buffer(TB_SZ * 4);
-        twu = new buffer.Buffer(TB_SZ * 4);
-        tpage = new buffer.Buffer(TPAGES * 4);
-        assemble();
-    };
+    function unsignRegs() {
+        regA >>>= 0;
+        regB >>>= 0;
+        regC >>>= 0;
+        regXPc >>>= 0;
+        regTPc >>>= 0;
+        regFPc >>>= 0;
+        regXSp >>>= 0;
+        regTSp >>>= 0;
+        regFSP >>>= 0;
+        regSSp >>>= 0;
+        regUSp >>>= 0;
+        regCycle >>>= 0;
+        regXCycle >>>= 0;
+        regTimer >>>= 0;
+        regTimeOut >>>= 0;
+        regTrap >>>= 0;
+    }
 
-    v9.acceptkb = function() {
-        return probingkb;
-    };
-
-    v9.putkbch = function(c) {
-        pendkeys.push(c);
-    };
-
-    v9.fillimg = function(osbuf, diskbuf) {
-        var hdr;
-
-        if (cpu !== 0) {
-            clearInterval(cpu);
-            cpu = 0;
-            console.log("v9.fillimg: dangerous");
-        }
-        if (debugcpu !== 0) {
-            clearInterval(debugcpu);
-            debugcpu = 0;
-            console.log("v9.fillimg: dangerous with debugcpu");
-        }
-        mem.fill(0);
-        mntdisk(diskbuf);
-        hdr = loados(osbuf);
-        bootpc = hdr.entry;
-        bootsp = memsz - FS_SZ;
-    };
-
-    function bufToStr(buf, begin, end) {
-        var i, j, s;
-
-        s = '';
-        for (i = begin; i < end; i = i + 1) {
-            j = buf.readUInt8(i);
-            if (0 <= j && j <= 0x7F) {
-                if (j === 0) {
-                    break;
+    function loadInfo() {
+        var p, v, s, t, m;
+        for (v = 16; v >= 0; v = v - 16) {
+            p = regTr.readUInt32LE((v >>> 12) * 4);
+            if (!p) {
+                p = pageLookR(v);
+                if (!p) {
+                    regNextHdlr = hdlrExcpt;
+                    return;
                 }
-                s = s + String.fromCharCode(j);
-            } else {
-                console.log("bufToStr: non-ASCII " + j.toString());
+            }
+            p = ((v ^ p) & -4) >>> 0;
+            m = hdrMem.readUInt32LE(p);
+            if (m === 0xff2017ff) {
+                s = '';
+                p = p + 4;
+                while (true) {
+                    t = hdrMem.readUInt8(p);
+                    if (0 < t && t <= 0x7F) {
+                        s = s + String.fromCharCode(t);
+                        p = p + 1;
+                    } else {
+                        break;
+                    }
+                }
+                if (infoPool[s]) {
+                    currentInfo = infoPool[s];
+                } else {
+                    console.log('[loadInfo] **', s + '**');
+                }
+                regLoadInfo = false;
                 break;
             }
         }
-        return s;
+        regNextHdlr = hdlrChkpc;
+        return;
     }
 
-    v9.reset = function() {
-        if (cpu !== 0) {
-            clearInterval(cpu);
-            cpu = 0;
-            console.log("v9.reset: dangerous");
-        }
-        if (debugcpu !== 0) {
-            clearInterval(debugcpu);
-            debugcpu = 0;
-            console.log("v9.reset: dangerous with debugcpu");
-        }
-        currentSym = bufToStr(mem, 4, 256);
-        updateForOS = true;
-        toUpdateSyms = false;
-        stateInfo = {};
-        debug = false;
-        probingkb = false;
-        pendkeys = [];
-        user = 0;
-        iena = 0;
-        ipend = 0;
-        trap = 0;
-        ivec = 0;
-        vadr = 0;
-        paging = 0;
-        pdir = 0;
-        tpages = 0;
-        tpage.fill(0);
-        trk.fill(0);
-        twk.fill(0);
-        tru.fill(0);
-        twu.fill(0);
-        tr = trk;
-        tw = twk;
-        a = 0;
-        b = 0;
-        c = 0;
-        ssp = 0;
-        usp = 0;
-        xpc = 0;
-        tpc = -bootpc;
-        fpc = 0;
-        xsp = bootsp;
-        tsp = 0;
-        fsp = 0;
-        delta = 4096;
-        cycle = 4096;
-        xcycle = delta * 4;
-        timer = 0;
-        timeout = 0;
-        ir = 0;
-        kbchar = -1;
-        f = 0.0;
-        g = 0.0;
-        follower = fixpc;
-    };
+    function varsContent() {
+        // TODO
+    }
 
-    v9.run = function(cb) {
-        if (cpu !== 0) {
-            clearInterval(cpu);
-            cpu = 0;
+    function pauseRunning(cb) {
+        if (cpuEvent !== 0) {
+            clearInterval(cpuEvent);
+            cpuEvent = 0;
+        }
+        if (cb) {
+            cb(varsContent());
+        }
+    }
+
+    /*
+    v9Controller.run = function(cb) {
+        if (cpuEvent !== 0) {
+            clearInterval(cpuEvent);
+            cpuEvent = 0;
             console.log("v9.run: dangerous");
         }
         if (debugcpu !== 0) {
@@ -3965,58 +3786,32 @@ var v9 = {};
             debugcpu = 0;
             console.log("v9.run: dangerous with debugcpu");
         }
-        cpu = setInterval(function() {
+        cpuEvent = setInterval(function() {
             var i;
-
             for (i = 0; i < (1 << 18); i = i + 1) {
-                if (follower === 0) {
-                    clearInterval(cpu);
-                    cpu = 0;
-                    v9.reset();
+                if (regNextHdlr === 0) {
+                    clearInterval(cpuEvent);
+                    cpuEvent = 0;
+                    v9Controller.reset();
                     if (cb) {
                         cb();
                     }
                     return;
                 }
-                unsignall();
-                follower();
+                unsignRegs();
+                regNextHdlr();
             }
         }, 50);
     };
 
-    v9.startdebug = function() {
-        debug = true;
-    };
-
-    v9.running = function() {
-        return cpu !== 0 || debugcpu !== 0;
-    };
-
-    v9.debugging = function() {
-        return debug;
-    };
-
-    v9.kill = function() {
-        if (cpu !== 0) {
-            clearInterval(cpu);
-            cpu = 0;
-        }
-        if (debugcpu !== 0) {
-            clearInterval(debugcpu);
-            cpu = 0;
-        }
-        v9.reset();
-    };
-
-    v9.singlestep = function(cb) {
+    v9Controller.singlestep = function(cb) {
         var cur, lastline;
-
-        if (!v9.debugging()) {
+        if (!v9Controller.debugging()) {
             console.log("v9.singlestep: not in debug mode");
         }
-        if (cpu !== 0) {
-            clearInterval(cpu);
-            cpu = 0;
+        if (cpuEvent !== 0) {
+            clearInterval(cpuEvent);
+            cpuEvent = 0;
             console.log("v9.singlestep: dangerous");
         }
         if (debugcpu !== 0) {
@@ -4024,66 +3819,35 @@ var v9 = {};
             debugcpu = 0;
             console.log("v9.singlestep: dangerous debugcpu");
         }
-        cur = xpc >>> 0;
-        while (follower !== 0 && (xpc >>> 0) === cur) {
-            unsignall();
-            if (toUpdateSyms && paging && follower === decode) {
-                execUpdateSyms();
+        cur = regXPc >>> 0;
+        while (regNextHdlr !== 0 && (regXPc >>> 0) === cur) {
+            unsignRegs();
+            if (regLoadInfo && regPaging && regNextHdlr === hdlrInstr) {
+                loadInfo();
             } else {
-                follower();
+                regNextHdlr();
             }
         }
-        if (follower === 0) {
-            v9.reset();
+        if (regNextHdlr === 0) {
+            v9Controller.reset();
         }
         lastline = stateInfo.line;
-        udpateStateInfo(xpc >>> 0);
+        udpateStateInfo(regXPc >>> 0);
         if (lastline !== stateInfo.line) {
             cb(stateInfo);
         } else {
-            v9.singlestep(cb);
+            v9Controller.singlestep(cb);
         }
     };
 
-    function validateBreaks(bps) {
-        var i, j, k, s, t;
-        k = {};
-        for (i in bps) {
-            if (bps.hasOwnProperty(i)) {
-                for (j in bps[i]) {
-                    if (bps[i].hasOwnProperty(j)) {
-                        k[i + '|||' + j.toString()] = true;
-                    }
-                }
-            }
-        }
-        bps = k;
-        s = {};
-        for (i in dsyms) {
-            if (dsyms.hasOwnProperty(i)) {
-                for (j in dsyms[i]) {
-                    if (dsyms[i].hasOwnProperty(j)) {
-                        k = dsyms[i][j];
-                        t = k.file + '|||' + k.line;
-                        if (bps[t]) {
-                            s[j] = t;
-                        }
-                    }
-                }
-            }
-        }
-        return s;
-    }
-
-    v9.untilbreak = function(bps, cb) {
+    v9Controller.untilbreak = function(bps, cb) {
         var s;
-
-        if (!v9.debugging()) {
+        if (!v9Controller.debugging()) {
             console.log("v9.untilbreak: not in debug mode");
         }
-        if (cpu !== 0) {
-            clearInterval(cpu);
-            cpu = 0;
+        if (cpuEvent !== 0) {
+            clearInterval(cpuEvent);
+            cpuEvent = 0;
             console.log("v9.untilbreak: dangerous");
         }
         if (debugcpu !== 0) {
@@ -4093,27 +3857,26 @@ var v9 = {};
         }
         s = validateBreaks(bps);
         console.log(s);
-        v9.singlestep(function() {
+        v9Controller.singlestep(function() {
             return;
         });
         debugcpu = setInterval(function() {
             var i, cur;
-
             for (i = 0; i < 1 << 18; i = i + 1) {
-                if (follower === 0) {
+                if (regNextHdlr === 0) {
                     clearInterval(debugcpu);
                     debugcpu = 0;
-                    v9.reset();
+                    v9Controller.reset();
                     cb(stateInfo);
                     return;
                 }
-                unsignall();
-                if (toUpdateSyms && paging && follower === decode) {
-                    execUpdateSyms();
+                unsignRegs();
+                if (regLoadInfo && regPaging && regNextHdlr === hdlrInstr) {
+                    loadInfo();
                 } else {
-                    follower();
+                    regNextHdlr();
                 }
-                cur = xpc >>> 0;
+                cur = regXPc >>> 0;
                 udpateStateInfo(cur);
                 if (s[cur] && s[cur] ===
                     stateInfo.file + '|||' + stateInfo.line.toString()) {
@@ -4125,14 +3888,15 @@ var v9 = {};
             }
         }, 50);
     };
+    */
 
-    v9.loadsymbols = function(d) {
-        var dlen, i;
-
-        dsyms = {};
-        dlen = d.length;
-        for (i = 0; i < dlen; i = i + 1) {
-            dsyms[d[i].name] = parseSymFile(d[i].data);
-        }
+    setupHardware();
+    return {
+        kbBuffer: kbBuffer,
+        setupSoftware: setupSoftware,
+        pauseRunning: pauseRunning,
+        runNonStop: runNonStop,
+        runSingleStep: runSingleStep,
+        runUtillBreak: runUtillBreak
     };
-}());
+}
