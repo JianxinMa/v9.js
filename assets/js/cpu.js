@@ -3840,6 +3840,14 @@ function createV9(printOut, breakPoints) {
         }, 50);
     }
 
+    function writeKbBuf(c) {
+        kbBuffer.push(c);
+    }
+
+    function needInit() {
+        return regNextHdlr === 0;
+    }
+
     function varsContent() {
         // TODO
         return "Aha, you forget to implement this!";
@@ -3847,12 +3855,13 @@ function createV9(printOut, breakPoints) {
 
     setupHardware();
     return {
-        kbBuffer: kbBuffer,
         setupSoftware: setupSoftware,
         pauseRunning: pauseRunning,
         runNonStop: runNonStop,
         runSingleStep: runSingleStep,
         runUtillBreak: runUntilBreak,
+        writeKbBuf : writeKbBuf,
+        needInit: needInit,
         varsContent: varsContent
     };
 }
