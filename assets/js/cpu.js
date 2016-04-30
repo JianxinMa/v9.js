@@ -3573,6 +3573,7 @@ function createV9(printOut, breakPoints) {
         setupLogic();
         setupMemory();
         cpuEvent = 0;
+        regNextHdlr = 0;
     }
 
     function setupSoftware(abOS, abFS, infoStr) {
@@ -3859,7 +3860,7 @@ function createV9(printOut, breakPoints) {
         pauseRunning: pauseRunning,
         runNonStop: runNonStop,
         runSingleStep: runSingleStep,
-        runUtillBreak: runUntilBreak,
+        runUntilBreak: runUntilBreak,
         writeKbBuf : writeKbBuf,
         needInit: needInit,
         varsContent: varsContent
