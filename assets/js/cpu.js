@@ -1,4 +1,4 @@
-/*jslint bitwise:true browser:true maxlen:80 white:true */
+/*jslint white:true browser:true maxlen:80 bitwise:true */
 /*global buffer, Uint8Array */
 
 "use strict";
@@ -19,7 +19,7 @@ function createV9(printOut, breakPoints) {
         FIPAGE = 0x07,
         FWPAGE = 0x08,
         FRPAGE = 0x09,
-        FUSER = 0x10,
+        USER = 0x10,
         kbBuffer,
         hdrMem,
         hdrMemSz,
@@ -40,7 +40,7 @@ function createV9(printOut, breakPoints) {
         regTr,
         regTw,
         regNextHdlr,
-        regLoadInfo,
+        regToLoadInfo,
         regA,
         regB,
         regC,
@@ -3068,12 +3068,13 @@ function createV9(printOut, breakPoints) {
         regXCycle = (regXCycle + (pc - regXPc));
         regXSp = regXSp + 8;
         regXPc = pc;
-        if (t & FUSER) {
+        if (t & USER) {
             regSSp = regXSp;
             regXSp = regUSp;
             regUser = 1;
             regTr = hdrTrU;
             regTw = hdrTwU;
+            regToLoadInfo = true;
         }
         if (!regIena) {
             if (regIpend) {
@@ -3082,7 +3083,7 @@ function createV9(printOut, breakPoints) {
                 regNextHdlr = hdlrItrpt;
                 return;
             }
-            regIena = (1);
+            regIena = 1;
         }
         regNextHdlr = hdlrFixpc;
         return;
@@ -3114,7 +3115,6 @@ function createV9(printOut, breakPoints) {
         clearTLB();
         regFSP = 0;
         regNextHdlr = hdlrFixpc;
-        regLoadInfo = true;
         return;
     }
 
@@ -3436,6 +3436,7 @@ function createV9(printOut, breakPoints) {
             };
             hdlrItrpt = function() {
                 var p;
+                currentInfo = infoPool['root/etc/os.c'];
                 regXSp = regXSp - regTSp;
                 regTSp = 0;
                 regFSP = 0;
@@ -3445,7 +3446,7 @@ function createV9(printOut, breakPoints) {
                     regUser = 0;
                     regTr = hdrTrK;
                     regTw = hdrTwK;
-                    regTrap = regTrap | FUSER;
+                    regTrap = regTrap | USER;
                 }
                 regXSp = regXSp - 8;
                 p = regTw.readUInt32LE((regXSp >>> 12) * 4);
@@ -3643,7 +3644,6 @@ function createV9(printOut, breakPoints) {
             regTpageCnt = 0;
             regTr = hdrTrK;
             regTw = hdrTwK;
-            regLoadInfo = true;
             regNextHdlr = hdlrFixpc;
         };
         readInfo = function() {
@@ -3687,7 +3687,7 @@ function createV9(printOut, breakPoints) {
                         addVarInfo(locals, line);
                     } else if (line[0] === 'i') {
                         tmp = split(line);
-                        infoPool[program].asms[tmp[1]] = {
+                        infoPool[program].asms[Number(tmp[1])] = {
                             point: tmp[2] + ' ' + tmp[3],
                             locals: locals
                         };
@@ -3696,6 +3696,8 @@ function createV9(printOut, breakPoints) {
                     }
                 }
             });
+            currentInfo = infoPool['root/etc/os.c'];
+            regToLoadInfo = false;
         };
         cleanMemory();
         wipeMemory();
@@ -3722,173 +3724,126 @@ function createV9(printOut, breakPoints) {
         regTrap >>>= 0;
     }
 
-    function loadInfo() {
+    function loadUserProcInfo() {
         var p, v, s, t, m;
-        for (v = 16; v >= 0; v = v - 16) {
-            p = regTr.readUInt32LE((v >>> 12) * 4);
+        regToLoadInfo = false;
+        v = 16;
+        p = regTr.readUInt32LE((v >>> 12) * 4);
+        if (!p) {
+            p = pageLookR(v);
             if (!p) {
-                p = pageLookR(v);
-                if (!p) {
-                    regNextHdlr = hdlrExcpt;
-                    return;
+                regNextHdlr = hdlrExcpt;
+                return;
+            }
+        }
+        p = ((v ^ p) & -4) >>> 0;
+        m = hdrMem.readUInt32LE(p);
+        if (m !== 0xff2017ff) {
+            console.log('[loadUserProcInfo] ** m === ' + m.toString() + '**');
+        } else {
+            s = '';
+            p = p + 4;
+            while (true) {
+                t = hdrMem.readUInt8(p);
+                if (0 < t && t <= 0x7F) {
+                    s = s + String.fromCharCode(t);
+                    p = p + 1;
+                } else {
+                    break;
                 }
             }
-            p = ((v ^ p) & -4) >>> 0;
-            m = hdrMem.readUInt32LE(p);
-            if (m === 0xff2017ff) {
-                s = '';
-                p = p + 4;
-                while (true) {
-                    t = hdrMem.readUInt8(p);
-                    if (0 < t && t <= 0x7F) {
-                        s = s + String.fromCharCode(t);
-                        p = p + 1;
-                    } else {
-                        break;
-                    }
-                }
-                if (infoPool[s]) {
-                    currentInfo = infoPool[s];
-                } else {
-                    console.log('[loadInfo] **', s + '**');
-                }
-                regLoadInfo = false;
-                break;
+            if (infoPool[s]) {
+                currentInfo = infoPool[s];
+            } else {
+                console.log('[loadUserProcInfo] ** s === ', s + '**');
             }
         }
         regNextHdlr = hdlrChkpc;
         return;
     }
 
-    function varsContent() {
-        // TODO
-    }
-
-    function pauseRunning(cb) {
+    function pauseRunning() {
         if (cpuEvent !== 0) {
             clearInterval(cpuEvent);
             cpuEvent = 0;
         }
-        if (cb) {
-            cb(varsContent());
-        }
     }
 
-    /*
-    v9Controller.run = function(cb) {
-        if (cpuEvent !== 0) {
-            clearInterval(cpuEvent);
-            cpuEvent = 0;
-            console.log("v9.run: dangerous");
-        }
-        if (debugcpu !== 0) {
-            clearInterval(debugcpu);
-            debugcpu = 0;
-            console.log("v9.run: dangerous with debugcpu");
-        }
+    function runNonStop(cb) {
+        pauseRunning();
         cpuEvent = setInterval(function() {
             var i;
             for (i = 0; i < (1 << 18); i = i + 1) {
+                unsignRegs();
                 if (regNextHdlr === 0) {
-                    clearInterval(cpuEvent);
-                    cpuEvent = 0;
-                    v9Controller.reset();
-                    if (cb) {
-                        cb();
-                    }
+                    pauseRunning();
+                    cb();
                     return;
                 }
-                unsignRegs();
                 regNextHdlr();
             }
         }, 50);
-    };
+    }
 
-    v9Controller.singlestep = function(cb) {
-        var cur, lastline;
-        if (!v9Controller.debugging()) {
-            console.log("v9.singlestep: not in debug mode");
-        }
-        if (cpuEvent !== 0) {
-            clearInterval(cpuEvent);
-            cpuEvent = 0;
-            console.log("v9.singlestep: dangerous");
-        }
-        if (debugcpu !== 0) {
-            clearInterval(debugcpu);
-            debugcpu = 0;
-            console.log("v9.singlestep: dangerous debugcpu");
-        }
-        cur = regXPc >>> 0;
-        while (regNextHdlr !== 0 && (regXPc >>> 0) === cur) {
+    function runSingleStep(cb) {
+        var cur, nxt;
+        pauseRunning();
+        cur = currentInfo.asms[Number(regXPc >>> 0)].point;
+        nxt = cur;
+        do {
             unsignRegs();
-            if (regLoadInfo && regPaging && regNextHdlr === hdlrInstr) {
-                loadInfo();
+            if (regNextHdlr === 0) {
+                pauseRunning();
+                cb();
+                return;
+            }
+            if (regNextHdlr === hdlrInstr && regToLoadInfo) {
+                loadUserProcInfo();
             } else {
                 regNextHdlr();
             }
-        }
-        if (regNextHdlr === 0) {
-            v9Controller.reset();
-        }
-        lastline = stateInfo.line;
-        udpateStateInfo(regXPc >>> 0);
-        if (lastline !== stateInfo.line) {
-            cb(stateInfo);
-        } else {
-            v9Controller.singlestep(cb);
-        }
-    };
+            if (regNextHdlr === hdlrInstr) {
+                nxt = currentInfo.asms[Number(regXPc >>> 0)].point;
+            }
+        } while (cur === nxt);
+        cb(nxt);
+    }
 
-    v9Controller.untilbreak = function(bps, cb) {
-        var s;
-        if (!v9Controller.debugging()) {
-            console.log("v9.untilbreak: not in debug mode");
-        }
-        if (cpuEvent !== 0) {
-            clearInterval(cpuEvent);
-            cpuEvent = 0;
-            console.log("v9.untilbreak: dangerous");
-        }
-        if (debugcpu !== 0) {
-            clearInterval(debugcpu);
-            debugcpu = 0;
-            console.log("v9.untilbreak: dangerous debugcpu");
-        }
-        s = validateBreaks(bps);
-        console.log(s);
-        v9Controller.singlestep(function() {
-            return;
-        });
-        debugcpu = setInterval(function() {
-            var i, cur;
-            for (i = 0; i < 1 << 18; i = i + 1) {
-                if (regNextHdlr === 0) {
-                    clearInterval(debugcpu);
-                    debugcpu = 0;
-                    v9Controller.reset();
-                    cb(stateInfo);
-                    return;
-                }
-                unsignRegs();
-                if (regLoadInfo && regPaging && regNextHdlr === hdlrInstr) {
-                    loadInfo();
-                } else {
-                    regNextHdlr();
-                }
-                cur = regXPc >>> 0;
-                udpateStateInfo(cur);
-                if (s[cur] && s[cur] ===
-                    stateInfo.file + '|||' + stateInfo.line.toString()) {
-                    clearInterval(debugcpu);
-                    debugcpu = 0;
-                    cb(stateInfo);
-                    return;
+    function runUntilBreak(cb) {
+        var singleStepCb, notFirst, quitting;
+        pauseRunning();
+        singleStepCb = function(point) {
+            if (!point) {
+                pauseRunning();
+                cb();
+                quitting = true;
+                return;
+            }
+            if (notFirst && breakPoints[point]) {
+                pauseRunning();
+                cb(point);
+                quitting = true;
+                return;
+            }
+        };
+        notFirst = false;
+        cpuEvent = setInterval(function() {
+            var i;
+            quitting = false;
+            for (i = 0; i < (1 << 18); i = i + 1) {
+                runSingleStep(singleStepCb);
+                notFirst = true;
+                if (quitting) {
+                    break;
                 }
             }
         }, 50);
-    };
-    */
+    }
+
+    function varsContent() {
+        // TODO
+        return "Aha, you forget to implement this!";
+    }
 
     setupHardware();
     return {
@@ -3897,6 +3852,7 @@ function createV9(printOut, breakPoints) {
         pauseRunning: pauseRunning,
         runNonStop: runNonStop,
         runSingleStep: runSingleStep,
-        runUtillBreak: runUtillBreak
+        runUtillBreak: runUntilBreak,
+        varsContent: varsContent
     };
 }

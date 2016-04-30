@@ -1,4 +1,4 @@
-/*jslint white:true node:true */
+/*jslint white:true node:true maxlen:80 */
 /*global ArrayBuffer, Uint8Array */
 
 'use strict';
