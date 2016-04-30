@@ -4,7 +4,7 @@ ATTENTION! The demo is temporarily broken, because server.js hasn't caught up wi
 
 Currently working on debugging tools. See the [debugger design](doc/debugger.md) for more details.
 
-Reading `c.c` these days. What a pain.
+EMERGENCY: set up a demo server to collect user feedback in 3 days!
 
 ## Usage
 
