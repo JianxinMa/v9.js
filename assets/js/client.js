@@ -58,13 +58,19 @@
         $("#edpanel").focus();
     }
 
-    function sayWhereIsV9(point) {
+    function doAtCpuReady() {
+        $("#termpanel").focus();
+        $("#termcursor").addClass("blinking-cursor");
+    }
+
+    function doAtCpuPause(point) {
         if (!point) {
             $("#termtext").text("End of program reached.");
         } else {
             point = point.split(' ');
             editFile(point[0], Number(point[1]));
         }
+        $("#termcursor").removeClass("blinking-cursor");
     }
 
     function onCpuReady(cb) {
@@ -168,22 +174,22 @@
             runBtn = $("#runBtn");
             runBtn.click(function() {
                 onCpuReady(function() {
-                    $("#termpanel").focus();
-                    v9Cpu.runNonStop(sayWhereIsV9);
+                    doAtCpuReady();
+                    v9Cpu.runNonStop(doAtCpuPause);
                 });
             });
             stepBtn = $("#stepBtn");
             stepBtn.click(function() {
                 onCpuReady(function() {
-                    $("#termpanel").focus();
-                    v9Cpu.runSingleStep(sayWhereIsV9);
+                    doAtCpuReady();
+                    v9Cpu.runSingleStep(doAtCpuPause);
                 });
             });
             contBtn = $("#contBtn");
             contBtn.click(function() {
                 onCpuReady(function() {
-                    $("#termpanel").focus();
-                    v9Cpu.runUntilBreak(sayWhereIsV9);
+                    doAtCpuReady();
+                    v9Cpu.runUntilBreak(doAtCpuPause);
                 });
             });
         };

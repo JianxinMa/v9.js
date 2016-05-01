@@ -19,7 +19,7 @@ Enter the `server` directory under `v9.js`.
 cd v9.js/server
 ```
 
-And set up a Node.js server when you are **under the `server` directory**. It will listen at http://localhost:8080:
+And set up a Node.js server under the `server` directory. It will listen at http://localhost:8080:
 ```bash
 node server.js
 ```
