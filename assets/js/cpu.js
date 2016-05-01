@@ -3778,29 +3778,11 @@ function createV9(printOut, breakPoints) {
         }
     }
 
-    function runNonStop(cb) {
-        pauseRunning();
-        cpuEvent = setInterval(function() {
-            var i;
-            for (i = 0; i < (1 << 18); i = i + 1) {
-                unsignRegs();
-                if (regNextHdlr === 0) {
-                    pauseRunning();
-                    cb();
-                    return;
-                }
-                if (regToLoadInfo && regNextHdlr === hdlrInstr) {
-                    loadUserProcInfo();
-                } else {
-                    regNextHdlr();
-                }
-            }
-        }, 50);
-    }
-
-    function runSingleStep(cb) {
+    function runSingleStep(cb, continuing) {
         var fst, nxt, addr;
-        pauseRunning();
+        if (!continuing) {
+            pauseRunning();
+        }
         while (true) {
             unsignRegs();
             if (regNextHdlr === 0) {
@@ -3818,16 +3800,18 @@ function createV9(printOut, breakPoints) {
                         addr = (regXPc - regTPc) >>> 0;
                     }
                     addr += regInfoOffset;
-                    if (!currentInfo.asms[addr]) {
-                        console.log('0x' + addr.toString(16), currentInfo);
-                        console.log('offset:', regInfoOffset);
-                    }
-                    nxt = currentInfo.asms[addr].point;
-                    if (!fst) {
-                        fst = nxt;
-                    }
-                    if (nxt !== fst) {
-                        break;
+                    if (currentInfo.asms[addr]) {
+                        nxt = currentInfo.asms[addr].point;
+                        if (!fst) {
+                            fst = nxt;
+                        }
+                        if (nxt !== fst) {
+                            break;
+                        }
+                    } else {
+                        if (hdrMem.readUInt32LE(regXPc) !== 0x2a9) {
+                            console.log("TRAP | (S_exit << 8) expected!");
+                        }
                     }
                 }
                 regNextHdlr();
@@ -3857,11 +3841,31 @@ function createV9(printOut, breakPoints) {
         cpuEvent = setInterval(function() {
             var i;
             quitting = false;
-            for (i = 0; i < (1 << 18); i = i + 1) {
-                runSingleStep(singleStepCb);
+            for (i = 0; i < (1 << 14); i = i + 1) {
+                runSingleStep(singleStepCb, true);
                 notFirst = true;
                 if (quitting) {
                     break;
+                }
+            }
+        }, 50);
+    }
+
+    function runNonStop(cb) {
+        pauseRunning();
+        cpuEvent = setInterval(function() {
+            var i;
+            for (i = 0; i < (1 << 18); i = i + 1) {
+                unsignRegs();
+                if (regNextHdlr === 0) {
+                    pauseRunning();
+                    cb();
+                    return;
+                }
+                if (regToLoadInfo && regNextHdlr === hdlrInstr) {
+                    loadUserProcInfo();
+                } else {
+                    regNextHdlr();
                 }
             }
         }, 50);
