@@ -3754,7 +3754,7 @@ function createV9(printOut, breakPoints) {
                     break;
                 }
             }
-            regInfoOffset = 0;
+            regInfoOffset = -16;
         } else if (m === 0xff2016ff) {
             s = 'root/etc/os.c';
             regInfoOffset = hdrMem.readUInt32LE(p - 16);
@@ -3819,7 +3819,8 @@ function createV9(printOut, breakPoints) {
                     }
                     addr += regInfoOffset;
                     if (!currentInfo.asms[addr]) {
-                        console.log(addr, currentInfo);
+                        console.log('0x' + addr.toString(16), currentInfo);
+                        console.log('offset:', regInfoOffset);
                     }
                     nxt = currentInfo.asms[addr].point;
                     if (!fst) {
