@@ -29,6 +29,7 @@ rm -rf os hd de
 ./xvcc -s -Iroot/lib -o root/usr/hello   root/usr/hello.c
 ./xvcc -s -Iroot/lib -o root/usr/prseg   root/usr/prseg.c
 ./xvcc -s -Iroot/lib -o root/usr/sdk     root/usr/sdk.c
+./xvcc -s -Iroot/lib -o root/usr/scratch root/usr/scratch.c
 
 cat root/etc/os.d \
     root/etc/init.d \
@@ -54,6 +55,7 @@ cat root/etc/os.d \
     root/usr/hello.d \
     root/usr/prseg.d \
     root/usr/sdk.d \
+    root/usr/scratch.d \
     > de
 
 rm root/etc/os.d \
@@ -79,7 +81,8 @@ rm root/etc/os.d \
    root/usr/euhello.d \
    root/usr/hello.d \
    root/usr/prseg.d \
-   root/usr/sdk.d
+   root/usr/sdk.d \
+   root/usr/scratch.d
 
 ./mkfs hd root
 
@@ -105,4 +108,5 @@ rm root/etc/init \
    root/usr/euhello \
    root/usr/hello \
    root/usr/prseg \
-   root/usr/sdk
+   root/usr/sdk \
+   root/usr/scratch

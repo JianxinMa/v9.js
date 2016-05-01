@@ -61,6 +61,7 @@ function createV9(printOut, breakPoints) {
         regTimer,
         regTimeOut,
         regKbChar,
+        regFrameBase,
         executors,
         hdlrFatal,
         hdlrExcpt,
@@ -3648,6 +3649,7 @@ function createV9(printOut, breakPoints) {
             regTr = hdrTrK;
             regTw = hdrTwK;
             regNextHdlr = hdlrFixpc;
+            regFrameBase = [];
         };
         readInfo = function() {
             var program, locals, split, addVarInfo;
@@ -3675,6 +3677,7 @@ function createV9(printOut, breakPoints) {
                         infoPool[program].globals = {};
                         infoPool[program].structs = {};
                         infoPool[program].asms = {};
+                        infoPool[program].isEntry = {};
                     } else if (line.startsWith('.data')) {
                         infoPool[program].data = Number(split(line)[1]);
                     } else if (line.startsWith('.bss')) {
@@ -3686,6 +3689,8 @@ function createV9(printOut, breakPoints) {
                         addVarInfo(infoPool[program].globals, line);
                     } else if (line[0] === '>') {
                         locals = {};
+                        tmp = Number(line.substr(2));
+                        infoPool[program].isEntry[tmp] = true;
                     } else if (line[0] === 'l') {
                         addVarInfo(locals, line);
                     } else if (line[0] === 'i') {
@@ -3801,6 +3806,13 @@ function createV9(printOut, breakPoints) {
                     }
                     addr += regInfoOffset;
                     if (currentInfo.asms[addr]) {
+                        if (currentInfo.isEntry[addr]) {
+                            regFrameBase.push((regXSp - regTSp) >>> 0);
+                        }
+                        if ((executors[hdrMem.readUInt32LE(regXPc) & 0xFF]) ===
+                            execLEV) {
+                            regFrameBase.pop();
+                        }
                         nxt = currentInfo.asms[addr].point;
                         if (!fst) {
                             fst = nxt;
@@ -3820,8 +3832,8 @@ function createV9(printOut, breakPoints) {
         cb(nxt);
     }
 
-    function runUntilBreak(cb) {
-        var singleStepCb, notFirst, quitting;
+    function runUntilBreak(cb, ignoreBreaks) {
+        var singleStepCb, ignoreNxtBreak, quitting;
         pauseRunning();
         singleStepCb = function(point) {
             if (!point) {
@@ -3830,20 +3842,20 @@ function createV9(printOut, breakPoints) {
                 quitting = true;
                 return;
             }
-            if (notFirst && breakPoints[point]) {
+            if (!ignoreNxtBreak && breakPoints[point]) {
                 pauseRunning();
                 cb(point);
                 quitting = true;
                 return;
             }
         };
-        notFirst = false;
+        ignoreNxtBreak = true;
         cpuEvent = setInterval(function() {
             var i;
             quitting = false;
             for (i = 0; i < (1 << 14); i = i + 1) {
                 runSingleStep(singleStepCb, true);
-                notFirst = true;
+                ignoreNxtBreak = ignoreBreaks;
                 if (quitting) {
                     break;
                 }
@@ -3852,23 +3864,7 @@ function createV9(printOut, breakPoints) {
     }
 
     function runNonStop(cb) {
-        pauseRunning();
-        cpuEvent = setInterval(function() {
-            var i;
-            for (i = 0; i < (1 << 18); i = i + 1) {
-                unsignRegs();
-                if (regNextHdlr === 0) {
-                    pauseRunning();
-                    cb();
-                    return;
-                }
-                if (regToLoadInfo && regNextHdlr === hdlrInstr) {
-                    loadUserProcInfo();
-                } else {
-                    regNextHdlr();
-                }
-            }
-        }, 50);
+        runUntilBreak(cb, true);
     }
 
     function writeKbBuf(c) {
@@ -3879,7 +3875,7 @@ function createV9(printOut, breakPoints) {
         return regNextHdlr === 0;
     }
 
-    function varsContent() {
+    function showVars() {
         // TODO
         return "Aha, you forget to implement this!";
     }
@@ -3893,6 +3889,6 @@ function createV9(printOut, breakPoints) {
         runUntilBreak: runUntilBreak,
         writeKbBuf: writeKbBuf,
         needInit: needInit,
-        varsContent: varsContent
+        showVars: showVars
     };
 }

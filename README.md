@@ -2,8 +2,6 @@
 
 Currently working on debugging tools. 
 
-## Usage
-
 ### Installation
 
 #### step 0:
@@ -28,7 +26,7 @@ node server.js
 
 Then go to https://JianxinMa.github.com/v9.js, or alternatively open the `index.html` under `v9.js`.
 
-### step 3:
+### Usage
 
 The `Step` button is for single stepping. `Continue` button is for running until encountering a breakpoint. `Run` is similar to `Continue`, but faster as it ignores breakpoints. The three can be used in a mixed way. And yes, you can set breakpoints while it is running.
 
