@@ -63,12 +63,13 @@
         $("#termcursor").addClass("blinking-cursor");
     }
 
-    function doAtCpuPause(point) {
+    function doAtCpuPause(point, localDefs) {
         if (!point) {
             $("#termtext").text("End of program reached.");
         } else {
             point = point.split(' ');
             editFile(point[0], Number(point[1]));
+            v9Cpu.showVars(localDefs);
         }
         $("#termcursor").removeClass("blinking-cursor");
     }

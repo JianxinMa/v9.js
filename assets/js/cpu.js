@@ -109,7 +109,7 @@ function createV9(printOut, breakPoints) {
         return p;
     }
 
-    function pageLookR(v) {
+    function pageLookR(v, noFault) {
         var pde, ppde, pte, ppte, q, userable;
         if (!regPaging) {
             return pushTLB(v, v, 1, 1);
@@ -120,7 +120,7 @@ function createV9(printOut, breakPoints) {
             if (!(pde & PTE_A)) {
                 hdrMem.writeUInt32LE(pde | PTE_A, ppde);
             }
-            if (pde >= hdrMemSz) {
+            if (!noFault && pde >= hdrMemSz) {
                 regTrap = FMEM;
                 regVadr = v;
                 return 0;
@@ -139,8 +139,10 @@ function createV9(printOut, breakPoints) {
                 }
             }
         }
-        regTrap = FRPAGE;
-        regVadr = v;
+        if (!noFault) {
+            regTrap = FRPAGE;
+            regVadr = v;
+        }
         return 0;
     }
 
@@ -3784,7 +3786,7 @@ function createV9(printOut, breakPoints) {
     }
 
     function runSingleStep(cb, continuing) {
-        var fst, nxt, addr;
+        var fst, nxt, addr, localDefs;
         if (!continuing) {
             pauseRunning();
         }
@@ -3813,6 +3815,7 @@ function createV9(printOut, breakPoints) {
                             execLEV) {
                             regFrameBase.pop();
                         }
+                        localDefs = currentInfo.asms[addr].locals;
                         nxt = currentInfo.asms[addr].point;
                         if (!fst) {
                             fst = nxt;
@@ -3829,13 +3832,13 @@ function createV9(printOut, breakPoints) {
                 regNextHdlr();
             }
         }
-        cb(nxt);
+        cb(nxt, localDefs);
     }
 
     function runUntilBreak(cb, ignoreBreaks) {
         var singleStepCb, ignoreNxtBreak, quitting;
         pauseRunning();
-        singleStepCb = function(point) {
+        singleStepCb = function(point, localDefs) {
             if (!point) {
                 pauseRunning();
                 cb();
@@ -3844,7 +3847,7 @@ function createV9(printOut, breakPoints) {
             }
             if (!ignoreNxtBreak && breakPoints[point]) {
                 pauseRunning();
-                cb(point);
+                cb(point, localDefs);
                 quitting = true;
                 return;
             }
@@ -3875,9 +3878,84 @@ function createV9(printOut, breakPoints) {
         return regNextHdlr === 0;
     }
 
-    function showVars() {
-        // TODO
-        return "Aha, you forget to implement this!";
+    function readBaseType(v, baseType) {
+        var p;
+        p = regTr.readUInt32LE((v >>> 12) * 4);
+        if (!p) {
+            p = pageLookR(v, true);
+            if (!p) {
+                return 'FRPAGE';
+            }
+        }
+        if (baseType === 'char') {
+            return hdrMem.readInt8(v ^ p & -2);
+        }
+        if (baseType === 'short') {
+            return hdrMem.readInt16LE((v ^ p) & -2);
+        }
+        if (baseType === 'int') {
+            return hdrMem.readInt32LE((v ^ p) & -4);
+        }
+        if (baseType === 'uchar') {
+            return hdrMem.readUInt8(v ^ p & -2);
+        }
+        if (baseType === 'ushort') {
+            return hdrMem.readUInt16LE((v ^ p) & -2);
+        }
+        if (baseType === 'uint' || baseType === 'ptr') {
+            return hdrMem.readUInt32LE((v ^ p) & -4);
+        }
+        if (baseType === 'float') {
+            return hdrMem.readFloatLE((v ^ p) & -4);
+        }
+        if (baseType === 'double') {
+            return hdrMem.readDoubleLE((v ^ p) & -8);
+        }
+        console.log('In readBaseType: unknown type', baseType);
+        return '???';
+    }
+
+    function readTypedVal(v, t) {
+        // TODO: just a demo.
+        if (t === '(int)') {
+            return readBaseType(v, 'int');
+        }
+        if (t === '(double)') {
+            return readBaseType(v, 'double');
+        }
+        if (t.startsWith('(ptr')) {
+            return readBaseType(v, 'int');
+        }
+        return 'Whatever';
+    }
+
+    function showOneVar(varName, varInfo) {
+        var v;
+        if (varInfo.space === 'stk') {
+            v = regFrameBase[regFrameBase.length - 1];
+        } else if (varInfo.space === 'dat') {
+            v = currentInfo.data - regInfoOffset;
+        } else if (varInfo.space === 'bss') {
+            v = currentInfo.bss - regInfoOffset;
+        } else {
+            console.log('In showVars: unexpected location', varInfo.space);
+        }
+        v = v + varInfo.offset;
+        console.log(varName, readTypedVal(v, varInfo.type));
+    }
+
+    function showVars(localDefs) {
+        var varName;
+        for (varName in localDefs) {
+            if (localDefs.hasOwnProperty(varName)) {
+                showOneVar(varName, localDefs[varName]);
+            }
+        }
+        for (varName in currentInfo.globals) {
+            if (currentInfo.globals.hasOwnProperty(varName)) {
+                showOneVar(varName, currentInfo.globals[varName]);
+            }
+        }
     }
 
     setupHardware();
