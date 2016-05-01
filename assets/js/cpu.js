@@ -3728,36 +3728,40 @@ function createV9(printOut, breakPoints) {
     function loadUserProcInfo() {
         var p, v, s, t, m;
         regToLoadInfo = false;
-        v = 16;
-        p = regTr.readUInt32LE((v >>> 12) * 4);
-        if (!p) {
-            p = pageLookR(v);
+        for (v = 16; v >= 0; v -= 16) {
+            p = regTr.readUInt32LE((v >>> 12) * 4);
             if (!p) {
-                regNextHdlr = hdlrExcpt;
-                return;
-            }
-        }
-        p = ((v ^ p) & -4) >>> 0;
-        m = hdrMem.readUInt32LE(p);
-        if (m !== 0xff2017ff) {
-            console.log('[loadUserProcInfo] ** m === ' + m.toString() + '**');
-        } else {
-            s = '';
-            p = p + 4;
-            while (true) {
-                t = hdrMem.readUInt8(p);
-                if (0 < t && t <= 0x7F) {
-                    s = s + String.fromCharCode(t);
-                    p = p + 1;
-                } else {
-                    break;
+                p = pageLookR(v);
+                if (!p) {
+                    regNextHdlr = hdlrExcpt;
+                    return;
                 }
             }
-            if (infoPool[s]) {
-                currentInfo = infoPool[s];
-            } else {
-                console.log('[loadUserProcInfo] ** s === ', s + '**');
+            p = ((v ^ p) & -4) >>> 0;
+            m = hdrMem.readUInt32LE(p);
+            if (m === 0xff2017ff) {
+                s = '';
+                p = p + 4;
+                while (true) {
+                    t = hdrMem.readUInt8(p);
+                    if (0 < t && t <= 0x7F) {
+                        s = s + String.fromCharCode(t);
+                        p = p + 1;
+                    } else {
+                        break;
+                    }
+                }
+                if (infoPool[s]) {
+                    currentInfo = infoPool[s];
+                } else {
+                    console.log('[loadUserProcInfo] ** s ===', s, '**');
+                }
+                break;
             }
+        }
+        if (m !== 0xff2017ff) {
+            console.log('[loadUserProcInfo] ** s ===',
+                '0x' + m.toString(16), '**');
         }
         regNextHdlr = hdlrChkpc;
         return;
@@ -3787,26 +3791,30 @@ function createV9(printOut, breakPoints) {
     }
 
     function runSingleStep(cb) {
-        var cur, nxt;
+        var fst, nxt;
         pauseRunning();
-        cur = currentInfo.asms[Number(regXPc >>> 0)].point;
-        nxt = cur;
-        do {
+        while (true) {
             unsignRegs();
             if (regNextHdlr === 0) {
                 pauseRunning();
                 cb();
                 return;
             }
+            if (regNextHdlr === hdlrInstr) {
+                nxt = currentInfo.asms[Number(regXPc >>> 0)].point;
+                if (!fst) {
+                    fst = nxt;
+                }
+                if (nxt !== fst) {
+                    break;
+                }
+            }
             if (regNextHdlr === hdlrInstr && regToLoadInfo) {
                 loadUserProcInfo();
             } else {
                 regNextHdlr();
             }
-            if (regNextHdlr === hdlrInstr) {
-                nxt = currentInfo.asms[Number(regXPc >>> 0)].point;
-            }
-        } while (cur === nxt);
+        }
         cb(nxt);
     }
 
@@ -3861,7 +3869,7 @@ function createV9(printOut, breakPoints) {
         runNonStop: runNonStop,
         runSingleStep: runSingleStep,
         runUntilBreak: runUntilBreak,
-        writeKbBuf : writeKbBuf,
+        writeKbBuf: writeKbBuf,
         needInit: needInit,
         varsContent: varsContent
     };
