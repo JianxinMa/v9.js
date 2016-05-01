@@ -41,6 +41,7 @@ function createV9(printOut, breakPoints) {
         regTw,
         regNextHdlr,
         regToLoadInfo,
+        regInfoOffset,
         regA,
         regB,
         regC,
@@ -3437,6 +3438,7 @@ function createV9(printOut, breakPoints) {
             hdlrItrpt = function() {
                 var p;
                 currentInfo = infoPool['root/etc/os.c'];
+                regInfoOffset = 0;
                 regXSp = regXSp - regTSp;
                 regTSp = 0;
                 regFSP = 0;
@@ -3698,6 +3700,7 @@ function createV9(printOut, breakPoints) {
                 }
             });
             currentInfo = infoPool['root/etc/os.c'];
+            regInfoOffset = 0;
             regToLoadInfo = false;
         };
         cleanMemory();
@@ -3728,40 +3731,41 @@ function createV9(printOut, breakPoints) {
     function loadUserProcInfo() {
         var p, v, s, t, m;
         regToLoadInfo = false;
-        for (v = 16; v >= 0; v -= 16) {
-            p = regTr.readUInt32LE((v >>> 12) * 4);
+        v = 16;
+        p = regTr.readUInt32LE((v >>> 12) * 4);
+        if (!p) {
+            p = pageLookR(v);
             if (!p) {
-                p = pageLookR(v);
-                if (!p) {
-                    regNextHdlr = hdlrExcpt;
-                    return;
-                }
-            }
-            p = ((v ^ p) & -4) >>> 0;
-            m = hdrMem.readUInt32LE(p);
-            if (m === 0xff2017ff) {
-                s = '';
-                p = p + 4;
-                while (true) {
-                    t = hdrMem.readUInt8(p);
-                    if (0 < t && t <= 0x7F) {
-                        s = s + String.fromCharCode(t);
-                        p = p + 1;
-                    } else {
-                        break;
-                    }
-                }
-                if (infoPool[s]) {
-                    currentInfo = infoPool[s];
-                } else {
-                    console.log('[loadUserProcInfo] ** s ===', s, '**');
-                }
-                break;
+                regNextHdlr = hdlrExcpt;
+                return;
             }
         }
-        if (m !== 0xff2017ff) {
-            console.log('[loadUserProcInfo] ** s ===',
+        p = ((v ^ p) & -4) >>> 0;
+        m = hdrMem.readUInt32LE(p);
+        if (m === 0xff2017ff) {
+            s = '';
+            p = p + 4;
+            while (true) {
+                t = hdrMem.readUInt8(p);
+                if (0 < t && t <= 0x7F) {
+                    s = s + String.fromCharCode(t);
+                    p = p + 1;
+                } else {
+                    break;
+                }
+            }
+            regInfoOffset = 0;
+        } else if (m === 0xff2016ff) {
+            s = 'root/etc/os.c';
+            regInfoOffset = hdrMem.readUInt32LE(p - 16);
+        } else {
+            console.log('[loadUserProcInfo] ** m ===',
                 '0x' + m.toString(16), '**');
+        }
+        if (infoPool[s]) {
+            currentInfo = infoPool[s];
+        } else {
+            console.log('[loadUserProcInfo] ** s ===', s, '**');
         }
         regNextHdlr = hdlrChkpc;
         return;
@@ -3791,7 +3795,7 @@ function createV9(printOut, breakPoints) {
     }
 
     function runSingleStep(cb) {
-        var fst, nxt;
+        var fst, nxt, addr;
         pauseRunning();
         while (true) {
             unsignRegs();
@@ -3800,18 +3804,24 @@ function createV9(printOut, breakPoints) {
                 cb();
                 return;
             }
-            if (regNextHdlr === hdlrInstr) {
-                nxt = currentInfo.asms[Number(regXPc >>> 0)].point;
-                if (!fst) {
-                    fst = nxt;
-                }
-                if (nxt !== fst) {
-                    break;
-                }
-            }
-            if (regNextHdlr === hdlrInstr && regToLoadInfo) {
+            if (regToLoadInfo && regNextHdlr === hdlrInstr) {
                 loadUserProcInfo();
             } else {
+                if (regNextHdlr === hdlrInstr) {
+                    if (!regUser && currentInfo === infoPool['root/etc/os.c']) {
+                        addr = regXPc >>> 0;
+                    } else {
+                        addr = (regXPc - regTPc) >>> 0;
+                    }
+                    addr += regInfoOffset;
+                    nxt = currentInfo.asms[addr].point;
+                    if (!fst) {
+                        fst = nxt;
+                    }
+                    if (nxt !== fst) {
+                        break;
+                    }
+                }
                 regNextHdlr();
             }
         }

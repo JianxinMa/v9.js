@@ -2203,14 +2203,20 @@ userinit() {
   char *mem;
   init = allocproc();
   init->pdir = memcpy(kalloc(), kpdir, PAGE);
-  mem = memcpy(memset(kalloc(), 0, PAGE), (char *)init_start,
+  mem = memset(kalloc(), 0, PAGE);
+
+  // debugging information for emulator
+  *(uint *)(mem) = -20 + (uint)((char *)init_start) + V2P;
+  *(uint *)(mem + 16) = 0xff2016ff;
+
+  mem = memcpy(mem + 20, (char *)init_start,
                (uint)userinit - (uint)init_start);
   mappage(init->pdir, 0, V2P + mem, PTE_P | PTE_W | PTE_U);
 
   init->sz = PAGE;
   init->tf->sp = PAGE;
   init->tf->fc = USER;
-  init->tf->pc = 0;
+  init->tf->pc = 20;
   safestrcpy(init->name, "initcode", sizeof(init->name));
   init->cwd = namei("/");
   init->state = RUNNABLE;

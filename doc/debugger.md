@@ -1,4 +1,4 @@
-# Debugger Design
+# Debugger Design (Deprecated)
 
 Our goal is to support both kernel and user mode debugging without, or at least only with minimum, support from the operating system. Most work should be done by the compiler and emulator. And hopefully it can be invisible to the OS.
 
@@ -16,6 +16,8 @@ We want to implement the following features:
   - It will always use `LEV` when leaving. But `ENT` on entry only when there are locals.
 
 ## Support from Operating System
+
+Update: due to the handcrafted initial process in os.c, we do need a little tiny creepy bit support from OS. But I am too busy to update this document right now.
 
 At the moment, we don't need to modify the existing OS for debugging support. 
 
