@@ -14,16 +14,24 @@
         return marker;
     }
 
+    function saveCurrentFile() {
+        if (curFileId !== -1) {
+            if (files[curFileId].content !== editor.getValue()) {
+                files[curFileId].content = editor.getValue();
+                return true;
+            }
+        }
+        return false;
+    }
+
     function editFile(name, line) {
         if (curFileId === -1 || files[curFileId].name !== name) {
             files.forEach(function(file, i) {
                 var point, items;
                 if (file.filename === name) {
-                    if (curFileId !== -1) {
-                        files[curFileId].content = editor.getValue();
-                    }
-                    editor.setValue(file.content);
+                    saveCurrentFile();
                     curFileId = i;
+                    editor.setValue(file.content);
                     items = $("#files").children();
                     items.removeClass("active");
                     items.each(function() {
@@ -61,7 +69,7 @@
 
     function onCpuReady(cb) {
         var sk;
-        if (v9Cpu.needInit()) {
+        if (saveCurrentFile() || v9Cpu.needInit()) {
             sk = io('http://localhost:8080');
             sk.emit('saveFiles', files);
             sk.on('filesSaved', function() {

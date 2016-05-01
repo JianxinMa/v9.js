@@ -3789,7 +3789,11 @@ function createV9(printOut, breakPoints) {
                     cb();
                     return;
                 }
-                regNextHdlr();
+                if (regToLoadInfo && regNextHdlr === hdlrInstr) {
+                    loadUserProcInfo();
+                } else {
+                    regNextHdlr();
+                }
             }
         }, 50);
     }
@@ -3814,6 +3818,9 @@ function createV9(printOut, breakPoints) {
                         addr = (regXPc - regTPc) >>> 0;
                     }
                     addr += regInfoOffset;
+                    if (!currentInfo.asms[addr]) {
+                        console.log(addr, currentInfo);
+                    }
                     nxt = currentInfo.asms[addr].point;
                     if (!fst) {
                         fst = nxt;
