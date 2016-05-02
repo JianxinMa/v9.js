@@ -263,6 +263,8 @@ void info_print_structs() {
   }
 }
 
+int tsize(uint t);
+
 void info_print_type_str(uint t) {
   ident_t *d;
 
@@ -314,6 +316,7 @@ void info_print_type_str(uint t) {
     case ARRAY:
       fprintf(info_fd, "array");
       fprintf(info_fd, "(%d", ((array_t *)(va + (t >> TSHIFT)))->size);
+      fprintf(info_fd, "|%d", tsize(((array_t *)(va + (t >> TSHIFT)))->type));
       info_print_type_str(((array_t *)(va + (t >> TSHIFT)))->type);
       fprintf(info_fd, ")");
       break;
