@@ -58,18 +58,103 @@
         $("#edpanel").focus();
     }
 
+    function findMatched(s, l) {
+        var lv, r;
+        if (s[l] !== '(') {
+            console.log('In findMatched: bad s[l]', s[l]);
+            return -1;
+        }
+        lv = 1;
+        r = l;
+        while (lv) {
+            r = r + 1;
+            if (s[r] === '(') {
+                lv = lv + 1;
+            } else if (s[r] === ')') {
+                lv = lv - 1;
+            }
+        }
+        return r;
+    }
+
+    function getOneVarValue(v, t, arrSz, stLev) {
+        var hexify, len, l, car, cdr, x;
+        hexify = function(x) {
+            if (typeof(x) === 'number') {
+                return '0x' + ('00000000' + x.toString(16)).substr(-8);
+            }
+            return x;
+        };
+        len = t.length;
+        if (findMatched(t, 0) === len - 1) {
+            t = t.substr(1, len - 2);
+            l = t.indexOf('(');
+            if (l === -1) {
+                return {
+                    addr: v,
+                    type: t,
+                    val: v9Cpu.readBaseType(v, t).toString()
+                };
+            } else {
+                car = t.substr(0, l);
+                cdr = t.substr(l, l.length - l);
+                if (car === 'ptr') {
+                    return hexify(v9Cpu.readBaseType(v, 'uint'));
+                } else if (car === 'array') {
+                    x = {
+                        addr: hexify(v),
+                        type: t
+                    };
+                    if (arrSz) {
+                        console.log('arrSz not implemented');
+                    }
+                    return x;
+                } else if (car === 'struct') {
+                    x = {
+                        addr: v,
+                        type: t
+                    };
+                    if (stLev) {
+                        console.log('stLev not implemented');
+                    }
+                    return x;
+                }
+            }
+        }
+        console.log('In readTypedVal: bad type', t);
+        return 'BAD_TYPE';
+    }
+
+    function getVarValues(defs) {
+        var name, info, v, ret;
+        ret = {};
+        for (name in defs) {
+            if (defs.hasOwnProperty(name)) {
+                info = defs[name];
+                v = v9Cpu.getVirtAddr(info.space, info.offset);
+                ret[name] = getOneVarValue(v, info.type);
+            }
+        }
+        return ret;
+    }
+
     function doAtCpuReady() {
         $("#termpanel").focus();
         $("#termcursor").addClass("blinking-cursor");
     }
 
-    function doAtCpuPause(point, localDefs) {
+    function doAtCpuPause(point, localDefs, globalDefs) {
+        var varVals;
         if (!point) {
             $("#termtext").text("End of program reached.");
         } else {
             point = point.split(' ');
             editFile(point[0], Number(point[1]));
-            v9Cpu.showVars(localDefs);
+            varVals = {
+                locals: getVarValues(localDefs),
+                globals: getVarValues(globalDefs)
+            };
+            console.log(varVals);
         }
         $("#termcursor").removeClass("blinking-cursor");
     }

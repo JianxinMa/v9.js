@@ -238,6 +238,7 @@ void info_print_struct(struct_t *s) {
   member_t *mp;
 
   fprintf(info_fd, "(");
+  fprintf(info_fd, "%d|", s->size);
   for (mp = s->member; mp; mp = mp->next) {
     fprintf(info_fd, "(");
     info_print_name(mp->id->name);

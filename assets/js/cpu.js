@@ -3702,7 +3702,7 @@ function createV9(printOut, breakPoints) {
                             locals: locals
                         };
                     } else {
-                        console.log('[readInfo] **' + line + '** unsupported');
+                        console.log('In readInfo: unsupported', line);
                     }
                 }
             });
@@ -3766,13 +3766,12 @@ function createV9(printOut, breakPoints) {
             s = 'root/etc/os.c';
             regInfoOffset = hdrMem.readUInt32LE(p - 16);
         } else {
-            console.log('[loadUserProcInfo] ** m ===',
-                '0x' + m.toString(16), '**');
+            console.log('In loadUserProcInfo: bad m', '0x' + m.toString(16));
         }
         if (infoPool[s]) {
             currentInfo = infoPool[s];
         } else {
-            console.log('[loadUserProcInfo] ** s ===', s, '**');
+            console.log('In loadUserProcInfo: bad s', s);
         }
         regNextHdlr = hdlrChkpc;
         return;
@@ -3825,14 +3824,14 @@ function createV9(printOut, breakPoints) {
                         }
                     } else {
                         if (hdrMem.readUInt32LE(regXPc) !== 0x2a9) {
-                            console.log("TRAP | (S_exit << 8) expected!");
+                            console.log('In runSingleStep: 0x2a9 expected');
                         }
                     }
                 }
                 regNextHdlr();
             }
         }
-        cb(nxt, localDefs);
+        cb(nxt, localDefs, currentInfo.globals);
     }
 
     function runUntilBreak(cb, ignoreBreaks) {
@@ -3847,7 +3846,7 @@ function createV9(printOut, breakPoints) {
             }
             if (!ignoreNxtBreak && breakPoints[point]) {
                 pauseRunning();
-                cb(point, localDefs);
+                cb(point, localDefs, currentInfo.globals);
                 quitting = true;
                 return;
             }
@@ -3878,83 +3877,48 @@ function createV9(printOut, breakPoints) {
         return regNextHdlr === 0;
     }
 
+    function getVirtAddr(space, offset) {
+        var v;
+        if (space === 'stk') {
+            v = regFrameBase[regFrameBase.length - 1];
+        } else if (space === 'dat') {
+            v = currentInfo.data - regInfoOffset;
+        } else if (space === 'bss') {
+            v = currentInfo.bss - regInfoOffset;
+        } else {
+            console.log('In showVars: unexpected location', space);
+        }
+        return v + offset;
+    }
+
     function readBaseType(v, baseType) {
         var p;
         p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
             p = pageLookR(v, true);
             if (!p) {
-                return 'FRPAGE';
+                return 'PAGE_FAULT';
             }
         }
         if (baseType === 'char') {
             return hdrMem.readInt8(v ^ p & -2);
-        }
-        if (baseType === 'short') {
+        } else if (baseType === 'short') {
             return hdrMem.readInt16LE((v ^ p) & -2);
-        }
-        if (baseType === 'int') {
+        } else if (baseType === 'int') {
             return hdrMem.readInt32LE((v ^ p) & -4);
-        }
-        if (baseType === 'uchar') {
+        } else if (baseType === 'uchar') {
             return hdrMem.readUInt8(v ^ p & -2);
-        }
-        if (baseType === 'ushort') {
+        } else if (baseType === 'ushort') {
             return hdrMem.readUInt16LE((v ^ p) & -2);
-        }
-        if (baseType === 'uint' || baseType === 'ptr') {
+        } else if (baseType === 'uint') {
             return hdrMem.readUInt32LE((v ^ p) & -4);
-        }
-        if (baseType === 'float') {
+        } else if (baseType === 'float') {
             return hdrMem.readFloatLE((v ^ p) & -4);
-        }
-        if (baseType === 'double') {
+        } else if (baseType === 'double') {
             return hdrMem.readDoubleLE((v ^ p) & -8);
-        }
-        console.log('In readBaseType: unknown type', baseType);
-        return '???';
-    }
-
-    function readTypedVal(v, t) {
-        // TODO: just a demo.
-        if (t === '(int)') {
-            return readBaseType(v, 'int');
-        }
-        if (t === '(double)') {
-            return readBaseType(v, 'double');
-        }
-        if (t.startsWith('(ptr')) {
-            return readBaseType(v, 'int');
-        }
-        return 'Whatever';
-    }
-
-    function showOneVar(varName, varInfo) {
-        var v;
-        if (varInfo.space === 'stk') {
-            v = regFrameBase[regFrameBase.length - 1];
-        } else if (varInfo.space === 'dat') {
-            v = currentInfo.data - regInfoOffset;
-        } else if (varInfo.space === 'bss') {
-            v = currentInfo.bss - regInfoOffset;
         } else {
-            console.log('In showVars: unexpected location', varInfo.space);
-        }
-        v = v + varInfo.offset;
-        console.log(varName, readTypedVal(v, varInfo.type));
-    }
-
-    function showVars(localDefs) {
-        var varName;
-        for (varName in localDefs) {
-            if (localDefs.hasOwnProperty(varName)) {
-                showOneVar(varName, localDefs[varName]);
-            }
-        }
-        for (varName in currentInfo.globals) {
-            if (currentInfo.globals.hasOwnProperty(varName)) {
-                showOneVar(varName, currentInfo.globals[varName]);
-            }
+            console.log('In readBaseType: bad base type', baseType);
+            return 'BAD_BASE_TYPE';
         }
     }
 
@@ -3967,6 +3931,7 @@ function createV9(printOut, breakPoints) {
         runUntilBreak: runUntilBreak,
         writeKbBuf: writeKbBuf,
         needInit: needInit,
-        showVars: showVars
+        getVirtAddr: getVirtAddr,
+        readBaseType: readBaseType
     };
 }
