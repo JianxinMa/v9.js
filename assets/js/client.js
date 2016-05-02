@@ -118,11 +118,20 @@
                     name: ": " + t
                 }, {
                     name: "* " + hexify(v)
-                }, {
-                    name: "[..]",
-                    children: []
                 }];
-                console.log('arrSz not implemented');
+                memType = cdr.substr(1, cdr.length - 2);
+                i = memType.indexOf('|');
+                j = Number(memType.substr(0, i));
+                memType = memType.substr(i + 1);
+                i = memType.indexOf('(');
+                offset = Number(memType.substr(0, i));
+                memType = memType.substr(i);
+                for (i = 0; i < j; i = i + 1) {
+                    k.push({
+                        name: '[' + i.toString() + ']',
+                        children: getOneVarValue(v + i * offset, memType)
+                    });
+                }
                 return k;
             }
             if (car === 'struct') {
