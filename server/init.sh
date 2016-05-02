@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# gcc -o xvcc -O3 -m32 xvcc.c
-# gcc -o mkfs -O3 -m32 mkfs.c
+gcc -o xvcc -O3 -m32 xvcc.c
+gcc -o mkfs -O3 -m32 mkfs.c
 
 rm -rf os hd de
 

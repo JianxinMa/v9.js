@@ -1,5 +1,5 @@
 /*jslint white:true browser:true maxlen:80 */
-/*global CodeMirror, $, createV9, io */
+/*global CodeMirror, $, createV9, io, renderTreeView */
 
 "use strict";
 
@@ -77,10 +77,10 @@
         return r;
     }
 
-    function getOneVarValue(v, t, arrSz, stLev) {
+    function getOneVarValue(v, t) {
         var hexify, len, l, car, cdr, x;
         hexify = function(x) {
-            if (typeof(x) === 'number') {
+            if (typeof x === 'number') {
                 return '0x' + ('00000000' + x.toString(16)).substr(-8);
             }
             return x;
@@ -90,35 +90,42 @@
             t = t.substr(1, len - 2);
             l = t.indexOf('(');
             if (l === -1) {
-                return {
-                    addr: v,
-                    type: t,
-                    val: v9Cpu.readBaseType(v, t).toString()
-                };
-            } else {
-                car = t.substr(0, l);
-                cdr = t.substr(l, l.length - l);
-                if (car === 'ptr') {
-                    return hexify(v9Cpu.readBaseType(v, 'uint'));
-                } else if (car === 'array') {
-                    x = {
-                        addr: hexify(v),
-                        type: t
-                    };
-                    if (arrSz) {
-                        console.log('arrSz not implemented');
-                    }
-                    return x;
-                } else if (car === 'struct') {
-                    x = {
-                        addr: v,
-                        type: t
-                    };
-                    if (stLev) {
-                        console.log('stLev not implemented');
-                    }
-                    return x;
-                }
+                return [{
+                    name: ": " + t
+                }, {
+                    name: "* " + hexify(v)
+                }, {
+                    name: "= " + v9Cpu.readBaseType(v, t).toString()
+                }];
+            }
+            car = t.substr(0, l);
+            cdr = t.substr(l, l.length - l);
+            if (car === 'ptr') {
+                return [{
+                    name: ": " + t
+                }, {
+                    name: "* " + hexify(v)
+                }, {
+                    name: "= " + hexify(v9Cpu.readBaseType(v, 'uint'))
+                }];
+            }
+            if (car === 'array') {
+                x = [{
+                    name: ": " + t
+                }, {
+                    name: "* " + hexify(v)
+                }];
+                console.log('arrSz not implemented');
+                return x;
+            }
+            if (car === 'struct') {
+                x = [{
+                    name: ": " + t
+                }, {
+                    name: "* " + hexify(v)
+                }];
+                console.log('stLev not implemented');
+                return x;
             }
         }
         console.log('In readTypedVal: bad type', t);
@@ -127,12 +134,15 @@
 
     function getVarValues(defs) {
         var name, info, v, ret;
-        ret = {};
+        ret = [];
         for (name in defs) {
             if (defs.hasOwnProperty(name)) {
                 info = defs[name];
                 v = v9Cpu.getVirtAddr(info.space, info.offset);
-                ret[name] = getOneVarValue(v, info.type);
+                ret.push({
+                    name: name,
+                    children: getOneVarValue(v, info.type)
+                });
             }
         }
         return ret;
@@ -151,10 +161,16 @@
             point = point.split(' ');
             editFile(point[0], Number(point[1]));
             varVals = {
-                locals: getVarValues(localDefs),
-                globals: getVarValues(globalDefs)
+                name: "Scope",
+                children: [{
+                    name: "Local",
+                    children: getVarValues(localDefs)
+                }, {
+                    name: "Global",
+                    children: getVarValues(globalDefs)
+                }]
             };
-            console.log(varVals);
+            renderTreeView(varVals, 2);
         }
         $("#termcursor").removeClass("blinking-cursor");
     }
@@ -162,7 +178,7 @@
     function onCpuReady(cb) {
         var sk;
         if (saveCurrentFile() || v9Cpu.needInit()) {
-            sk = io('http://localhost:8080');
+            sk = io('http://localhost:17822');
             sk.emit('saveFiles', files);
             sk.on('filesSaved', function() {
                 sk.emit('compileFiles');
@@ -236,7 +252,7 @@
         };
         fetchFiles = function() {
             var sk;
-            sk = io('http://localhost:8080');
+            sk = io('http://localhost:17822');
             sk.emit('fetchFiles');
             sk.on('filesSent', function(fetchedFiles) {
                 sk.disconnect();

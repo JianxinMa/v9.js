@@ -3897,29 +3897,35 @@ function createV9(printOut, breakPoints) {
         if (!p) {
             p = pageLookR(v, true);
             if (!p) {
-                return 'PAGE_FAULT';
+                return '[PAGE FAULT]';
             }
         }
         if (baseType === 'char') {
             return hdrMem.readInt8(v ^ p & -2);
-        } else if (baseType === 'short') {
-            return hdrMem.readInt16LE((v ^ p) & -2);
-        } else if (baseType === 'int') {
-            return hdrMem.readInt32LE((v ^ p) & -4);
-        } else if (baseType === 'uchar') {
-            return hdrMem.readUInt8(v ^ p & -2);
-        } else if (baseType === 'ushort') {
-            return hdrMem.readUInt16LE((v ^ p) & -2);
-        } else if (baseType === 'uint') {
-            return hdrMem.readUInt32LE((v ^ p) & -4);
-        } else if (baseType === 'float') {
-            return hdrMem.readFloatLE((v ^ p) & -4);
-        } else if (baseType === 'double') {
-            return hdrMem.readDoubleLE((v ^ p) & -8);
-        } else {
-            console.log('In readBaseType: bad base type', baseType);
-            return 'BAD_BASE_TYPE';
         }
+        if (baseType === 'short') {
+            return hdrMem.readInt16LE((v ^ p) & -2);
+        }
+        if (baseType === 'int') {
+            return hdrMem.readInt32LE((v ^ p) & -4);
+        }
+        if (baseType === 'uchar') {
+            return hdrMem.readUInt8(v ^ p & -2);
+        }
+        if (baseType === 'ushort') {
+            return hdrMem.readUInt16LE((v ^ p) & -2);
+        }
+        if (baseType === 'uint') {
+            return hdrMem.readUInt32LE((v ^ p) & -4);
+        }
+        if (baseType === 'float') {
+            return hdrMem.readFloatLE((v ^ p) & -4);
+        }
+        if (baseType === 'double') {
+            return hdrMem.readDoubleLE((v ^ p) & -8);
+        }
+        console.log('In readBaseType: bad base type', baseType);
+        return '[BAD TYPE]';
     }
 
     setupHardware();
