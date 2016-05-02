@@ -135,8 +135,8 @@ function renderTreeView(root, level) {
     }
 
     m = [20, 120, 20, 120];
-    w = 800 - m[1] - m[3];
-    h = 600 - m[0] - m[2];
+    w = 1280 - m[1] - m[3];
+    h = 800 - m[0] - m[2];
     i = 0;
     tree = d3.layout.tree()
         .size([h, w]);
@@ -144,6 +144,7 @@ function renderTreeView(root, level) {
         .projection(function(d) {
             return [d.y, d.x];
         });
+    d3.select("#treeView").html("");
     vis = d3.select("#treeView").append("svg:svg")
         .attr("width", w + m[1] + m[3])
         .attr("height", h + m[0] + m[2])

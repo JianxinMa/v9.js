@@ -3928,6 +3928,10 @@ function createV9(printOut, breakPoints) {
         return '[BAD TYPE]';
     }
 
+    function getStructType(name) {
+        return currentInfo.structs[name];
+    }
+
     setupHardware();
     return {
         setupSoftware: setupSoftware,
@@ -3938,6 +3942,7 @@ function createV9(printOut, breakPoints) {
         writeKbBuf: writeKbBuf,
         needInit: needInit,
         getVirtAddr: getVirtAddr,
-        readBaseType: readBaseType
+        readBaseType: readBaseType,
+        getStructType: getStructType
     };
 }

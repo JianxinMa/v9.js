@@ -61,7 +61,7 @@
     function findMatched(s, l) {
         var lv, r;
         if (s[l] !== '(') {
-            console.log('In findMatched: bad s[l]', s[l]);
+            console.log('In findMatched: bad s[l]', s, s[l]);
             return -1;
         }
         lv = 1;
@@ -78,18 +78,22 @@
     }
 
     function getOneVarValue(v, t) {
-        var hexify, len, l, car, cdr, x;
-        hexify = function(x) {
-            if (typeof x === 'number') {
-                return '0x' + ('00000000' + x.toString(16)).substr(-8);
+        var hexify, i, j, k, name, offset, car, cdr, subTypes, memType;
+        hexify = function(k) {
+            if (typeof k === 'number') {
+                return '0x' + ('00000000' + k.toString(16)).substr(-8);
             }
-            return x;
+            return k;
         };
-        len = t.length;
-        if (findMatched(t, 0) === len - 1) {
-            t = t.substr(1, len - 2);
-            l = t.indexOf('(');
-            if (l === -1) {
+        i = t.length;
+        if (findMatched(t, 0) === i - 1) {
+            t = t.substr(1, i - 2);
+            i = t.indexOf('(');
+            j = t.indexOf('<');
+            if (i === -1 || (j !== -1 && j < i)) {
+                i = j;
+            }
+            if (i === -1) {
                 return [{
                     name: ": " + t
                 }, {
@@ -98,8 +102,8 @@
                     name: "= " + v9Cpu.readBaseType(v, t).toString()
                 }];
             }
-            car = t.substr(0, l);
-            cdr = t.substr(l, l.length - l);
+            car = t.substr(0, i);
+            cdr = t.substr(i, t.length - i);
             if (car === 'ptr') {
                 return [{
                     name: ": " + t
@@ -110,22 +114,46 @@
                 }];
             }
             if (car === 'array') {
-                x = [{
+                k = [{
                     name: ": " + t
                 }, {
                     name: "* " + hexify(v)
+                }, {
+                    name: "[..]",
+                    children: []
                 }];
                 console.log('arrSz not implemented');
-                return x;
+                return k;
             }
             if (car === 'struct') {
-                x = [{
+                k = [{
                     name: ": " + t
                 }, {
                     name: "* " + hexify(v)
                 }];
-                console.log('stLev not implemented');
-                return x;
+                subTypes = cdr.substr(1, cdr.length - 2);
+                if (cdr[0] === '<' && cdr[cdr.length - 1] === '>') {
+                    subTypes = v9Cpu.getStructType(subTypes);
+                }
+                i = subTypes.indexOf('|');
+                subTypes = subTypes.substr(i + 1);
+                subTypes = subTypes.substr(0, subTypes.length - 1);
+                while (subTypes.length > 0) {
+                    i = findMatched(subTypes, 0);
+                    memType = subTypes.substr(1, i - 1);
+                    subTypes = subTypes.substr(i + 1);
+                    i = memType.indexOf(':');
+                    name = memType.substr(0, i);
+                    memType = memType.substr(i + 1);
+                    i = memType.indexOf(':');
+                    offset = Number(memType.substr(0, i));
+                    memType = memType.substr(i + 1);
+                    k.push({
+                        name: '.' + name,
+                        children: getOneVarValue(v + offset, memType)
+                    });
+                }
+                return k;
             }
         }
         console.log('In readTypedVal: bad type', t);
