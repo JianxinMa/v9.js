@@ -77,11 +77,12 @@
         return r;
     }
 
-    function getOneVarValue(v, t) {
+    function getOneVarValue(varName, v, t, showType, showAddr) {
         var hexify, i, j, k, name, offset, car, cdr, subTypes, memType;
-        hexify = function(k) {
+        hexify = function(k, pad) {
             if (typeof k === 'number') {
-                return '0x' + ('00000000' + k.toString(16)).substr(-8);
+                return '0x' + ((pad ? '00000000' : '') +
+                    k.toString(16)).substr(-8);
             }
             return k;
         };
@@ -94,31 +95,30 @@
                 i = j;
             }
             if (i === -1) {
-                return [{
-                    name: ": " + t
-                }, {
-                    name: "* " + hexify(v)
-                }, {
-                    name: "= " + v9Cpu.readBaseType(v, t).toString()
-                }];
+                return {
+                    name: varName +
+                        (showType ? (":" + t) : '') +
+                        (showAddr ? ("@" + hexify(v)) : '') +
+                        "=" + v9Cpu.readBaseType(v, t).toString()
+                };
             }
             car = t.substr(0, i);
             cdr = t.substr(i, t.length - i);
             if (car === 'ptr') {
-                return [{
-                    name: ": " + t
-                }, {
-                    name: "* " + hexify(v)
-                }, {
-                    name: "= " + hexify(v9Cpu.readBaseType(v, 'uint'))
-                }];
+                return {
+                    name: varName +
+                        (showType ? (":" + t) : '') +
+                        (showAddr ? ("@" + hexify(v)) : '') +
+                        "=" + hexify(v9Cpu.readBaseType(v, 'uint'))
+                };
             }
             if (car === 'array') {
-                k = [{
-                    name: ": " + t
-                }, {
-                    name: "* " + hexify(v)
-                }];
+                k = {
+                    name: varName +
+                        (showType ? (":" + t) : '') +
+                        (showAddr ? ("@" + hexify(v)) : ''),
+                    children: []
+                };
                 memType = cdr.substr(1, cdr.length - 2);
                 i = memType.indexOf('|');
                 j = Number(memType.substr(0, i));
@@ -127,19 +127,18 @@
                 offset = Number(memType.substr(0, i));
                 memType = memType.substr(i);
                 for (i = 0; i < j; i = i + 1) {
-                    k.push({
-                        name: '[' + i.toString() + ']',
-                        children: getOneVarValue(v + i * offset, memType)
-                    });
+                    k.children.push(getOneVarValue('[' + i.toString() + ']',
+                        v + i * offset, memType, showType, showAddr));
                 }
                 return k;
             }
             if (car === 'struct') {
-                k = [{
-                    name: ": " + t
-                }, {
-                    name: "* " + hexify(v)
-                }];
+                k = {
+                    name: varName +
+                        (showType ? (":" + t) : '') +
+                        (showAddr ? ("@" + hexify(v)) : ''),
+                    children: []
+                };
                 subTypes = cdr.substr(1, cdr.length - 2);
                 if (cdr[0] === '<' && cdr[cdr.length - 1] === '>') {
                     subTypes = v9Cpu.getStructType(subTypes);
@@ -157,10 +156,8 @@
                     i = memType.indexOf(':');
                     offset = Number(memType.substr(0, i));
                     memType = memType.substr(i + 1);
-                    k.push({
-                        name: '.' + name,
-                        children: getOneVarValue(v + offset, memType)
-                    });
+                    k.children.push(getOneVarValue('.' + name, v + offset,
+                        memType, showType, showAddr));
                 }
                 return k;
             }
@@ -176,10 +173,7 @@
             if (defs.hasOwnProperty(name)) {
                 info = defs[name];
                 v = v9Cpu.getVirtAddr(info.space, info.offset);
-                ret.push({
-                    name: name,
-                    children: getOneVarValue(v, info.type)
-                });
+                ret.push(getOneVarValue(name, v, info.type, true, true));
             }
         }
         return ret;
@@ -191,23 +185,22 @@
     }
 
     function doAtCpuPause(point, localDefs, globalDefs) {
-        var varVals;
         if (!point) {
             $("#termtext").text("End of program reached.");
         } else {
             point = point.split(' ');
             editFile(point[0], Number(point[1]));
-            varVals = {
-                name: "Scope",
-                children: [{
-                    name: "Local",
-                    children: getVarValues(localDefs)
-                }, {
-                    name: "Global",
-                    children: getVarValues(globalDefs)
-                }]
-            };
-            renderTreeView(varVals, 2);
+            renderTreeView({
+                    name: "Scope",
+                    children: [{
+                        name: "Local",
+                        children: getVarValues(localDefs)
+                    }, {
+                        name: "Global",
+                        children: getVarValues(globalDefs)
+                    }]
+                },
+                2);
         }
         $("#termcursor").removeClass("blinking-cursor");
     }

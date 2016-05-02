@@ -25,7 +25,11 @@ function renderTreeView(root, level) {
         });
         node = vis.selectAll("g.node")
             .data(nodes, function(d) {
-                return d.id || (d.id = ++i);
+                if (!d.id) {
+                    i = i + 1;
+                    d.id = i;
+                }
+                return d.id;
             });
         nodeEnter = node.enter().append("svg:g")
             .attr("class", "node")
