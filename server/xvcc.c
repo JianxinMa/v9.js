@@ -313,7 +313,9 @@ void info_print_type_str(uint t) {
       break;
     case ARRAY:
       fprintf(info_fd, "array");
+      fprintf(info_fd, "(%d", ((array_t *)(va + (t >> TSHIFT)))->size);
       info_print_type_str(((array_t *)(va + (t >> TSHIFT)))->type);
+      fprintf(info_fd, ")");
       break;
     case STRUCT:
       fprintf(info_fd, "struct");
