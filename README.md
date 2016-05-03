@@ -24,7 +24,7 @@ Then enter the `server` subdirectory.
 cd v9.js/server
 ```
 
-You need to set up a Node.js server under the `server` directory.
+Set up a Node.js server under the `server` directory.
 ```bash
 sudo node server.js
 ```
