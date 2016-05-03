@@ -3,9 +3,10 @@
 
 'use strict';
 
-var fs = require("fs");
+var http = require('http');
 var sk = require('socket.io');
 var sh = require('shelljs');
+var fs = require("fs");
 
 function toArrayBuffer(buffer) {
     var ab, view, i;
@@ -79,7 +80,7 @@ function listFiles(pathname, encoding, filter) {
     return files;
 }
 
-function handleCompileFiles(socket) {
+function handleCompileFiles(socket /*TODO:, files */ ) {
     var compileFiles, packCompiled, sendCompiled,
         srcFiles, debugFiles, execFiles;
     compileFiles = function() {
@@ -192,18 +193,34 @@ function handleSaveFiles(socket, files) {
     });
 }
 
-function serve(port) {
-    sk(port).on('connection', function(socket) {
+function httpHandler(req, res) {
+    if (req.url === '/') {
+        req.url = '/index.html';
+    }
+    fs.readFile('..' + req.url, function(err, data) {
+        if (err) {
+            res.writeHead(404);
+            res.end('Not Found');
+        } else {
+            res.writeHead(200);
+            res.end(data);
+        }
+    });
+}
+
+function main(port) {
+    var appServer, appSocket;
+    appServer = http.createServer(httpHandler);
+    appSocket = sk(appServer);
+    appServer.listen(port);
+    appSocket.on('connection', function(socket) {
         socket.on('fetchFiles', function() {
             handleFetchFiles(socket);
         });
-        socket.on('saveFiles', function(files) {
-            handleSaveFiles(socket, files);
-        });
-        socket.on('compileFiles', function() {
-            handleCompileFiles(socket);
+        socket.on('compileFiles', function(files) {
+            handleCompileFiles(socket, files);
         });
     });
 }
 
-serve(17822);
+main(80);

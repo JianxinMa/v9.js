@@ -208,16 +208,13 @@
     function onCpuReady(cb) {
         var sk;
         if (saveCurrentFile() || v9Cpu.needInit()) {
-            sk = io('http://localhost:17822');
-            sk.emit('saveFiles', files);
-            sk.on('filesSaved', function() {
-                sk.emit('compileFiles');
-                sk.on('filesCompiled', function(compiled) {
-                    sk.disconnect();
-                    v9Cpu.setupSoftware(compiled.os, compiled.hd, compiled.de);
-                    $("#termtext").text("");
-                    cb();
-                });
+            sk = io();
+            sk.emit('compileFiles', files);
+            sk.on('filesCompiled', function(compiled) {
+                sk.disconnect();
+                v9Cpu.setupSoftware(compiled.os, compiled.hd, compiled.de);
+                $("#termtext").text("");
+                cb();
             });
         } else {
             cb();
@@ -282,7 +279,7 @@
         };
         fetchFiles = function() {
             var sk;
-            sk = io('http://localhost:17822');
+            sk = io();
             sk.emit('fetchFiles');
             sk.on('filesSent', function(fetchedFiles) {
                 sk.disconnect();
