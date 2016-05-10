@@ -3,6 +3,7 @@
 'use strict';
 
 var http = require('http');
+var path = require('path');
 var sk = require('socket.io');
 var sh = require('shelljs');
 var fs = require("fs");
@@ -10,12 +11,37 @@ var tool = require("./js/tool");
 var xvcc = require("./js/xvcc");
 var mkfs = require("./js/mkfs");
 
-function readFiles(files, cb) {
-    var finished, fileNum;
-    fileNum = files.length;
+function textFileFilter(name) {
+    return name.endsWith('.h') || name.endsWith('.c') ||
+        name.endsWith('.txt');
+}
+
+function srcFileFilter(name) {
+    return name.endsWith('.c');
+}
+
+function listFiles(filter, pathname, encoding, dirpath) {
+    var files;
+    files = [];
+    sh.ls('-R', path.join(dirpath, pathname)).forEach(function(filename) {
+        if (filter(filename)) {
+            files.push({
+                filename: pathname + '/' + filename,
+                encoding: encoding,
+                content: null
+            });
+        }
+    });
+    return files;
+}
+
+function readFiles(files, cb, dirpath) {
+    var finished;
     finished = 0;
     files.forEach(function(file, i) {
-        fs.readFile(file.filename, file.encoding, function(e, d) {
+        fs.readFile(path.join(dirpath, file.filename), {
+            encoding: file.encoding
+        }, function(e, d) {
             if (e) {
                 throw e;
             }
@@ -24,54 +50,60 @@ function readFiles(files, cb) {
             }
             files[i].content = d;
             finished += 1;
-            if (finished === fileNum) {
+            if (finished === files.length) {
                 cb();
             }
         });
     });
 }
 
-function writeFiles(files, cb) {
-    var finished, fileNum;
-    fileNum = files.length;
+function writeFiles(files, cb, dirpath) {
+    var finished;
     finished = 0;
     files.forEach(function(file) {
-        fs.writeFile(file.filename, file.content, file.encoding, function(e) {
+        fs.writeFile(path.join(dirpath, file.filename), file.content, {
+            encoding: file.encoding
+        }, function(e) {
             if (e) {
                 throw e;
             }
+            finished += 1;
+            if (finished === files.length) {
+                cb();
+            }
         });
-        finished += 1;
-        if (finished === fileNum) {
-            cb();
-        }
     });
 }
 
-function listFiles(pathname, encoding, filter) {
+function startFetchFiles(cb) {
     var files;
-    files = [];
-    sh.ls('-R', pathname).forEach(function(filename) {
-        if (filter(filename)) {
-            files.push({
-                filename: pathname + '/' + filename,
-                encoding: encoding
-            });
-        }
-    });
-    return files;
+    files = listFiles(textFileFilter, 'root', 'utf8', '');
+    readFiles(files, function() {
+        cb(files);
+    }, '');
 }
 
-function handleCompileFiles(socket /*TODO:, files */ ) {
-    var compileFiles, packCompiled, sendCompiled,
+function startCompileFiles(files, cb) {
+    var stepSaveFiles, stepCompileFiles, stepPackCompiled, stepSendCompiled,
         srcFiles, debugFiles, execFiles;
-    compileFiles = function() {
+    stepSaveFiles = function() {
+        var validFiles;
+        validFiles = [];
+        listFiles(textFileFilter, 'root', 'utf8', '').forEach(function(file) {
+            validFiles.push(file.filename);
+        });
+        files = files.filter(function(file) {
+            return validFiles.indexOf(file.filename) !== -1;
+        });
+        writeFiles(files, function() {
+            stepCompileFiles();
+        }, '');
+    };
+    stepCompileFiles = function() {
         var fileNum, finished, errinfo;
         debugFiles = [];
         execFiles = [];
-        srcFiles = listFiles('root', 'utf8', function(n) {
-            return n.endsWith('.c');
-        });
+        srcFiles = listFiles(srcFileFilter, 'root', 'utf8', '');
         srcFiles.forEach(function(file) {
             debugFiles.push(
                 file.filename.substr(0, file.filename.length - 1) + 'd');
@@ -101,26 +133,26 @@ function handleCompileFiles(socket /*TODO:, files */ ) {
                         if (errinfo.length) {
                             sh.rm('-f', debugFiles);
                             sh.rm('-f', execFiles);
-                            socket.emit('filesCompiled', {
+                            cb({
                                 error: errinfo
                             });
                         } else {
-                            packCompiled();
+                            stepPackCompiled();
                         }
                     }
                 });
         });
     };
-    packCompiled = function() {
+    stepPackCompiled = function() {
         sh.cat(debugFiles).to('de');
         sh.rm('-f', debugFiles);
         sh.mv('root/etc/os', 'os');
         sh.exec('./mkfs hd root', function() {
             sh.rm('-f', execFiles);
-            sendCompiled();
+            stepSendCompiled();
         });
     };
-    sendCompiled = function() {
+    stepSendCompiled = function() {
         fs.readFile('hd', function(e, hd) {
             if (e) {
                 throw e;
@@ -136,7 +168,7 @@ function handleCompileFiles(socket /*TODO:, files */ ) {
                     sh.rm('-f', ['hd', 'os', 'de']);
                     hd = tool.toArrayBuffer(hd);
                     os = tool.toArrayBuffer(os);
-                    socket.emit('filesCompiled', {
+                    cb({
                         hd: hd,
                         os: os,
                         de: de
@@ -145,34 +177,7 @@ function handleCompileFiles(socket /*TODO:, files */ ) {
             });
         });
     };
-    compileFiles();
-}
-
-function handleFetchFiles(socket) {
-    var files;
-    files = listFiles('root', 'utf8', function(n) {
-        return n.endsWith('.h') || n.endsWith('.c') ||
-            n.endsWith('.txt');
-    });
-    readFiles(files, function() {
-        socket.emit('filesSent', files);
-    });
-}
-
-function handleSaveFiles(socket, files) {
-    var validFiles;
-    validFiles = [];
-    listFiles('root', 'utf8', function(n) {
-        return n.endsWith('.h') || n.endsWith('.c') || n.endsWith('.txt');
-    }).forEach(function(file) {
-        validFiles.push(file.filename);
-    });
-    files = files.filter(function(file) {
-        return validFiles.indexOf(file.filename) !== -1;
-    });
-    writeFiles(files, function() {
-        socket.emit('filesSaved');
-    });
+    stepSaveFiles();
 }
 
 function httpHandler(req, res) {
@@ -209,10 +214,14 @@ function main(port) {
     appServer.listen(port);
     appSocket.on('connection', function(socket) {
         socket.on('fetchFiles', function() {
-            handleFetchFiles(socket);
+            startFetchFiles(function(files) {
+                socket.emit('filesSent', files);
+            });
         });
         socket.on('compileFiles', function(files) {
-            handleCompileFiles(socket, files);
+            startCompileFiles(files, function(result) {
+                socket.emit('filesCompiled', result);
+            });
         });
     });
 }

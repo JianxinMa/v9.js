@@ -25,7 +25,7 @@
     }
 
     function editFile(name, line) {
-        if (curFileId === -1 || files[curFileId].name !== name) {
+        if (curFileId === -1 || files[curFileId].filename !== name) {
             files.forEach(function(file, i) {
                 var point, items;
                 if (file.filename === name) {
