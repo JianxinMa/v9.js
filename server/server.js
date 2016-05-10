@@ -20,10 +20,10 @@ function srcFileFilter(name) {
     return name.endsWith('.c');
 }
 
-function listFiles(filter, pathname, encoding, dirpath) {
+function listFiles(filter, pathname, encoding, topLevelDir) {
     var files;
     files = [];
-    sh.ls('-R', path.join(dirpath, pathname)).forEach(function(filename) {
+    sh.ls('-R', path.join(topLevelDir, pathname)).forEach(function(filename) {
         if (filter(filename)) {
             files.push({
                 filename: pathname + '/' + filename,
@@ -35,11 +35,11 @@ function listFiles(filter, pathname, encoding, dirpath) {
     return files;
 }
 
-function readFiles(files, cb, dirpath) {
+function readFiles(files, cb, topLevelDir) {
     var finished;
     finished = 0;
     files.forEach(function(file, i) {
-        fs.readFile(path.join(dirpath, file.filename), {
+        fs.readFile(path.join(topLevelDir, file.filename), {
             encoding: file.encoding
         }, function(e, d) {
             if (e) {
@@ -57,11 +57,11 @@ function readFiles(files, cb, dirpath) {
     });
 }
 
-function writeFiles(files, cb, dirpath) {
+function writeFiles(files, cb, topLevelDir) {
     var finished;
     finished = 0;
     files.forEach(function(file) {
-        fs.writeFile(path.join(dirpath, file.filename), file.content, {
+        fs.writeFile(path.join(topLevelDir, file.filename), file.content, {
             encoding: file.encoding
         }, function(e) {
             if (e) {
@@ -85,7 +85,8 @@ function startFetchFiles(cb) {
 
 function startCompileFiles(files, cb) {
     var stepSaveFiles, stepCompileFiles, stepPackCompiled, stepSendCompiled,
-        srcFiles, debugFiles, execFiles;
+        topDir, srcFiles, debugFiles;
+    topDir = 'tmp_' + tool.hexify(tool.getUniqueID(), true);
     stepSaveFiles = function() {
         var validFiles;
         validFiles = [];
@@ -95,46 +96,48 @@ function startCompileFiles(files, cb) {
         files = files.filter(function(file) {
             return validFiles.indexOf(file.filename) !== -1;
         });
+        sh.mkdir(topDir);
+        sh.cp("-R", "root", path.join(topDir, "root"));
         writeFiles(files, function() {
             stepCompileFiles();
-        }, '');
+        }, topDir);
     };
     stepCompileFiles = function() {
-        var fileNum, finished, errinfo;
+        var fileNum, finished, errStr;
         debugFiles = [];
-        execFiles = [];
-        srcFiles = listFiles(srcFileFilter, 'root', 'utf8', '');
+        srcFiles = listFiles(srcFileFilter, 'root', 'utf8', topDir);
         srcFiles.forEach(function(file) {
             debugFiles.push(
                 file.filename.substr(0, file.filename.length - 1) + 'd');
-            execFiles.push(
-                file.filename.substr(0, file.filename.length - 2));
         });
         fileNum = srcFiles.length;
         finished = 0;
-        errinfo = [];
+        errStr = '';
         srcFiles.forEach(function(file) {
-            var filename;
+            var cmd, filename;
             filename = file.filename;
-            sh.exec('./xvcc -Iroot/lib -o ' +
-                filename.substr(0, filename.length - 2) + ' ' + filename, {
+            cmd = "";
+            cmd += "cd " + topDir + ";";
+            cmd += '../xvcc -Iroot/lib -o ' +
+                filename.substr(0, filename.length - 2) + ' ' + filename + ';';
+            cmd += "cd ..;";
+            sh.exec(cmd, {
                     silent: true
                 },
                 function(code, stdout, stderr) {
                     if (code) {
-                        errinfo.push({
-                            filename: file.filename,
-                            stdout: stdout,
-                            stderr: stderr
-                        });
+                        errStr += "[[ " + file.filename + " ]]\n";
+                        errStr += "=> stdout\n";
+                        errStr += stdout;
+                        errStr += "=> stderr\n";
+                        errStr += stderr;
                     }
                     finished += 1;
                     if (finished === fileNum) {
-                        if (errinfo.length) {
-                            sh.rm('-f', debugFiles);
-                            sh.rm('-f', execFiles);
+                        if (errStr.length) {
+                            sh.rm("-r", topDir);
                             cb({
-                                error: errinfo
+                                error: errStr
                             });
                         } else {
                             stepPackCompiled();
@@ -144,28 +147,34 @@ function startCompileFiles(files, cb) {
         });
     };
     stepPackCompiled = function() {
+        var cmd;
+        sh.cd(topDir);
         sh.cat(debugFiles).to('de');
         sh.rm('-f', debugFiles);
         sh.mv('root/etc/os', 'os');
-        sh.exec('./mkfs hd root', function() {
-            sh.rm('-f', execFiles);
+        sh.cd("..");
+        cmd = '';
+        cmd += 'cd ' + topDir + ';';
+        cmd += '../mkfs hd root;';
+        cmd += 'cd ..;';
+        sh.exec(cmd, function() {
             stepSendCompiled();
         });
     };
     stepSendCompiled = function() {
-        fs.readFile('hd', function(e, hd) {
+        fs.readFile(path.join(topDir, 'hd'), function(e, hd) {
             if (e) {
                 throw e;
             }
-            fs.readFile('os', function(e, os) {
+            fs.readFile(path.join(topDir, 'os'), function(e, os) {
                 if (e) {
                     throw e;
                 }
-                fs.readFile('de', 'utf8', function(e, de) {
+                fs.readFile(path.join(topDir, 'de'), 'utf8', function(e, de) {
                     if (e) {
                         throw e;
                     }
-                    sh.rm('-f', ['hd', 'os', 'de']);
+                    sh.rm('-r', topDir);
                     hd = tool.toArrayBuffer(hd);
                     os = tool.toArrayBuffer(os);
                     cb({

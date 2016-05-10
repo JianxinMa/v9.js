@@ -207,14 +207,21 @@
 
     function onCpuReady(cb) {
         var sk;
+        // TODO:
+        //   Checking only current file is not enough.
+        //   What if I change a file, switch to another file and run?
         if (saveCurrentFile() || v9Cpu.needInit()) {
             sk = io();
             sk.emit('compileFiles', files);
             sk.on('filesCompiled', function(compiled) {
                 sk.disconnect();
-                v9Cpu.setupSoftware(compiled.os, compiled.hd, compiled.de);
-                $("#termtext").text("");
-                cb();
+                if (compiled.error) {
+                    console.log(compiled.error);
+                } else {
+                    v9Cpu.setupSoftware(compiled.os, compiled.hd, compiled.de);
+                    $("#termtext").text("");
+                    cb();
+                }
             });
         } else {
             cb();
