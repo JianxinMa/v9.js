@@ -1,5 +1,4 @@
 /*jslint white:true node:true maxlen:80 */
-/*global ArrayBuffer, Uint8Array */
 
 'use strict';
 
@@ -7,26 +6,9 @@ var http = require('http');
 var sk = require('socket.io');
 var sh = require('shelljs');
 var fs = require("fs");
-
-function toArrayBuffer(buffer) {
-    var ab, view, i;
-    ab = new ArrayBuffer(buffer.length);
-    view = new Uint8Array(ab);
-    for (i = 0; i < buffer.length; i += 1) {
-        view[i] = buffer[i];
-    }
-    return ab;
-}
-
-function toBuffer(ab) {
-    var buffer, view, i;
-    buffer = new Buffer(ab.byteLength);
-    view = new Uint8Array(ab);
-    for (i = 0; i < buffer.length; i += 1) {
-        buffer[i] = view[i];
-    }
-    return buffer;
-}
+var tool = require("./js/tool");
+var xvcc = require("./js/xvcc");
+var mkfs = require("./js/mkfs");
 
 function readFiles(files, cb) {
     var finished, fileNum;
@@ -38,7 +20,7 @@ function readFiles(files, cb) {
                 throw e;
             }
             if (Buffer.isBuffer(d)) {
-                d = toArrayBuffer(d);
+                d = tool.toArrayBuffer(d);
             }
             files[i].content = d;
             finished += 1;
@@ -152,8 +134,8 @@ function handleCompileFiles(socket /*TODO:, files */ ) {
                         throw e;
                     }
                     sh.rm('-f', ['hd', 'os', 'de']);
-                    hd = toArrayBuffer(hd);
-                    os = toArrayBuffer(os);
+                    hd = tool.toArrayBuffer(hd);
+                    os = tool.toArrayBuffer(os);
                     socket.emit('filesCompiled', {
                         hd: hd,
                         os: os,
@@ -194,15 +176,27 @@ function handleSaveFiles(socket, files) {
 }
 
 function httpHandler(req, res) {
+    var contentType;
     if (req.url === '/') {
         req.url = '/index.html';
+    }
+    if (req.url.endsWith(".css")) {
+        contentType = 'text/css';
+    } else if (req.url.endsWith(".js")) {
+        contentType = 'text/javascript';
+    } else if (req.url.endsWith(".html")) {
+        contentType = 'text/html';
+    } else {
+        contentType = 'text/plain';
     }
     fs.readFile('..' + req.url, function(err, data) {
         if (err) {
             res.writeHead(404);
             res.end('Not Found');
         } else {
-            res.writeHead(200);
+            res.writeHead(200, {
+                'Content-Type': contentType
+            });
             res.end(data);
         }
     });
