@@ -2,8 +2,6 @@
 
 Currently working on porting the C compiler to JavaScript.
 
-Some functionalities of the server are disbled as of now, due to safety issues.
-
 ### Usage
 
 A live [demo](http://166.111.68.197:11293/) is out!

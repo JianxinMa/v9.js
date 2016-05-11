@@ -1,5 +1,5 @@
 /**
- *  Sane Box Sizing
+ *  Box Sizing
  */
 
 html {
@@ -25,7 +25,6 @@ html,body {
 body {
     background-color: #e7e7e7;
     color: #777;
-    overflow:hidden;
     padding-top: 50px;
 }
 
@@ -287,6 +286,7 @@ path.link {
 /**
  * Entry Page
  */
+
 #entryPage {
     position:absolute; 
     width:100%;
@@ -296,6 +296,23 @@ path.link {
     z-index: 2000;
     background:rgba(231, 231, 231, 0.7);
     color:white;
+}
+
+#newLabBtn, #oldLabBtn {
+    position: absolute;
+    left: 50%;
+    width: 300px;
+    height: 49px;
+    margin-left: -150px;
+    margin-top: -25px;
+}
+
+#newLabBtn {
+    top: 45%;
+}
+
+#oldLabBtn {
+    top: 55%;
 }
 
 /**
@@ -311,22 +328,23 @@ path.link {
     border-radius: 3px;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    text-align: left;
+    text-align: center;
     color: #445561;
     overflow: hidden;
 }
 
-[data-wipe]:before, [data-wipe]:after {
-                        content: attr(data-wipe);
-                        padding-top: inherit;
-                        padding-bottom: inherit;
-                        white-space: nowrap;
-                        position: absolute;
-                        top: 0;
-                        overflow: hidden;
-                        color: #F1F1F2;
-                        background: #445561;
-                    }
+[data-wipe]:before,
+[data-wipe]:after {
+    content: attr(data-wipe);
+    padding-top: inherit;
+    padding-bottom: inherit;
+    white-space: nowrap;
+    position: absolute;
+    top: 0;
+    overflow: hidden;
+    color: #F1F1F2;
+    background: #445561;
+}
 
 [data-wipe]:before {
     left: 0;
@@ -349,6 +367,5 @@ path.link {
 
 [data-wipe]:hover:after {
     left: 0;
-    text-indent: 0;
     transition: 0s 0.2s ease-in-out;
 }
