@@ -18,100 +18,128 @@
     </head>
 
     <body>
-        <nav class="navbar navbar-inverse navbar-fixed-top">
-            <div class="container">
-                <div class="navbar-header">
-                    <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-                        <span class="sr-only">Toggle navigation</span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                    </button>
-                    <a class="navbar-brand" href="#">Project name</a>
+        <div id="labPage" class="blured_text">
+            <nav class="navbar navbar-inverse navbar-fixed-top">
+                <div class="container">
+                    <div class="navbar-header">
+                        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                            <span class="sr-only">Toggle navigation</span>
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                        </button>
+                        <a class="navbar-brand" href="#">Project name</a>
+                    </div>
+                    <div id="navbar" class="collapse navbar-collapse">
+                        <ul class="nav navbar-nav">
+                            <li><a href="#">Home</a></li>
+                            <li><a href="#about">About</a></li>
+                            <li><a href="#contact">Contact</a></li>
+                            <li class="dropdown">
+                                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Dropdown <span class="caret"></span></a>
+                                <ul class="dropdown-menu">
+                                    <li><a href="#">Action</a></li>
+                                    <li><a href="#">Another action</a></li>
+                                    <li><a href="#">Something else here</a></li>
+                                    <li role="separator" class="divider"></li>
+                                    <li class="dropdown-header">Nav header</li>
+                                    <li><a href="#">Separated link</a></li>
+                                    <li><a href="#">One more separated link</a></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
-                <div id="navbar" class="collapse navbar-collapse">
-                    <ul class="nav navbar-nav">
-                        <li><a href="#">Home</a></li>
-                        <li><a href="#about">About</a></li>
-                        <li><a href="#contact">Contact</a></li>
-                        <li class="dropdown">
-                            <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Dropdown <span class="caret"></span></a>
-                            <ul class="dropdown-menu">
-                                <li><a href="#">Action</a></li>
-                                <li><a href="#">Another action</a></li>
-                                <li><a href="#">Something else here</a></li>
-                                <li role="separator" class="divider"></li>
-                                <li class="dropdown-header">Nav header</li>
-                                <li><a href="#">Separated link</a></li>
-                                <li><a href="#">One more separated link</a></li>
-                            </ul>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
+            </nav>
 
-        <div class="container-fluid" style="margin-top:10px">
-            <div class="row">
-                <div class="col-sm-3 col-md-2 sidebar">
-                    <ul class="nav nav-sidebar" id="files">
-                        <li class="active" id="fetchingfiles"><a href="#">Fetching files... </a></li>
-                    </ul>
-                    <div class="row">
-                        <div class="btn-group btn-block">
-                            <button id="stepBtn" type="button" class="btn btn-default col-xs-4" style="color:#428bca">Step</button>
-                            <button id="contBtn" type="button" class="btn btn-default col-xs-4" style="color:#428bca">Continue</button>
-                            <button id="runBtn" "type="button" class="btn btn-default col-xs-4" style="color:#428bca">Run</button>
+            <div class="container-fluid" style="margin-top:10px">
+                <div class="row">
+                    <div class="col-sm-3 col-md-2 sidebar">
+                        <ul class="nav nav-sidebar" id="files">
+                        </ul>
+                        <div class="row">
+                            <div class="btn-group btn-block">
+                                <button id="stepBtn" type="button" class="btn btn-default col-xs-4" style="color:#428bca">Step</button>
+                                <button id="contBtn" type="button" class="btn btn-default col-xs-4" style="color:#428bca">Continue</button>
+                                <button id="runBtn" "type="button" class="btn btn-default col-xs-4" style="color:#428bca">Run</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
-                    <div class="row" style="margin-top:-5px; margin-bottom: -15px">
-                        <div tabindex="1" id="edpanel" class="panel panel-primary">
-                            <div class="panel-heading">
-                                <h3 class="panel-title">Editor</h3>
+                    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+                        <div class="row" style="margin-top:-5px; margin-bottom: -15px">
+                            <div tabindex="1" id="edpanel" class="panel panel-primary">
+                                <div class="panel-heading">
+                                    <h3 class="panel-title">Editor</h3>
+                                </div>
+                                <textarea id="editor" style="display:none"></textarea>
                             </div>
-                            <textarea id="editor">// Fetching files ... </textarea>
                         </div>
-                    </div>
-                    <div class="row" style="margin-top:-5px; margin-bottom: -15px">
-                        <div tabindex="1" id="termpanel" class="panel panel-default">
-                            <div class="panel-heading">
-                                <h3 class="panel-title">Terminal</h3>
-                            </div>
-                            <div id="terminal">
-                                <div class="jquery-console-inner">
-                                    <div class="jquery-console-message">
-                                        <span id="termtext">No process running.</span><span id="termcursor">&nbsp</span>
+                        <div class="row" style="margin-top:-5px; margin-bottom: -15px">
+                            <div tabindex="1" id="termpanel" class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h3 class="panel-title">Terminal</h3>
+                                </div>
+                                <div id="terminal">
+                                    <div class="jquery-console-inner">
+                                        <div class="jquery-console-message">
+                                            <span id="termtext">No process running.</span><span id="termcursor">&nbsp</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="row" style="margin-top:-5px; margin-bottom: -5px">
-                        <div id="monpanel" tabindex="1" class="panel panel-default">
-                            <div class="panel-heading">
-                                <h3 class="panel-title">Monitor</h3>
-                            </div>
-                            <div id="treeView" style="font-family: 'Helvetica Neue', Helvetica;">
+                        <div class="row" style="margin-top:-5px; margin-bottom: -5px">
+                            <div id="monpanel" tabindex="1" class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h3 class="panel-title">Monitor</h3>
+                                </div>
+                                <div id="treeView" style="font-family: 'Helvetica Neue', Helvetica;">
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <script src="assets/lib/jquery.min.js"></script>
-            <script src="assets/lib/bootstrap.min.js"></script>
-            <script src="assets/lib/d3.min.js"></script>
-            <script src="assets/lib/d3.layout.min.js"></script>
-            <script src="assets/lib/buffer.min.js"></script>
-            <script src="assets/lib/socket.io.min.js"></script>
-            <script src="assets/lib/codemirror/js/codemirror.js"></script>
-            <script src="assets/lib/codemirror/mode/clike/clike.js"></script>
-            <script src="assets/lib/codemirror/addon/selection/active-line.js"></script>
-            <script src="assets/js/tree.js"></script>
-            <script src="assets/js/cpu.js"></script>
-            <script src="assets/js/logic.js"></script>
+        <div id="entryPage">
+            <div class="row">
+                <a id="newLabBtn" href="#" class="btn" data-wipe="create a new lab">
+                    create a new lab
+                </a>
+            </div>
+            <div class="row">
+                <a id="oldLabBtn" href="#" class="btn" data-wipe="use an existing lab">
+                    use an existing lab
+                </a>
+            </div>
+        </div>
+
+        <div id="loadingSign" class="loading" style="display:none">
+            <div class="loading-element"></div>
+            <div class="loading-element"></div>
+            <div class="loading-element"></div>
+            <div class="loading-element"></div>
+            <div class="loading-element"></div>
+            <div class="loading-element"></div>
+            <div class="loading-element"></div>
+            <div class="loading-element"></div>
+            <div class="loading-element"></div>
+        </div>
+
+
+        <script src="assets/lib/jquery.min.js"></script>
+        <script src="assets/lib/bootstrap.min.js"></script>
+        <script src="assets/lib/d3.min.js"></script>
+        <script src="assets/lib/d3.layout.min.js"></script>
+        <script src="assets/lib/buffer.min.js"></script>
+        <script src="assets/lib/socket.io.min.js"></script>
+        <script src="assets/lib/codemirror/js/codemirror.js"></script>
+        <script src="assets/lib/codemirror/mode/clike/clike.js"></script>
+        <script src="assets/lib/codemirror/addon/selection/active-line.js"></script>
+        <script src="assets/js/tree.js"></script>
+        <script src="assets/js/cpu.js"></script>
+        <script src="assets/js/misc.js"></script>
     </body>
 
 </html>

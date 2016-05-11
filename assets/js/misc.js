@@ -228,8 +228,8 @@
         }
     }
 
-    function main() {
-        var initPanels, initEditor, initV9, fetchFiles, initButtons;
+    function loadLabPage() {
+        var initPanels, initEditor, initV9, initButtons;
         initPanels = function() {
             $(".panel").focus(function() {
                 $(".panel").removeClass("panel-primary");
@@ -241,6 +241,7 @@
         initEditor = function() {
             curFileId = -1;
             breakPoints = {};
+            $("#editor").show();
             editor = CodeMirror.fromTextArea(
                 document.getElementById("editor"), {
                     mode: "text/x-csrc",
@@ -262,6 +263,17 @@
                     breakPoints[point] = true;
                 }
             });
+            files.forEach(function(file, i) {
+                $("#files").append(
+                    "<li id='file" + i.toString() + "'>" +
+                    "<a href='#'>" + file.filename + "</a>" +
+                    "</li>"
+                );
+            });
+            $("#files").children().click(function() {
+                editFile($(this).text());
+            });
+            editFile("root/etc/os.c");
         };
         initV9 = function() {
             var printOut;
@@ -282,27 +294,6 @@
                 if (0 <= keyCode && keyCode <= 0x7F) {
                     v9Cpu.writeKbBuf(keyCode);
                 }
-            });
-        };
-        fetchFiles = function() {
-            var sk;
-            sk = io();
-            sk.emit('fetchFiles');
-            sk.on('filesSent', function(fetchedFiles) {
-                sk.disconnect();
-                $("#fetchingfiles").remove();
-                files = fetchedFiles;
-                files.forEach(function(file, i) {
-                    $("#files").append(
-                        "<li id='file" + i.toString() + "'>" +
-                        "<a href='#'>" + file.filename + "</a>" +
-                        "</li>"
-                    );
-                });
-                $("#files").children().click(function() {
-                    editFile($(this).text());
-                });
-                editFile("root/etc/os.c");
             });
         };
         initButtons = function() {
@@ -329,11 +320,29 @@
                 });
             });
         };
+        $('#entryPage').fadeOut('slow');
+        $("#labPage").fadeIn('slow');
         initPanels();
         initEditor();
         initV9();
-        fetchFiles();
         initButtons();
+        $("#loadingSign").hide();
     }
-    main();
+
+    function loadEntryPage() {
+        $('#newLabBtn').on('click', function() {
+            var sk;
+            $("#loadingSign").show();
+            sk = io();
+            sk.emit('fetchFiles');
+            sk.on('filesSent', function(fetchedFiles) {
+                sk.disconnect();
+                files = fetchedFiles;
+                loadLabPage();
+            });
+        });
+        // TODO: $("#oldLabBtn).on('click', ...)
+    }
+
+    loadEntryPage();
 }());

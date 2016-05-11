@@ -15,11 +15,22 @@ html {
 }
 
 /**
- * Navigation Bar
+ * Overall Style
  */
 
+html,body {
+    height:100%;
+}
+
 body {
+    background-color: #e7e7e7;
+    color: #777;
+    overflow:hidden;
     padding-top: 50px;
+}
+
+.panel {
+    outline: 2px;
 }
 
 .navbar-fixed-top {
@@ -75,14 +86,6 @@ body {
 }
 
 /**
- * Panel Style
- */
-
-.panel {
-    outline: 2px;
-}
-
-/**
  * Code Mirror
  */
 
@@ -123,7 +126,7 @@ body {
 }
 
 /**
- * Blinking Cursor in Terminal
+ * Blinking Cursor
  */
 
 .blinking-cursor {
@@ -186,6 +189,81 @@ body {
 }
 
 /**
+ * Loading Sign
+ */
+
+.loading {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 3em;
+    height: 3em;
+    margin-top: -1.5em;
+    margin-left: -1.5em;
+}
+
+.loading-element {
+    -webkit-animation: pulse 0.4s ease-in-out alternate infinite;
+    -moz-animation: pulse 0.4s ease-in-out alternate infinite;
+    animation: pulse 0.4s ease-in-out alternate infinite;
+    width: 1em;
+    height: 1em;
+    background-color: black;
+    float: left;
+}
+
+.loading-element:nth-child(2) {
+    -webkit-animation-delay: 0.1s;
+    -moz-animation-delay: 0.1s;
+    animation-delay: 0.1s;
+}
+
+.loading-element:nth-child(3) {
+    -webkit-animation-delay: 0.15s;
+    -moz-animation-delay: 0.15s;
+    animation-delay: 0.15s;
+}
+
+.loading-element:nth-child(4) {
+    -webkit-animation-delay: 0.2s;
+    -moz-animation-delay: 0.2s;
+    animation-delay: 0.2s;
+}
+
+@-webkit-keyframes pulse {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes pulse {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/**
  * Tree View
  */
 
@@ -204,4 +282,73 @@ path.link {
     fill: none;
     stroke: #ccc;
     stroke-width: 1.5px;
+}
+
+/**
+ * Entry Page
+ */
+#entryPage {
+    position:absolute; 
+    width:100%;
+    height:100%;
+    top:0;
+    left:0;
+    z-index: 2000;
+    background:rgba(231, 231, 231, 0.7);
+    color:white;
+}
+
+/**
+ * Wipeable Button
+ */
+
+[data-wipe] {
+    display: inline-block;
+    padding: 12px 18px;
+    text-decoration: none;
+    position: relative;
+    border: 2px solid #445561;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-align: left;
+    color: #445561;
+    overflow: hidden;
+}
+
+[data-wipe]:before, [data-wipe]:after {
+                        content: attr(data-wipe);
+                        padding-top: inherit;
+                        padding-bottom: inherit;
+                        white-space: nowrap;
+                        position: absolute;
+                        top: 0;
+                        overflow: hidden;
+                        color: #F1F1F2;
+                        background: #445561;
+                    }
+
+[data-wipe]:before {
+    left: 0;
+    text-indent: 18px;
+    width: 0;
+}
+
+[data-wipe]:after {
+    padding-left: inherit;
+    padding-right: inherit;
+    left: 100%;
+    text-indent: calc(-100% - 36px);
+    transition: 0.2s ease-in-out;
+}
+
+[data-wipe]:hover:before {
+    width: 100%;
+    transition: width 0.2s ease-in-out;
+}
+
+[data-wipe]:hover:after {
+    left: 0;
+    text-indent: 0;
+    transition: 0s 0.2s ease-in-out;
 }
