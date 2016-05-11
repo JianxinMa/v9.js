@@ -12,15 +12,14 @@
 
         <title>V9@Web</title>
 
-        <link href="assets/lib//bootstrap.min.css" rel="stylesheet">
         <link href="assets/lib/codemirror/css/codemirror.css" rel="stylesheet">
         <link href="assets/css/misc.css" rel="stylesheet">
     </head>
 
     <body>
-        <div id="labPage" class="blured_text">
+        <div id="labPage">
             <div id="menuContainer">
-                <ul id="menu">
+                <ul class="menu">
                     <li><a href="#">About Me</a>
 		                    <ul>
 			                      <li><a href="#">Lorem ipsum dolor</a></li>
@@ -56,54 +55,41 @@
                 </ul>
             </div>
 
-            <div class="container-fluid" style="margin-top:10px">
-                <div class="row">
-                    <div class="col-sm-3 col-md-2 sidebar">
-                        <ul class="nav nav-sidebar" id="files">
-                        </ul>
-                        <div class="row">
-                            <div class="btn-group btn-block">
-                                <button id="stepBtn" type="button"
-                                        class="btn btn-default col-xs-4"
-                                        style="color:#428bca">Step</button>
-                                <button id="contBtn" type="button"
-                                        class="btn btn-default col-xs-4"
-                                        style="color:#428bca">Continue</button>
-                                <button id="runBtn" "type="button"
-                                        class="btn btn-default col-xs-4"
-                                        style="color:#428bca">Run</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
-                        <div class="row" style="margin-top:-5px; margin-bottom: -15px">
-                            <textarea id="editor" style="display:none"></textarea>
-                        </div>
-                        <div class="row" style="margin-top:-5px; margin-bottom: -15px">
-                            <div id="terminal" tabindex="1">
-                                <div class="jquery-console-inner">
-                                    <div class="jquery-console-message">
-                                        <span id="termtext">No process running.</span><span id="termcursor">&nbsp</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row" style="margin-top:-5px; margin-bottom: -5px">
-                            <div id="treeView" style="font-family: 'Helvetica Neue', Helvetica;">
-                            </div>
-                        </div>
+            <div>
+                <ul class="menu">
+                    <li><a href="#">Files</a>
+		                    <ul id="files">
+		                    </ul>
+	                  </li>
+	                  <li><a href="#">Support</a></li>
+                </ul>
+            </div>
+                <button id="stepBtn" type="button"
+                        style="color:#428bca">Step</button>
+                <button id="contBtn" type="button"
+                        style="color:#428bca">Continue</button>
+                <button id="runBtn" "type="button"
+                        style="color:#428bca">Run</button>
+            <textarea id="editor" style="display:none"></textarea>
+            <div id="terminal" tabindex="1">
+                <div class="jquery-console-inner">
+                    <div class="jquery-console-message">
+                        <span id="termtext">No process running.</span><span id="termcursor">&nbsp</span>
                     </div>
                 </div>
             </div>
+            <div id="treeView">
+            </div>
+        </div>
         </div>
 
         <div id="entryPage">
-            <div class="row">
+            <div>
                 <a id="newLabBtn" href="#" class="btn" data-wipe="create a new lab">
                     create a new lab
                 </a>
             </div>
-            <div class="row">
+            <div>
                 <a id="oldLabBtn" href="#" class="btn" data-wipe="use an existing lab">
                     use an existing lab
                 </a>
@@ -123,7 +109,6 @@
         </div>
 
         <script src="assets/lib/jquery.min.js"></script>
-        <script src="assets/lib/bootstrap.min.js"></script>
         <script src="assets/lib/d3.min.js"></script>
         <script src="assets/lib/d3.layout.min.js"></script>
         <script src="assets/lib/buffer.min.js"></script>

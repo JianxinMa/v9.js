@@ -19,6 +19,7 @@ html {
  */
 
 html,body {
+    font-family: sans-serif;
     height:100%;
     background-color: #e7e7e7;
     color: #777;
@@ -29,22 +30,20 @@ html,body {
 }
 
 /**
- * Main Menu Bar
+ * Menu Bar
  */
 
 body {
     padding-top: 30px;
-		font-family: "Helvetica Neue", helvetica, arial; 
 }
 
-#menuContainer {
+.menuContainer {
 		position: fixed;
     top: 0;
 		width: 100%;
-    z-index: 1000;
 }
 
-#menu {
+.menu {
 		position: relative;
 		float: left;
 		width: 100%;
@@ -54,26 +53,25 @@ body {
 		background: #ccc; 
 }
 
-#menu, #menu ul {
+.menu, .menu ul {
 		list-style: none;
 }
 
-#menu > li {
+.menu > li {
 		float: left;
 		position: relative;
 		border-right: 1px solid rgba(0,0,0,.1);
 		box-shadow: 1px 0 0 rgba(255,255,255,.25);		
 }
 
-#menu > li:first-child {
+.menu > li:first-child {
 		border-left: 1px solid rgba(255,255,255,.25);
 		box-shadow: -1px 0 0 rgba(0,0,0,.1), 1px 0 0 rgba(255,255,255,.25);
 }
 
-#menu a {
+.menu a {
 		display: block;
 		position: relative;
-		z-index: 10;
 		padding: 13px 20px 13px 20px;
 		text-decoration: none;
 		color: rgba(75,75,75,1);
@@ -87,16 +85,16 @@ body {
 	  
 }
 
-#menu > li:hover > a {
+.menu > li:hover > a {
 		background: #eee;
 		color: rgba(132,132,132,1);
 		text-shadow: none;
 }
 
-#menu li ul  {
+.menu li ul  {
+    z-index: 20;
 		position: absolute;
 		left: 0;
-		z-index: 1;
 		width: 200px;
 		padding: 0;
 		opacity: 0;
@@ -109,7 +107,7 @@ body {
 }
 
 
-#menu li:hover ul {
+.menu li:hover ul {
 		
 		padding: 15px 0;
 		background: #ccc;
@@ -144,7 +142,7 @@ body {
 		}
 }
 
-#menu li li a {
+.menu li li a {
 		padding-left: 15px;
 		font-weight: 400;
 		color: #000;
@@ -154,59 +152,11 @@ body {
 		transition: all .15s linear;
 }
 
-#menu li li a:hover {
+.menu li li a:hover {
 		color: rgba(32,32,32,1);
 		border-top: dotted 1px rgba(255,255,255,.15);
 		border-bottom: dotted 1px rgba(255,255,255,.15);
 		background: rgba(233,233,233,.8);
-}
-
-/**
- * Side Bar
- */
-
-.main {
-    padding-top: 0;
-    padding-right: 20px;
-    padding-left: 20px;
-}
-
-.sidebar {
-    display: none;
-}
-
-@media (min-width: 768px) {
-    .sidebar {
-        position: fixed;
-        top: 51px;
-        bottom: 0;
-        left: 0;
-        z-index: 500;
-        display: block;
-        padding: 20px;
-        overflow-x: hidden;
-        overflow-y: auto;
-        background-color: #f5f5f5;
-        border-right: 1px solid #eee;
-    }
-}
-
-.nav-sidebar {
-    margin-right: -21px;
-    margin-bottom: 20px;
-    margin-left: -20px;
-}
-
-.nav-sidebar > li > a {
-    padding-right: 20px;
-    padding-left: 20px;
-}
-
-.nav-sidebar > .active > a,
-.nav-sidebar > .active > a:hover,
-.nav-sidebar > .active > a:focus {
-    color: #fff;
-    background-color: #428bca;
 }
 
 /**
@@ -324,7 +274,7 @@ body {
     height: 3em;
     margin-top: -1.5em;
     margin-left: -1.5em;
-    z-index: 5000;
+    z-index: 30;
 }
 
 .loading-element {
@@ -419,7 +369,7 @@ path.link {
     height:100%;
     top:0;
     left:0;
-    z-index: 2000;
+    z-index: 25;
     background:rgba(231, 231, 231, 0.7);
     color:white;
 }
