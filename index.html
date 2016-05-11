@@ -77,34 +77,19 @@
                     </div>
                     <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
                         <div class="row" style="margin-top:-5px; margin-bottom: -15px">
-                            <div tabindex="1" id="edpanel" class="panel panel-primary">
-                                <div class="panel-heading">
-                                    <h3 class="panel-title">Editor</h3>
-                                </div>
-                                <textarea id="editor" style="display:none"></textarea>
-                            </div>
+                            <textarea id="editor" style="display:none"></textarea>
                         </div>
                         <div class="row" style="margin-top:-5px; margin-bottom: -15px">
-                            <div tabindex="1" id="termpanel" class="panel panel-default">
-                                <div class="panel-heading">
-                                    <h3 class="panel-title">Terminal</h3>
-                                </div>
-                                <div id="terminal">
-                                    <div class="jquery-console-inner">
-                                        <div class="jquery-console-message">
-                                            <span id="termtext">No process running.</span><span id="termcursor">&nbsp</span>
-                                        </div>
+                            <div id="terminal" tabindex="1">
+                                <div class="jquery-console-inner">
+                                    <div class="jquery-console-message">
+                                        <span id="termtext">No process running.</span><span id="termcursor">&nbsp</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div class="row" style="margin-top:-5px; margin-bottom: -5px">
-                            <div id="monpanel" tabindex="1" class="panel panel-default">
-                                <div class="panel-heading">
-                                    <h3 class="panel-title">Monitor</h3>
-                                </div>
-                                <div id="treeView" style="font-family: 'Helvetica Neue', Helvetica;">
-                                </div>
+                            <div id="treeView" style="font-family: 'Helvetica Neue', Helvetica;">
                             </div>
                         </div>
                     </div>
@@ -146,7 +131,6 @@
         <script src="assets/lib/codemirror/js/codemirror.js"></script>
         <script src="assets/lib/codemirror/mode/clike/clike.js"></script>
         <script src="assets/lib/codemirror/addon/selection/active-line.js"></script>
-        <script src="assets/js/tree.js"></script>
         <script src="assets/js/cpu.js"></script>
         <script src="assets/js/misc.js"></script>
     </body>
