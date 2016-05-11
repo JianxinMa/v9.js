@@ -1,21 +1,39 @@
+/**
+ *  Sane Box Sizing
+ */
+
+html {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+*,*:before,*:after {
+    -webkit-box-sizing: inherit;
+    -moz-box-sizing: inherit;
+    box-sizing: inherit;
+}
+
+/**
+ * Navigation Bar
+ */
+
 body {
     padding-top: 50px;
 }
 
-.breakpoints {
-    width: .8em;
-}
-
-.CodeMirror {
-    height: auto;
-}
-
-.CodeMirror-scroll {
-    max-height: 600px;
-}
-
 .navbar-fixed-top {
     border: 0;
+}
+
+/**
+ * Side Bar
+ */
+
+.main {
+    padding-top: 0;
+    padding-right: 20px;
+    padding-left: 20px;
 }
 
 .sidebar {
@@ -56,15 +74,33 @@ body {
     background-color: #428bca;
 }
 
-.main {
-    padding-top: 0;
-    padding-right: 20px;
-    padding-left: 20px;
-}
+/**
+ * Panel Style
+ */
 
 .panel {
     outline: 2px;
 }
+
+/**
+ * Code Mirror
+ */
+
+.breakpoints {
+    width: .8em;
+}
+
+.CodeMirror {
+    height: auto;
+}
+
+.CodeMirror-scroll {
+    max-height: 600px;
+}
+
+/**
+ * Terminal Theme
+ */
 
 #terminal {
     word-wrap: break-word;
@@ -85,6 +121,10 @@ body {
     font-family: monospace;
     padding: 0.1em;
 }
+
+/**
+ * Blinking Cursor in Terminal
+ */
 
 .blinking-cursor {
     background: #bbb;
@@ -143,4 +183,25 @@ body {
     50% {
         color: white;
     }
+}
+
+/**
+ * Tree View
+ */
+
+.node circle {
+    cursor: pointer;
+    fill: #fff;
+    stroke: steelblue;
+    stroke-width: 1.5px;
+}
+
+.node text {
+    font-size: 11px;
+}
+
+path.link {
+    fill: none;
+    stroke: #ccc;
+    stroke-width: 1.5px;
 }
