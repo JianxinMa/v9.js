@@ -76,7 +76,6 @@ html, body {
 
 #menuMain .menu {
     height: 40px;
-    padding: 0 10px;
 }
 
 #menuMain .menu a {
@@ -98,6 +97,7 @@ html, body {
     inset 0 -1px 0 rgba(0,0,0,.15),
     0 1px 3px rgba(0,0,0,.15);
 		background: #ccc; 
+    padding: 0 10px;
 }
 
 .menu, .menu ul {
@@ -125,10 +125,9 @@ html, body {
 		line-height: 0.1;
 		font-weight: 600;
 		font-size: 11px;
-		letter-spacing: -.05em;
 		background: transparent;		
 		text-shadow: 0 1px 1px rgba(255,255,255,.9);
-		transition: all .25s ease-in-out;
+		transition: all .05s ease-in-out;
 	  
 }
 
@@ -136,6 +135,12 @@ html, body {
 		background: #eee;
 		color: rgba(132,132,132,1);
 		text-shadow: none;
+}
+
+.menu > li:hover > .disabled {
+		color: rgba(75,75,75,1);
+		background: transparent;		
+		text-shadow: 0 1px 1px rgba(255,255,255,.9);
 }
 
 .menu li ul  {
@@ -160,7 +165,7 @@ html, body {
 		visibility: visible;
 		box-shadow: 1px 1px 7px rgba(0,0,0,.5);
 		animation-name: swingdown;
-		animation-duration: 1s;
+		animation-duration: 0.2s;
 		animation-timing-function: ease;
 }
 
@@ -171,7 +176,7 @@ html, body {
 		text-shadow: none;
 		border-top: dotted 1px transparent;
 		border-bottom: dotted 1px transparent;
-		transition: all .15s linear;
+		transition: all .05s linear;
 }
 
 .menu li li a:hover {

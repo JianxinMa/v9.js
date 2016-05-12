@@ -213,6 +213,7 @@
         if (line) {
             editor.setCursor(line - 1);
         }
+        $("#currentFile").text('~ ' + name + ' ~');
     }
 
     function findMatched(s, l) {
@@ -239,7 +240,7 @@
         hexify = function(k, pad) {
             if (typeof k === 'number') {
                 return '0x' + ((pad ? '00000000' : '') +
-                               k.toString(16)).substr(-8);
+                    k.toString(16)).substr(-8);
             }
             return k;
         };
@@ -285,7 +286,7 @@
                 memType = memType.substr(i);
                 for (i = 0; i < j; i = i + 1) {
                     k.children.push(getOneVarValue('[' + i.toString() + ']',
-                                                   v + i * offset, memType, showType, showAddr));
+                        v + i * offset, memType, showType, showAddr));
                 }
                 return k;
             }
@@ -314,7 +315,7 @@
                     offset = Number(memType.substr(0, i));
                     memType = memType.substr(i + 1);
                     k.children.push(getOneVarValue('.' + name, v + offset,
-                                                   memType, showType, showAddr));
+                        memType, showType, showAddr));
                 }
                 return k;
             }
@@ -349,16 +350,16 @@
             point = point.split(' ');
             editFile(point[0], Number(point[1]));
             renderTreeView({
-                name: "Scope",
-                children: [{
-                    name: "Local",
-                    children: getVarValues(localDefs)
-                }, {
-                    name: "Global",
-                    children: getVarValues(globalDefs)
-                }]
-            },
-                           2);
+                    name: "Scope",
+                    children: [{
+                        name: "Local",
+                        children: getVarValues(localDefs)
+                    }, {
+                        name: "Global",
+                        children: getVarValues(globalDefs)
+                    }]
+                },
+                2);
         }
         $("#termcursor").removeClass("blinking-cursor");
     }
@@ -366,9 +367,7 @@
     function onCpuReady(cb) {
         var sk;
         $("#loadingSign").show();
-        // TODO:
-        //   Checking only current file is not enough.
-        //   What if I change a file, switch to another file and run?
+        // TODO: need check non-current files as well.
         if (saveCurrentFile() || v9Cpu.needInit()) {
             sk = io();
             sk.emit('compileFiles', files);
@@ -391,14 +390,14 @@
         var initFileList, initV9, initButtons;
         initFileList = function() {
             files.forEach(function(file, i) {
-                $("#files").append(
+                $('#files' + file.filename.substr(5, 3).toUpperCase()).append(
                     "<li id='file" + i.toString() + "'>" +
-                        "<a href='#'>" + file.filename + "</a>" +
-                        "</li>"
+                    "<a href='#'>" + file.filename + "</a>" +
+                    "</li>"
                 );
-            });
-            $("#files").children().click(function() {
-                editFile($(this).text());
+                $("#file" + i.toString()).click(function() {
+                    editFile($(this).text());
+                });
             });
             editFile("root/etc/os.c");
         };
@@ -409,6 +408,7 @@
                 if (fd === 2) {
                     console.log(msg);
                 }
+                // TODO: many other ASCII chars to be converted.
                 msg = msg.replace(/\t/g, '&nbsp;&nbsp;');
                 msg = msg.replace(/\n/g, '<br/>');
                 termtext = $("#termtext");
