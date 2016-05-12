@@ -18,7 +18,7 @@
 
     <body>
         <div id="labPage">
-            <div id="menuContainer">
+            <div id="menuMain">
                 <ul class="menu">
                     <li><a href="#">About Me</a>
 		                    <ul>
@@ -64,12 +64,10 @@
 	                  <li><a href="#">Support</a></li>
                 </ul>
             </div>
-                <button id="stepBtn" type="button"
-                        style="color:#428bca">Step</button>
-                <button id="contBtn" type="button"
-                        style="color:#428bca">Continue</button>
-                <button id="runBtn" "type="button"
-                        style="color:#428bca">Run</button>
+            <a id="stepBtn" class="btn" href="#">Step</a>
+            <a id="contBtn" class="btn" href="#">Continue</a>
+            <a id="runBtn" class="btn" href="#">Run</a>
+            <a id="viewBtn" class="btn disabled" href="#">Inspect</a>
             <textarea id="editor" style="display:none"></textarea>
             <div id="terminal" tabindex="1">
                 <div class="jquery-console-inner">
@@ -85,12 +83,12 @@
 
         <div id="entryPage">
             <div>
-                <a id="newLabBtn" href="#" class="btn" data-wipe="create a new lab">
+                <a id="newLabBtn" href="#" data-wipe="create a new lab">
                     create a new lab
                 </a>
             </div>
             <div>
-                <a id="oldLabBtn" href="#" class="btn" data-wipe="use an existing lab">
+                <a id="oldLabBtn" href="#" data-wipe="use an existing lab">
                     use an existing lab
                 </a>
             </div>
