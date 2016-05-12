@@ -20,13 +20,7 @@
         <div id="labPage">
             <div id="menuMain">
                 <ul class="menu">
-                    <li><a href="#">About Me</a>
-		                    <ul>
-			                      <li><a href="#">Lorem ipsum dolor</a></li>
-			                      <li><a href="#">Maecenas lacinia sem</a></li>
-			                      <li><a href="#">Suspendisse fringilla</a></li>
-		                    </ul>
-	                  </li>
+	                  <li><a href="#">Project</a></li>
 	                  <li><a href="#">Portfolio</a>
 		                    <ul>
 			                      <li><a href="#">Lorem ipsum dolor</a></li>
@@ -54,31 +48,41 @@
 	                  <li><a href="#">Support</a></li>
                 </ul>
             </div>
-
-            <div>
-                <ul class="menu">
-                    <li><a href="#">Files</a>
-		                    <ul id="files">
-		                    </ul>
-	                  </li>
-	                  <li><a href="#">Support</a></li>
-                </ul>
-            </div>
-            <a id="stepBtn" class="btn" href="#">Step</a>
-            <a id="contBtn" class="btn" href="#">Continue</a>
-            <a id="runBtn" class="btn" href="#">Run</a>
-            <a id="viewBtn" class="btn disabled" href="#">Inspect</a>
-            <textarea id="editor" style="display:none"></textarea>
-            <div id="terminal" tabindex="1">
-                <div class="jquery-console-inner">
-                    <div class="jquery-console-message">
-                        <span id="termtext">No process running.</span><span id="termcursor">&nbsp</span>
+            <div class="col-2-1">
+                <div class="row-2-1">
+                    <ul class="menu">
+                        <li><a href="#">Files</a>
+                            <ul id="files"></ul>
+                        </li>
+                    </ul>
+                </div>
+                <div class="row-2-2">
+                    <textarea id="editor"></textarea>
+                </div>
+            </div><div class="col-2-2">  <!-- No space between inline-blocks. -->
+                <div class="row-2-1">
+                    <ul class="rbar">
+                        <li><a id="runBtn" class="btn" href="#">Run</a></li>
+                        <li><a id="contBtn" class="btn" href="#">Continue</a></li>
+                        <li><a id="stepBtn" class="btn" href="#">Step</a></li>
+                        <li><a id="viewBtn" class="btn disabled" href="#">Inspect</a></li>
+                    </ul>
+                </div>
+                <div class="row-2-2">
+                    <div id="terminal" tabindex="1">
+                        <div class="jquery-console-inner">
+                            <div class="jquery-console-message">
+                                <span id="termtext">No process
+                                    running.</span><span id="termcursor">&nbsp</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div id="treeView">
-            </div>
         </div>
+
+        <div id="inspectPage" style="display:none">
+            <div id="treeView"></div>
         </div>
 
         <div id="entryPage">

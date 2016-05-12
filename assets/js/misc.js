@@ -339,6 +339,7 @@
     function doAtCpuReady() {
         $("#loadingSign").hide();
         $("#termcursor").addClass("blinking-cursor");
+        $("#terminal").focus();
     }
 
     function doAtCpuPause(point, localDefs, globalDefs) {
@@ -387,29 +388,8 @@
     }
 
     function loadLabPage() {
-        var initEditor, initV9, initButtons;
-        initEditor = function() {
-            curFileId = -1;
-            breakPoints = {};
-            $("#editor").show();
-            editor = CodeMirror.fromTextArea(
-                document.getElementById("editor"), {
-                    mode: "text/x-csrc",
-                    styleActiveLine: true,
-                    lineNumbers: true,
-                    gutters: ["CodeMirror-linenumbers", "breakPoints"]
-                });
-            editor.on("gutterClick", function(cm, ln) {
-                var point;
-                point = files[curFileId].filename + ' ' + (ln + 1).toString();
-                if (cm.lineInfo(ln).gutterMarkers) {
-                    cm.setGutterMarker(ln, "breakPoints", null);
-                    delete breakPoints[point];
-                } else {
-                    cm.setGutterMarker(ln, "breakPoints", makeMarker());
-                    breakPoints[point] = true;
-                }
-            });
+        var initFileList, initV9, initButtons;
+        initFileList = function() {
             files.forEach(function(file, i) {
                 $("#files").append(
                     "<li id='file" + i.toString() + "'>" +
@@ -469,25 +449,53 @@
         };
         $('#entryPage').fadeOut('slow');
         $("#labPage").fadeIn('slow');
-        initEditor();
+        initFileList();
         initV9();
         initButtons();
         $("#loadingSign").hide();
     }
 
     function loadEntryPage() {
-        $('#newLabBtn').on('click', function() {
-            var sk;
-            $("#loadingSign").show();
-            sk = io();
-            sk.emit('fetchFiles');
-            sk.on('filesSent', function(fetchedFiles) {
-                sk.disconnect();
-                files = fetchedFiles;
-                loadLabPage();
+        var initCodeMirror, initEntryButtons;
+        initCodeMirror = function() {
+            curFileId = -1;
+            breakPoints = {};
+            $("#editor").show();
+            editor = CodeMirror.fromTextArea(
+                document.getElementById("editor"), {
+                    mode: "text/x-csrc",
+                    styleActiveLine: true,
+                    lineNumbers: true,
+                    gutters: ["CodeMirror-linenumbers", "breakPoints"]
+                });
+            editor.on("gutterClick", function(cm, ln) {
+                var point;
+                point = files[curFileId].filename + ' ' + (ln + 1).toString();
+                if (cm.lineInfo(ln).gutterMarkers) {
+                    cm.setGutterMarker(ln, "breakPoints", null);
+                    delete breakPoints[point];
+                } else {
+                    cm.setGutterMarker(ln, "breakPoints", makeMarker());
+                    breakPoints[point] = true;
+                }
             });
-        });
-        // TODO: $("#oldLabBtn).on('click', ...)
+        };
+        initEntryButtons = function() {
+            $('#newLabBtn').on('click', function() {
+                var sk;
+                $("#loadingSign").show();
+                sk = io();
+                sk.emit('fetchFiles');
+                sk.on('filesSent', function(fetchedFiles) {
+                    sk.disconnect();
+                    files = fetchedFiles;
+                    loadLabPage();
+                });
+            });
+            // TODO: $("#oldLabBtn).on('click', ...)
+        };
+        initCodeMirror();
+        initEntryButtons();
     }
 
     loadEntryPage();
