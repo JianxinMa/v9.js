@@ -38,6 +38,18 @@ html, body {
     left:0;
 }
 
+#entryPage {
+    z-index: 120;
+    background:rgba(231, 231, 231, 0.7);
+    color:white;
+}
+
+#inspectPage {
+    z-index: 120;
+    background:rgba(231, 231, 231, 0.95);
+    color:white;
+}
+
 .col-2-1, .col-2-2 {
     display: inline-block;
     vertical-align:top;
@@ -71,7 +83,7 @@ html, body {
 		position: fixed;
     top: 0;
 		width: 100%;
-    z-index: 25;
+    z-index: 110;
 }
 
 #menuMain .menu {
@@ -148,7 +160,7 @@ html, body {
 }
 
 .menu li ul  {
-    z-index: 20;
+    z-index: 100;
 		position: absolute;
 		left: 0;
 		width: 200px;
@@ -373,7 +385,7 @@ html, body {
     height: 3em;
     margin-top: -1.5em;
     margin-left: -1.5em;
-    z-index: 30;
+    z-index: 130;
 }
 
 .loading-element {
@@ -441,6 +453,17 @@ html, body {
  * Inspection Page
  */
 
+#treeView {
+    width: 100%;
+    height: 100%;
+}
+
+#closeInspectBtn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+
 .node circle {
     cursor: pointer;
     fill: #fff;
@@ -459,14 +482,8 @@ path.link {
 }
 
 /**
- * Entry Page
+ * Entry Page Buttons
  */
-
-#entryPage {
-    z-index: 25;
-    background:rgba(231, 231, 231, 0.7);
-    color:white;
-}
 
 #newLabBtn, #oldLabBtn {
     position: absolute;
@@ -576,4 +593,28 @@ path.link {
     box-shadow: 0 0 0 0 #444 inset, 0.3em 0.2em 0 0 #bbb;
     -webkit-transform: translate(0, 0);
     color: #444;
+}
+
+/**
+ * Circle Button
+ */
+
+.circle-btn {
+    color:#888;
+    display:block;
+    margin:auto;
+    width:25px;
+    height:25px;
+    text-align:center;
+    text-decoration:none;
+    padding:2.5px;
+    border:1px solid #555;
+    border-radius:50%;
+    text-shadow: 0 0 1px #555;
+    box-shadow:0 0 1px #555;
+}
+
+.circle-btn:hover {
+    color:#666;
+    border:2px solid #555;
 }

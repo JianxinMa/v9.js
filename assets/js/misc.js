@@ -338,6 +338,7 @@
     }
 
     function doAtCpuReady() {
+        $("#viewBtn").addClass("disabled");
         $("#loadingSign").hide();
         $("#termcursor").addClass("blinking-cursor");
         $("#terminal").focus();
@@ -350,16 +351,16 @@
             point = point.split(' ');
             editFile(point[0], Number(point[1]));
             renderTreeView({
-                    name: "Scope",
-                    children: [{
-                        name: "Local",
-                        children: getVarValues(localDefs)
-                    }, {
-                        name: "Global",
-                        children: getVarValues(globalDefs)
-                    }]
-                },
-                2);
+                name: "Scope",
+                children: [{
+                    name: "Local",
+                    children: getVarValues(localDefs)
+                }, {
+                    name: "Global",
+                    children: getVarValues(globalDefs)
+                }]
+            }, 2);
+            $("#viewBtn").removeClass("disabled");
         }
         $("#termcursor").removeClass("blinking-cursor");
     }
@@ -424,27 +425,29 @@
             });
         };
         initButtons = function() {
-            var runBtn, stepBtn, contBtn;
-            runBtn = $("#runBtn");
-            runBtn.click(function() {
+            $("#runBtn").click(function() {
                 onCpuReady(function() {
                     doAtCpuReady();
                     v9Cpu.runNonStop(doAtCpuPause);
                 });
             });
-            stepBtn = $("#stepBtn");
-            stepBtn.click(function() {
+            $("#stepBtn").click(function() {
                 onCpuReady(function() {
                     doAtCpuReady();
                     v9Cpu.runSingleStep(doAtCpuPause);
                 });
             });
-            contBtn = $("#contBtn");
-            contBtn.click(function() {
+            $("#contBtn").click(function() {
                 onCpuReady(function() {
                     doAtCpuReady();
                     v9Cpu.runUntilBreak(doAtCpuPause);
                 });
+            });
+            $("#viewBtn").click(function() {
+                $("#inspectPage").fadeIn('fast');
+            });
+            $("#closeInspectBtn").click(function() {
+                $("#inspectPage").fadeOut('fast');
             });
         };
         $('#entryPage').fadeOut('slow');
