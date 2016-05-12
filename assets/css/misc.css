@@ -83,6 +83,10 @@ html, body {
 		font-size: 12px;
 }
 
+#menuMain .menu > li {
+    float: right;
+}
+
 /**
  * Menu Bar
  */
@@ -555,7 +559,7 @@ path.link {
     margin: auto;
     padding: 0.7em;
     text-align: center;
-    transition: 0.25s box-shadow, 0.25s -webkit-transform;
+    transition: 0.05s box-shadow, 0.05s -webkit-transform;
 }
 
 .btn:hover {
