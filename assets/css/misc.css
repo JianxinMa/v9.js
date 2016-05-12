@@ -15,7 +15,7 @@ html {
 }
 
 /**
- * Overall Style
+ * Overall Layout
  */
 
 * {
@@ -253,6 +253,21 @@ html, body {
     height: 100%;
     border: 2px solid #ddd; 
 }
+
+/**
+ * Scroll Bar Forever
+ */
+
+.CodeMirror *::-webkit-scrollbar {
+    -webkit-appearance: none;
+    width: 10px;
+}
+.CodeMirror *::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+    background-color: rgba(0,0,0,.2);
+    -webkit-box-shadow: 0 0 1px rgba(255,255,255,.8);
+}
+
 
 /**
  * Terminal Theme
