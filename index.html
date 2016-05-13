@@ -12,9 +12,18 @@
 
         <title>V9@Web: An In-browser Operating System Learning Platform</title>
 
-
         <link href="assets/lib/codemirror/css/codemirror.css" rel="stylesheet">
         <link href="assets/css/misc.css" rel="stylesheet">
+
+        <script src="assets/lib/jquery.min.js"></script>
+        <script src="assets/lib/d3.min.js"></script>
+        <script src="assets/lib/d3.layout.min.js"></script>
+        <script src="assets/lib/buffer.min.js"></script>
+        <script src="assets/lib/socket.io.min.js"></script>
+        <script src="assets/lib/codemirror/js/codemirror.js"></script>
+        <script src="assets/lib/codemirror/mode/clike/clike.js"></script>
+        <script src="assets/lib/codemirror/addon/selection/active-line.js"></script>
+        <script src="assets/js/cpu.js"></script>
     </head>
 
     <body>
@@ -80,7 +89,7 @@
                     </ul>
                 </div>
                 <div class="row-2-2">
-                    <textarea id="editor"></textarea>
+                    <textarea id="editor" style="display:none"></textarea>
                 </div>
             </div><div class="col-2-2">  <!-- No space between inline-blocks. -->
                 <div class="row-2-1">
@@ -134,15 +143,6 @@
             <div class="loading-element"></div>
         </div>
 
-        <script src="assets/lib/jquery.min.js"></script>
-        <script src="assets/lib/d3.min.js"></script>
-        <script src="assets/lib/d3.layout.min.js"></script>
-        <script src="assets/lib/buffer.min.js"></script>
-        <script src="assets/lib/socket.io.min.js"></script>
-        <script src="assets/lib/codemirror/js/codemirror.js"></script>
-        <script src="assets/lib/codemirror/mode/clike/clike.js"></script>
-        <script src="assets/lib/codemirror/addon/selection/active-line.js"></script>
-        <script src="assets/js/cpu.js"></script>
         <script src="assets/js/misc.js"></script>
     </body>
 

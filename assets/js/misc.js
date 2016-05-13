@@ -182,38 +182,37 @@
         return false;
     }
 
+    function renderBreakPoints() {
+        var point, name;
+        name = files[curFileId].filename;
+        editor.clearGutter("breakPoints");
+        for (point in breakPoints) {
+            if (breakPoints.hasOwnProperty(point)) {
+                if (point.startsWith(name + ' ')) {
+                    editor.setGutterMarker(
+                        Number(point.split(' ')[1]) - 1,
+                        "breakPoints",
+                        makeMarker());
+                }
+            }
+        }
+    }
+
     function editFile(name, line) {
         if (curFileId === -1 || files[curFileId].filename !== name) {
             files.forEach(function(file, i) {
-                var point, items;
                 if (file.filename === name) {
                     saveCurrentFile();
                     curFileId = i;
                     editor.setValue(file.content);
-                    items = $("#files").children();
-                    items.removeClass("active");
-                    items.each(function() {
-                        if ($(this).text() === name) {
-                            $(this).addClass("active");
-                        }
-                    });
-                    for (point in breakPoints) {
-                        if (breakPoints.hasOwnProperty(point)) {
-                            if (point.startsWith(name + ' ')) {
-                                editor.setGutterMarker(
-                                    Number(point.split(' ')[1]) - 1,
-                                    "breakPoints",
-                                    makeMarker());
-                            }
-                        }
-                    }
+                    $("#currentFile").text('~ ' + name + ' ~');
+                    renderBreakPoints();
                 }
             });
         }
         if (line) {
             editor.setCursor(line - 1);
         }
-        $("#currentFile").text('~ ' + name + ' ~');
     }
 
     function findMatched(s, l) {
@@ -482,6 +481,7 @@
                     breakPoints[point] = true;
                 }
             });
+            editor.on("change", renderBreakPoints);
         };
         initEntryButtons = function() {
             $('#newLabBtn').on('click', function() {
