@@ -19,8 +19,9 @@
         <script src="assets/lib/d3.min.js"></script>
         <script src="assets/lib/d3.layout.min.js"></script>
         <script src="assets/lib/buffer.min.js"></script>
+        <script src="assets/lib/jszip.min.js"></script>
         <script src="assets/lib/socket.io.min.js"></script>
-        <script src="assets/lib/codemirror/js/codemirror.js"></script>
+        <script src="assets/lib/codemirror/js/codemirror.min.js"></script>
         <script src="assets/lib/codemirror/mode/clike/clike.js"></script>
         <script src="assets/lib/codemirror/addon/selection/active-line.js"></script>
         <script src="assets/js/cpu.js"></script>
@@ -34,9 +35,6 @@
 	                  <li style="float:left"><a target="_blank"
                                               href="https://github.com/JianxinMa/v9.js">
                         <strong>V9@Web</strong>
-                    </a></li>
-                    <li style="float:left"><a href="#" class="disabled">
-                        An In-browser Operating System Learning Platform
                     </a></li>
                     <li><a href="#" class="disabled">&nbsp</a></li>
 	                  <li><a href="#" class="disabled">2016 Spring</a></li>
@@ -128,6 +126,7 @@
                 <a id="oldLabBtn" href="#" data-wipe="use an existing lab">
                     use an existing lab
                 </a>
+                <input type="file" id="askForFiles" name="file" style="display:none"/>
             </div>
         </div>
 

@@ -1,5 +1,5 @@
 /*jslint white:true browser:true maxlen:80 */
-/*global CodeMirror, d3, $, createV9, io */
+/*global CodeMirror, d3, $, createV9, io, JSZip */
 
 "use strict";
 
@@ -458,7 +458,7 @@
     }
 
     function loadEntryPage() {
-        var initCodeMirror, initEntryButtons;
+        var initCodeMirror, initFileLoader, initEntryButtons;
         initCodeMirror = function() {
             curFileId = -1;
             breakPoints = {};
@@ -483,6 +483,52 @@
             });
             editor.on("change", renderBreakPoints);
         };
+        initFileLoader = function() {
+            $("#askForFiles").on("change", function(event) {
+                files = [];
+                JSZip
+                    .loadAsync(event.target.files[0])
+                    .then(function(zip) {
+                        var numTask, finished;
+                        numTask = 0;
+                        zip.forEach(function(path, entry) {
+                            if (!entry.dir) {
+                                numTask += 1;
+                                if (!(path.endsWith('.c') ||
+                                        path.endsWith('.h') ||
+                                        path.endsWith('.txt'))) {
+                                    console.log('Unexpected extension : ' +
+                                        path);
+                                }
+                            }
+                        });
+                        finished = 0;
+                        zip.forEach(function(path, entry) {
+                            if (!entry.dir) {
+                                zip.file(path).async('string').then(
+                                    function(d) {
+                                        files.push({
+                                            // TODO: path separator on windows.
+                                            filename: path,
+                                            encoding: 'utf8',
+                                            content: d
+                                        });
+                                        finished += 1;
+                                        if (finished === numTask) {
+                                            loadLabPage();
+                                        }
+                                    },
+                                    function(e) {
+                                        console.log("Error extracting file " +
+                                            path + " : " + e.message);
+                                    });
+                            }
+                        });
+                    }, function(e) {
+                        console.log("Error reading file : " + e.message);
+                    });
+            });
+        };
         initEntryButtons = function() {
             $('#newLabBtn').on('click', function() {
                 var sk;
@@ -495,9 +541,12 @@
                     loadLabPage();
                 });
             });
-            // TODO: $("#oldLabBtn).on('click', ...)
+            $("#oldLabBtn").on('click', function() {
+                $("#askForFiles").click();
+            });
         };
         initCodeMirror();
+        initFileLoader();
         initEntryButtons();
     }
 
