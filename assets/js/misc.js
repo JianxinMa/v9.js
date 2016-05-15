@@ -1,5 +1,5 @@
 /*jslint white:true browser:true maxlen:80 */
-/*global CodeMirror, d3, $, createV9, io, JSZip */
+/*global CodeMirror, d3, $, createV9, io, JSZip, saveAs */
 
 "use strict";
 
@@ -447,6 +447,19 @@
             });
             $("#closeInspectBtn").click(function() {
                 $("#inspectPage").fadeOut('fast');
+            });
+            $("#downloadBtn").click(function() {
+                var zip;
+                zip = new JSZip();
+                files.forEach(function(file) {
+                    zip.file(file.filename, file.content);
+                });
+                zip.generateAsync({
+                    type: "blob"
+                }).then(function(d) {
+                    saveCurrentFile();
+                    saveAs(d, "lab.zip");
+                });
             });
         };
         $('#entryPage').fadeOut('slow');
