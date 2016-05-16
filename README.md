@@ -28,3 +28,10 @@ sudo node server.js
 ```
 
 It will listen at port 80.
+
+Oops, there are some binary files. You need to run:
+```bash
+./init.sh
+```
+to generate binary files for your platform. You will need `gcc-multilib` to do so.
+Note: we will remove dependency on these binary files later.
