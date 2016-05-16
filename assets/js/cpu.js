@@ -3869,6 +3869,22 @@ function createV9(printOut, breakPoints) {
         runUntilBreak(cb, true);
     }
 
+    // TODO: remove this when production ready.
+    function runNonDebug(cb) {
+        var i;
+        cpuEvent = setInterval(function() {
+            for (i = 0; i < (1 << 18); i = i + 1) {
+                if (regNextHdlr === 0) {
+                    pauseRunning();
+                    cb();
+                    return;
+                }
+                unsignRegs();
+                regNextHdlr();
+            }
+        }, 50);
+    }
+
     function writeKbBuf(c) {
         kbBuffer.push(c);
     }
@@ -3937,6 +3953,7 @@ function createV9(printOut, breakPoints) {
         setupSoftware: setupSoftware,
         pauseRunning: pauseRunning,
         runNonStop: runNonStop,
+        // runNonStop: runNonDebug,  // TODO: remove this.
         runSingleStep: runSingleStep,
         runUntilBreak: runUntilBreak,
         writeKbBuf: writeKbBuf,
