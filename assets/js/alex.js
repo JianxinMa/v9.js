@@ -75,7 +75,7 @@ function createAlex(printOut, breakPoints) {
     infoPool,
     currentInfo;
 
-  var regs = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  var regs = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // NOTE: store int32 value
   var R0 = 0,
     S0 = 1,
     S1 = 2,
@@ -91,7 +91,9 @@ function createAlex(printOut, breakPoints) {
     SP = 12,
     GP = 13,
     AT = 14,
-    LR = 15;
+    LR = 15,
+    I0 = 16, // simulator reserved
+    I1 = 17; // simulator reserved
   var fregs = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
   function clearTLB() {
@@ -243,7 +245,7 @@ function createAlex(printOut, breakPoints) {
       var mws = [function (data, next) {
         exe(decode(data), next);
       }];
-      mws.extend(middlewares);
+      mws.concat(middlewares);
       handleMiddlewares(regIr, mws);
     };
 
@@ -321,40 +323,71 @@ function createAlex(printOut, breakPoints) {
       };
     };
 
-    // (int32 -> int32) -> (obj -> bool)
+    // (uint32 -> uint32 -> int32) -> (obj -> unit -> unit)
     var exeLoad = function (loader) {
       return function (args, next) {
         var p, v;
-        v = regA + (regIr >> 8);
+        v = add32(regs[args['rb']], args['imm']) >>> 0;
         p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
           p = pageLookR(v);
-          if (!p) { // has exception
-            next();
+          if (!p) {
+            regNextHdlr = hdlrExcpt;
+            return;
           }
         }
-        writeRegister(args['ra'], loader(add32(regs[args['rb']], args['imm'])));
-        return true;
+        writeRegister(args['ra'], loader(v, p));
+        next();
       };
     };
 
-    // (int32 -> int32 -> unit) -> (obj -> bool)
+    var exeFLoad = function (args, next) {
+      var p, v;
+      v = add32(regs[args['rb']], args['imm']) >>> 0;
+      p = regTr.readUInt32LE((v >>> 12) * 4);
+      if (!p) {
+        p = pageLookR(v);
+        if (!p) {
+          regNextHdlr = hdlrExcpt;
+          return;
+        }
+      }
+      fregs[args['ra']] = hdrMem.readDoubleLE((v ^ p) & -8);
+      next();
+    };
+
+    // (uint32 -> uint32 -> int32 -> unit) -> (obj -> unit -> unit)
     var exeStore = function (saver) {
       return function (args, next) {
         var p, v;
-        v = add32(regs[args['rb']], args['imm']);
+        v = add32(regs[args['rb']], args['imm']) >>> 0;
         p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
           p = pageLookW(v);
           if (!p) {
-            next();
+            regNextHdlr = hdlrExcpt;
+            return;
           }
         }
-        saver(regs[args['ra']], v ^ p);
-        hdrMem.writeUInt32LE(regA, (v ^ p) & -4);
+        saver(v, p, regs[args['ra']]);
+        next();
       };
     };
 
+    var exeFStore = function (args, next) {
+      var p, v;
+      v = add32(regs[args['rb']], args['imm']) >>> 0;
+      p = regTw.readUInt32LE((v >>> 12) * 4);
+      if (!p) {
+        p = pageLookW(v);
+        if (!p) {
+          regNextHdlr = hdlrExcpt;
+          return;
+        }
+      }
+      hdrMem.writeDoubleLE(fregs[args['ra']], (v ^ p) & -8);
+      next();
+    };
 
     // int32 -> unit -> unit
     var offsetJumper = function (offset, next) {
@@ -382,14 +415,10 @@ function createAlex(printOut, breakPoints) {
       next();
     };
 
-    // bool -> unit
-    var excptJumper = function (hasExcpt) {
-      if (hasExcpt) {
-        regNextHdlr = hdlrExcpt;
-        return;
-      }
+    var nextNormal = function () {
       regNextHdlr = hdlrChkpc;
     };
+
 
     // binary operators: int32 -> int32 -> int32
     var add32 = function (a, b) {
@@ -492,6 +521,30 @@ function createAlex(printOut, breakPoints) {
       return 1;
     };
 
+    var loadWord = function (v, p) {
+      return hdrMem.readInt32LE((v ^ p) & -4);
+    };
+
+    var loadHalf = function (v, p) {
+      return hdrMem.readUInt16LE((v ^ p) & -2);
+    };
+
+    var loadByte = function (v, p) {
+      return hdrMem.readUInt8(v ^ p & -2);
+    };
+
+    var storeWord = function (v, p, data) {
+      hdrMem.writeInt32LE(data, (v ^ p) & -4);
+    };
+
+    var storeHalf = function (v, p, data) {
+      hdrMem.writeUInt16LE(data & 0xFFFF, (v ^ p) & -2);
+    };
+
+    var storeByte = function (v, p, data) {
+      hdrMem.writeUInt8(data & 0xFF, v ^ p & -2);
+    };
+
     setupDecoder = function () {
       var i;
       executors = [];
@@ -547,31 +600,50 @@ function createAlex(printOut, breakPoints) {
       executors[0x22] = executor(decodeRType, exeBinR(ge32));
       executors[0x23] = executor(decodeRType, exeBinR(geu32));
 
-      executors[0x24] = executor(decodeIType(oext32), exeBranch(true32), offsetJumper, nextJump);
-      executors[0x25] = executor(decodeIType(oext32), exeBranch(eq32), offsetJumper, nextJump);
-      executors[0x26] = executor(decodeIType(oext32), exeBranch(ne32), offsetJumper, nextJump);
-      executors[0x27] = executor(decodeIType(oext32), exeBranch(lt32), offsetJumper, nextJump);
-      executors[0x28] = executor(decodeIType(oext32), exeBranch(gt32), offsetJumper, nextJump);
+      executors[0x24] = executor(decodeIType(oext32), exeBranch(true32), [offsetJumper, nextJump]);
+      executors[0x25] = executor(decodeIType(oext32), exeBranch(eq32), [offsetJumper, nextJump]);
+      executors[0x26] = executor(decodeIType(oext32), exeBranch(ne32), [offsetJumper, nextJump]);
+      executors[0x27] = executor(decodeIType(oext32), exeBranch(lt32), [offsetJumper, nextJump]);
+      executors[0x28] = executor(decodeIType(oext32), exeBranch(gt32), [offsetJumper, nextJump]);
 
       executors[0x2A] = executor(decodeRType, function (args, next) {
         next(regs[args['ra']]);
-      }, addrJumper, nextJump);
+      }, [addrJumper, nextJump]);
       executors[0x2B] = executor(decodeRType, function (args, next) {
-        var data = regXPc + 4;
-        writeRegister(SP, sub32(regs[SP], 4));
-        bin.storeWord(cpu.getRegister(cpu.Regs.SP), data, mem);
-        next(regs[args['ra']]);
-      }, addrJumper, nextJump);
+        regs[I1] = regs[args['ra']]; // ra
+        regs[I0] = regXPc + 4; // PC + 4
+        args['ra'] = I0;
+        args['rb'] = SP;
+        args['imm'] = -4;
+        next(args);
+      }, [
+        exeStore(storeWord), // store(SP - 4, 4, PC + 4)
+        function (data, next) {
+          regs[SP] = sub32(regs[SP], 4); // SP := SP - 4
+          next(regs[I1]);
+        },
+        addrJumper, // PC := ra
+        nextJump
+      ]);
       executors[0x2C] = executor(decodeRType, function (args, next) {
-        var buf = bin.loadWord(cpu.getRegister(cpu.Regs.SP), mem);
-        regs[cpu.Regs.SP] = bin.add32(regs[cpu.Regs.SP], bin.four32);
-        next(buf);
-      }, addrJumper, nextJump);
+        args['ra'] = I0; // x
+        args['rb'] = SP;
+        args['imm'] = 0;
+        next(args);
+      }, [
+        exeLoad(loadWord), // x := load(SP, 4)
+        function (data, next) {
+          regs[SP] = add32(regs[SP], 4); // SP := SP + 4
+          next(regs[I0]);
+        },
+        addrJumper, // PC := x
+        nextJump
+      ]);
 
-      executors[0x2D] = executor(decodeIType(ext32), exeLoad(bin.loadWord));
-      executors[0x2E] = executor(decodeIType(ext32), exeLoad(bin.loadHalf));
-      executors[0x2F] = executor(decodeIType(ext32), exeLoad(bin.loadByte));
-      executors[0x30] = executor(decodeIType(ext32), exeLoad(bin.loadFloat));
+      executors[0x2D] = executor(decodeIType(ext32), exeLoad(loadWord));
+      executors[0x2E] = executor(decodeIType(ext32), exeLoad(loadHalf));
+      executors[0x2F] = executor(decodeIType(ext32), exeLoad(loadByte));
+      executors[0x30] = executor(decodeIType(ext32), exeFLoad);
 
       executors[0x31] = executor(decodeIType(ext32), function (args, next) {
         writeRegister(args['ra'], args['imm']);
@@ -586,31 +658,144 @@ function createAlex(printOut, breakPoints) {
         next();
       });
 
-      executors[0x34] = executor(decodeIType(ext32), exeStore(bin.storeWord));
-      executors[0x35] = executor(decodeIType(ext32), exeStore(bin.storeHalf));
-      executors[0x36] = executor(decodeIType(ext32), exeStore(bin.storeByte));
-      executors[0x37] = executor(decodeIType(ext32), exeStore(bin.storeFloat));
+      executors[0x34] = executor(decodeIType(ext32), exeStore(storeWord));
+      executors[0x35] = executor(decodeIType(ext32), exeStore(storeHalf));
+      executors[0x36] = executor(decodeIType(ext32), exeStore(storeByte));
+      executors[0x37] = executor(decodeIType(ext32), exeFStore);
 
-      executors[0x38] = executor(decodeRType, exePop(loadWord, 4));
-      executors[0x39] = executor(decodeRType, exePop(loadHalf, 2));
-      executors[0x3A] = executor(decodeRType, exePop(loadByte, 1));
-      executors[0x3B] = executor(decodeRType, exePop(loadFloat, 8));
-      executors[0x3C] = executor(decodeRType, exePop(loadWord, 8));
+      executors[0x38] = executor(decodeRType, function (args, next) {
+        args['rb'] = SP;
+        args['imm'] = 0;
+        next(args);
+      }, [
+        exeLoad(loadWord),
+        function (data, next) {
+          regs[SP] = add32(regs[SP], 4);
+          next();
+        },
+        nextNormal
+      ]);
+      executors[0x39] = executor(decodeRType, function (args, next) {
+        args['rb'] = SP;
+        args['imm'] = 0;
+        next(args);
+      }, [
+        exeLoad(loadHalf),
+        function (data, next) {
+          regs[SP] = add32(regs[SP], 2);
+          next();
+        },
+        nextNormal
+      ]);
+      executors[0x3A] = executor(decodeRType, function (args, next) {
+        args['rb'] = SP;
+        args['imm'] = 0;
+        next(args);
+      }, [
+        exeLoad(loadHalf),
+        function (data, next) {
+          regs[SP] = add32(regs[SP], 1);
+          next();
+        },
+        nextNormal
+      ]);
+      executors[0x3B] = executor(decodeRType, function (args, next) {
+        args['rb'] = SP;
+        args['imm'] = 0;
+        next(args);
+      }, [
+        exeFLoad,
+        function (data, next) {
+          regs[SP] = add32(regs[SP], 8);
+          next();
+        },
+        nextNormal
+      ]);
+      executors[0x3C] = executor(decodeRType, function (args, next) {
+        args['rb'] = SP;
+        args['imm'] = 0;
+        next(args);
+      }, [
+        exeLoad(loadWord),
+        function (data, next) {
+          regs[SP] = add32(regs[SP], 8);
+          next();
+        },
+        nextNormal
+      ]);
 
-      executors[0x3D] = executor(decodeRType, exePush(storeWord, 4));
-      executors[0x3E] = executor(decodeRType, exePush(storeHalf, 2));
-      executors[0x3F] = executor(decodeRType, exePush(storeByte, 1));
-      executors[0x40] = executor(decodeRType, exePush(storeFloat, 8));
-      executors[0x41] = executor(decodeRType, exePush(storeWord, 8));
+      executors[0x3D] = executor(decodeRType, function (args, next) {
+        args['rb'] = SP;
+        args['imm'] = -4;
+        next(args);
+      }, [
+        exeStore(storeWord),
+        function (data, next) {
+          regs[SP] = sub32(regs[SP], 4);
+          next();
+        },
+        nextNormal
+      ]);
+      executors[0x3E] = executor(decodeRType, function (args, next) {
+        args['rb'] = SP;
+        args['imm'] = -2;
+        next(args);
+      }, [
+        exeStore(storeHalf),
+        function (data, next) {
+          regs[SP] = sub32(regs[SP], 2);
+          next();
+        },
+        nextNormal
+      ]);
+      executors[0x3F] = executor(decodeRType, function (args, next) {
+        args['rb'] = SP;
+        args['imm'] = -1;
+        next(args);
+      }, [
+        exeStore(storeByte),
+        function (data, next) {
+          regs[SP] = sub32(regs[SP], 1);
+          next();
+        },
+        nextNormal
+      ]);
+      executors[0x40] = executor(decodeRType, function (args, next) {
+        args['rb'] = SP;
+        args['imm'] = -8;
+        next(args);
+      }, [
+        exeFStore,
+        function (data, next) {
+          regs[SP] = sub32(regs[SP], 8);
+          next();
+        },
+        nextNormal
+      ]);
+      executors[0x41] = executor(decodeRType, function (args, next) {
+        args['rb'] = SP;
+        args['imm'] = -8;
+        next(args);
+      }, [
+        exeStore(storeWord),
+        function (data, next) {
+          regs[SP] = sub32(regs[SP], 8);
+          next();
+        },
+        nextNormal
+      ]);
 
-      executors[0x45] = executor(decodeRType, function (args) {
+      executors[0x45] = executor(decodeRType, function (args, next) {
         fregs[args['ra']] = regs[args['rb']];
+        next();
       });
-      executors[0x46] = executor(decodeRType, function (args) {
+      executors[0x46] = executor(decodeRType, function (args, next) {
         fregs[args['ra']] = (regs[args['rb']]) >>> 0;
+        next();
       });
-      executors[0x47] = executor(decodeRType, function (args) {
+      executors[0x47] = executor(decodeRType, function (args, next) {
         regs[args['ra']] = Math.floor(fregs[args['rb']]);
+        next();
       });
     };
 
