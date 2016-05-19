@@ -201,13 +201,6 @@ function createAlex(printOut, breakPoints) {
     return 0;
   }
 
-  function execDefault() {
-    printOut(2, (regIr & 0xFF).toString() + " not implemented!\n");
-    regTrap = FINST;
-    regNextHdlr = hdlrExcpt;
-    return;
-  }
-
   // int32 -> int
   function getOpCode(ins) {
     return ins >>> 24;
@@ -216,38 +209,56 @@ function createAlex(printOut, breakPoints) {
   function setupHardware() {
     var setupDecoder, setupLogic, setupMemory;
 
-    // (str -> obj) -> (obj -> (any -> unit) -> unit) -> [any -> (any -> unit) -> unit] -> unit
-    var executor = function (decode, exe, middlewares) {
-      middlewares = middlewares || [function (data, next) {
-          regNextHdlr = hdlrChkpc;
-        }];
-
-      /* implement a node-like middleware handler, each middleware is of type any -> (any -> unit) -> unit
-       example:
-       var myMiddleware = function (data, next) {
-       if (data == 0) {
-       return 0;
-       }
-       next(data + 1);
-       }
-       */
-      var handleMiddlewares = function (data, middlewares) {
-        var i = 0;
-        var next = function (data) {
-          if (i < middlewares.length) {
-            middlewares[i++](data, next);
-          }
-        };
-        // trigger the first middleware
-        next(data);
-      };
-
-      var mws = [function (data, next) {
-        exe(decode(data), next);
-      }];
-      mws.concat(middlewares);
-      handleMiddlewares(regIr, mws);
+    var nextNormal = function () {
+      regNextHdlr = hdlrChkpc;
     };
+
+    var pipeExecutor = function (mws) {
+      return function (decode, exe, middlewares) {
+        return function () {
+          middlewares = middlewares || [nextNormal];
+
+          /* implement a node-like middleware handler, each middleware is of type any -> (any -> unit) -> unit
+           example:
+           var myMiddleware = function (data, next) {
+           if (data == 0) {
+           return 0;
+           }
+           next(data + 1);
+           }
+           */
+          var handleMiddlewares = function (data, middlewares) {
+            var i = 0;
+            var next = function (data) {
+              if (i < middlewares.length) {
+                middlewares[i++](data, next);
+              }
+            };
+            // trigger the first middleware
+            next(data);
+          };
+
+          mws.push(function (data, next) {
+            exe(decode(data), next);
+          });
+          mws.concat(middlewares);
+          handleMiddlewares(regIr, mws);
+        };
+      };
+    };
+
+    // (str -> obj) -> (obj -> (any -> unit) -> unit) -> [any -> (any -> unit) -> unit] -> unit
+    var executor = pipeExecutor([]);
+
+    // executor for kernel mode
+    var kexecutor = pipeExecutor([function (data, next) {
+      if (regUser) {
+        regTrap = FPRIV;
+        regNextHdlr = hdlrExcpt;
+        return;
+      }
+      next(data);
+    }]);
 
     // 2. candidate decoders: decode either R-type or I-type
     var decodeRType = function (ins) {
@@ -389,6 +400,22 @@ function createAlex(printOut, breakPoints) {
       next();
     };
 
+    // (float -> float -> float) -> (obj -> unit -> unit)
+    var exeFloat = function (op) {
+      return function (args, next) {
+        fregs[args['ra']] = op(fregs[args['rb']], fregs[args['rc']]);
+        next();
+      };
+    };
+
+    // (float -> float -> bool) -> (obj -> unit -> unit)
+    var exeFloatCmp = function (op) {
+      return function (args, next) {
+        writeRegister(args['ra'], op(fregs[args['rb']], fregs[args['rc']]) ? 1 : 0);
+        next();
+      };
+    };
+
     // int32 -> unit -> unit
     var offsetJumper = function (offset, next) {
       regXCycle = (regXCycle + offset);
@@ -413,10 +440,6 @@ function createAlex(printOut, breakPoints) {
         return;
       }
       next();
-    };
-
-    var nextNormal = function () {
-      regNextHdlr = hdlrChkpc;
     };
 
 
@@ -457,7 +480,7 @@ function createAlex(printOut, breakPoints) {
       return a | b;
     };
 
-    var not32 = function t32(a) {
+    var not32 = function (a) {
       return ~a;
     };
 
@@ -548,11 +571,16 @@ function createAlex(printOut, breakPoints) {
     setupDecoder = function () {
       var i;
       executors = [];
-      for (i = 0; i <= 0xFF; i = i + 1) {
-        executors.push(execDefault);
+      for (i = 0; i <= 0xFF; i++) {
+        executors.push(function () {
+          printOut(2, (getOpCode(regIr)).toString() + " not implemented!\n");
+          regTrap = FINST;
+          regNextHdlr = hdlrExcpt;
+        });
       }
-      executors[0x00] = function () {
-      };
+      executors[0x00] = executor(decodeRType, function () {
+      });
+
       executors[0x01] = executor(decodeRType, exeBinR(add32));
       executors[0x02] = executor(decodeIType(ext32), exeBinI(add32));
       executors[0x03] = executor(decodeIType(uext32), exeBinI(add32));
@@ -797,6 +825,195 @@ function createAlex(printOut, breakPoints) {
         regs[args['ra']] = Math.floor(fregs[args['rb']]);
         next();
       });
+
+      executors[0x48] = executor(decodeRType, exeFloat(function (a, b) {
+        return a + b;
+      }));
+      executors[0x49] = executor(decodeRType, exeFloat(function (a, b) {
+        return a - b;
+      }));
+      executors[0x4A] = executor(decodeRType, exeFloat(function (a, b) {
+        return a * b;
+      }));
+      executors[0x4B] = executor(decodeRType, exeFloat(function (a, b) {
+        return a / b;
+      }));
+      executors[0x4C] = executor(decodeRType, exeFloat(function (a, b) {
+        return a % b;
+      }));
+
+      executors[0x4D] = executor(decodeRType, exeFloatCmp(function (a, b) {
+        return a == b;
+      }));
+      executors[0x4E] = executor(decodeRType, exeFloatCmp(function (a, b) {
+        return a != b;
+      }));
+      executors[0x4F] = executor(decodeRType, exeFloatCmp(function (a, b) {
+        return a < b;
+      }));
+      executors[0x50] = executor(decodeRType, exeFloatCmp(function (a, b) {
+        return a > b;
+      }));
+      executors[0x51] = executor(decodeRType, exeFloatCmp(function (a, b) {
+        return a <= b;
+      }));
+      executors[0x52] = executor(decodeRType, exeFloatCmp(function (a, b) {
+        return a >= b;
+      }));
+
+      executors[0x53] = executor(decodeRType, exeFloat(function (a) {
+        return Math.floor(a);
+      }));
+      executors[0x54] = executor(decodeRType, exeFloat(function (a) {
+        return Math.ceil(a);
+      }));
+
+      // system
+      executors[0x80] = kexecutor(decodeRType, function (args, next) {
+        regs[args['rb']] = regKbChar;
+        regKbChar = -1;
+        next();
+      });
+      executors[0x81] = kexecutor(decodeRType, function (args, next) {
+        writeRegister(args['rc'], (printOut(regs[args['ra']], String.fromCharCode(regs[args['rb']])) ? 1 : 0));
+        next();
+      });
+      executors[0x82] = kexecutor(decodeRType, function (args, next) {
+        writeRegister(args['ra'], regIvec);
+        next();
+      });
+      executors[0x83] = kexecutor(decodeRType, function (args, next) {
+        regIvec = regs[args['ra']];
+        next();
+      });
+      executors[0x84] = kexecutor(decodeRType, function (args, next) {
+        writeRegister(args['ra'], regPdir);
+        next();
+      });
+      executors[0x85] = kexecutor(decodeRType, function (args, next) {
+        if (regs[args['ra']] > hdrMemSz) {
+          regTrap = FMEM;
+          regNextHdlr = hdlrExcpt;
+          return;
+        }
+        regPdir = regs[args['ra']] & -4096;
+        clearTLB();
+        regFSP = 0;
+        regNextHdlr = hdlrFixpc;
+      });
+      executors[0x86] = kexecutor(decodeRType, function (args, next) {
+        if (regs['ra'] == 0) { // clear
+          regIena = 0;
+          next();
+        } else { // set
+          if (regIpend) {
+            regTrap = (regIpend & -regIpend);
+            regIpend ^= regTrap;
+            regIena = 0;
+            regNextHdlr = hdlrItrpt;
+            return;
+          }
+          regIena = 1;
+          next();
+        }
+      });
+      executors[0x87] = kexecutor(decodeRType, function (args, next) {
+        if (regs[args['ra']] && !regPdir) {
+          regTrap = FMEM;
+          regNextHdlr = hdlrExcpt;
+          return;
+        }
+        regPaging = regs[args['ra']];
+        clearTLB();
+        regFSP = 0;
+        regNextHdlr = hdlrFixpc;
+      });
+      executors[0x88] = kexecutor(decodeRType, function (args, next) {
+        writeRegister(args['ra'], regVadr);
+        next();
+      });
+      executors[0x89] = kexecutor(decodeRType, function (args, next) {
+        regTimeOut = regs[args['ra']];
+        next();
+      });
+      executors[0x90] = kexecutor(decodeRType, function (args, next) {
+        writeRegister(args['ra'], regXPc);
+        next();
+      });
+      executors[0x91] = kexecutor(decodeRType, function (args, next) {
+        var flags = regIpend << 16; // fault code
+        flags |= regUser ? 8 : 0;   // user mode?
+        flags |= regIena ? 4 : 0;   // interrupt enabled?
+        flags |= regPaging ? 1 : 0; // paging enabled?
+        writeRegister(args['ra'], flags);
+        next();
+      });
+
+      executors[0xF0] = executor(decodeRType, function (args, next) { // NOTE: can be executed from user mode
+        regTrap = FSYSCL;
+        regNextHdlr = hdlrExcpt;
+      });
+      executors[0xF1] = kexecutor(decodeRType, function (args, next) {
+        var t, p, pc;
+        if (regUser) {
+          regTrap = FPRIV;
+          regNextHdlr = hdlrExcpt;
+          return;
+        }
+        regXSp = (regXSp - regTSp);
+        regTSp = 0;
+        regFSP = 0;
+        p = (regTr.readUInt32LE((regXSp >>> 12) * 4));
+        if (!p) {
+          p = (pageLookR(regXSp));
+          if (!p) {
+            printOut(2, "IRET kstack fault\n");
+            regNextHdlr = hdlrFatal;
+            return;
+          }
+        }
+        t = (hdrMem.readUInt32LE((regXSp ^ p) & -8));
+        regXSp = regXSp + 8;
+        p = (regTr.readUInt32LE((regXSp >>> 12) * 4));
+        if (!p) {
+          p = (pageLookR(regXSp));
+          if (!p) {
+            printOut(2, "IRET kstack fault\n");
+            regNextHdlr = hdlrFatal;
+            return;
+          }
+        }
+        pc = (hdrMem.readUInt32LE((regXSp ^ p) & -8) + regTPc);
+        regXCycle = (regXCycle + (pc - regXPc));
+        regXSp = regXSp + 8;
+        regXPc = pc;
+        if (t & USER) {
+          regSSp = regXSp;
+          regXSp = regUSp;
+          regUser = 1;
+          regTr = hdrTrU;
+          regTw = hdrTwU;
+          regToLoadInfo = true;
+        }
+        if (!regIena) {
+          if (regIpend) {
+            regTrap = (regIpend & -regIpend);
+            regIpend ^= regTrap;
+            regNextHdlr = hdlrItrpt;
+            return;
+          }
+          regIena = 1;
+        }
+        regNextHdlr = hdlrFixpc;
+      });
+      executors[0xFF] = function () {
+        var tmp;
+        if (regUser) {
+          tmp = ((regCycle + ((regXPc - regXCycle) | 0) / 4) >>> 0);
+          printOut(2, "halt: cycle = " + tmp.toString() + "\n");
+        }
+        regNextHdlr = 0;
+      };
     };
 
     setupLogic = function () {
