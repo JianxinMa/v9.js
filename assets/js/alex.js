@@ -53,6 +53,7 @@ function createAlex(printOut, breakPoints) {
   var regXPc;
   var regTPc;
   var regFPc;
+  // TODO: fix SP access
   var regXSp;
   var regTSp;
   var regFSP;
@@ -66,14 +67,14 @@ function createAlex(printOut, breakPoints) {
   var regFrameBase;
 
   // handlers
-  var hdlrFatal;
-  var hdlrExcpt;
-  var hdlrItrpt;
+  var hdlrFatal; // fatal error, exit process
+  var hdlrExcpt; // handle exception
+  var hdlrItrpt; // handle interrupt
   var hdlrFixsp;
-  var hdlrChkpc;
+  var hdlrChkpc; // go on fetch instruction / hdlrFixpc
   var hdlrFixpc;
   var hdlrChkio;
-  var hdlrInstr;
+  var hdlrInstr; // fetch instruction
 
   var executors;
   var cpuEvent;
@@ -227,7 +228,7 @@ function createAlex(printOut, breakPoints) {
 
     // [mf] -> ((int32 -> obj) -> (obj -> (any -> unit) -> unit) -> [mf]) -> unit
     // where mf :: any -> (any -> unit) -> unit
-    var pipeExecutor = function (mws) {
+    var pipeExecutor = function (preMiddlewares) {
       return function (decode, exe, middlewares) {
         return function () {
           middlewares = middlewares || [nextNormal];
@@ -236,9 +237,9 @@ function createAlex(printOut, breakPoints) {
            example:
            --var myMiddleware = function (data, next) {
            ----if (data == 0) {
-           ------return 0;
+           ------return; // stop here
            ----}
-           ----next(data + 1);
+           ----next(data + 1); // go on executing next middleware with parameter `data`
            --}
            */
           var handleMiddlewares = function (data, middlewares) {
@@ -252,6 +253,7 @@ function createAlex(printOut, breakPoints) {
             next(data);
           };
 
+          var mws = preMiddlewares;
           mws.push(function (data, next) {
             exe(decode(data), next);
           });
@@ -266,7 +268,7 @@ function createAlex(printOut, breakPoints) {
 
     // executor for kernel mode
     var kexecutor = pipeExecutor([function (data, next) {
-      if (regUser) {
+      if (regUser) { // if in user mode, then raise FPRIV
         regTrap = FPRIV;
         regNextHdlr = hdlrExcpt;
         return;
