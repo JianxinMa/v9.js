@@ -213,19 +213,23 @@ function createAlex(printOut, breakPoints) {
       regNextHdlr = hdlrChkpc;
     };
 
+    // 1. executor
+
+    // [mf] -> ((int32 -> obj) -> (obj -> (any -> unit) -> unit) -> [mf]) -> unit
+    // where mf :: any -> (any -> unit) -> unit
     var pipeExecutor = function (mws) {
       return function (decode, exe, middlewares) {
         return function () {
           middlewares = middlewares || [nextNormal];
 
-          /* implement a node-like middleware handler, each middleware is of type any -> (any -> unit) -> unit
+          /* implement a node-like middleware handler, each middleware is of type mf
            example:
-           var myMiddleware = function (data, next) {
-           if (data == 0) {
-           return 0;
-           }
-           next(data + 1);
-           }
+           --var myMiddleware = function (data, next) {
+           ----if (data == 0) {
+           ------return 0;
+           ----}
+           ----next(data + 1);
+           --}
            */
           var handleMiddlewares = function (data, middlewares) {
             var i = 0;
@@ -247,7 +251,7 @@ function createAlex(printOut, breakPoints) {
       };
     };
 
-    // (str -> obj) -> (obj -> (any -> unit) -> unit) -> [any -> (any -> unit) -> unit] -> unit
+    // executor for user mode
     var executor = pipeExecutor([]);
 
     // executor for kernel mode
@@ -260,7 +264,9 @@ function createAlex(printOut, breakPoints) {
       next(data);
     }]);
 
-    // 2. candidate decoders: decode either R-type or I-type
+    // 2. decoders (R-type or I-type) and extenders (signed, unsigned, offset)
+
+    // int32 -> obj
     var decodeRType = function (ins) {
       return {
         'ra': (ins >>> 20) & 0xF,
@@ -269,6 +275,7 @@ function createAlex(printOut, breakPoints) {
       };
     };
 
+    // int32 -> obj
     var decodeIType = function (extend) {
       return function (ins) {
         return {
@@ -305,7 +312,7 @@ function createAlex(printOut, breakPoints) {
       }
     };
 
-    // candidate exe functions: for binary/branch/load/store/...
+    // 3. exe functions: for binary/branch/load/store/...
 
     // (int32 -> int32 -> int32) -> (obj -> unit -> unit)
     var exeBinR = function (op) {
@@ -352,6 +359,7 @@ function createAlex(printOut, breakPoints) {
       };
     };
 
+    // obj -> unit -> unit
     var exeFLoad = function (args, next) {
       var p, v;
       v = add32(regs[args['rb']], args['imm']) >>> 0;
@@ -385,6 +393,7 @@ function createAlex(printOut, breakPoints) {
       };
     };
 
+    // obj -> unit -> unit
     var exeFStore = function (args, next) {
       var p, v;
       v = add32(regs[args['rb']], args['imm']) >>> 0;
@@ -416,6 +425,8 @@ function createAlex(printOut, breakPoints) {
       };
     };
 
+    // 4. jumper middlewares
+
     // int32 -> unit -> unit
     var offsetJumper = function (offset, next) {
       regXCycle = (regXCycle + offset);
@@ -427,14 +438,15 @@ function createAlex(printOut, breakPoints) {
       next();
     };
 
+    // unit
     var nextJump = function () {
       regNextHdlr = hdlrChkio;
     };
 
     // int32 -> unit -> unit
     var addrJumper = function (addr, next) {
-      regXCycle = addr;
-      regXPc = addr;
+      regXCycle = addr >>> 0;
+      regXPc = addr >>> 0;
       if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
         regNextHdlr = hdlrFixpc;
         return;
@@ -442,8 +454,10 @@ function createAlex(printOut, breakPoints) {
       next();
     };
 
+    // 5. helper operators
 
-    // binary operators: int32 -> int32 -> int32
+    // 5.1 binary operators: int32 -> int32 -> int32
+
     var add32 = function (a, b) {
       return (a + b) << 0;
     };
@@ -544,6 +558,8 @@ function createAlex(printOut, breakPoints) {
       return 1;
     };
 
+    // 5.2 loaders: uint32 -> uint32 -> int32
+
     var loadWord = function (v, p) {
       return hdrMem.readInt32LE((v ^ p) & -4);
     };
@@ -555,6 +571,8 @@ function createAlex(printOut, breakPoints) {
     var loadByte = function (v, p) {
       return hdrMem.readUInt8(v ^ p & -2);
     };
+
+    // 5.3 savers: uint32 -> uint32 -> int32 -> unit
 
     var storeWord = function (v, p, data) {
       hdrMem.writeInt32LE(data, (v ^ p) & -4);
