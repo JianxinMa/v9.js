@@ -42,11 +42,6 @@ function createAlex(printOut, breakPoints) {
     regNextHdlr,
     regToLoadInfo,
     regInfoOffset,
-    regA,
-    regB,
-    regC,
-    regF,
-    regG,
     regIr,
     regXPc,
     regTPc,
@@ -1041,13 +1036,15 @@ function createAlex(printOut, breakPoints) {
           return ("00000000" + (x >>> 0).toString(16)).substr(-8);
         };
         tmp = ((regCycle + ((regXPc - regXCycle) | 0) / 4) >>> 0);
+        var regsInfo = '';
+        for (var i = 0; i < 15; i++) {
+          regsInfo += ' regs[' + i +'] = ' + hexStr(regs[i]) + '\n';
+        }
         printOut(2, "processor halted! cycle = " + tmp.toString() +
-          " pc = " + hexStr(regXPc - regTPc) +
-          " ir = " + hexStr(regIr) +
-          " sp = " + hexStr(regXSp - regTSp) +
-          " a = " + regA.toString() +
-          " b = " + regB.toString() +
-          " c = " + regC.toString() +
+          "\n pc = " + hexStr(regXPc - regTPc) +
+          "\n ir = " + hexStr(regIr) +
+          "\n sp = " + hexStr(regXSp - regTSp) +
+          '\n' + regsInfo +
           " trap = " + regTrap.toString() + "\n");
         regNextHdlr = 0;
       };
@@ -1246,11 +1243,12 @@ function createAlex(printOut, breakPoints) {
       regFSP = 0;
     };
     wipeRegs = function () {
-      regA = 0;
-      regB = 0;
-      regC = 0;
-      regF = 0.0;
-      regG = 0.0;
+      regs = regs.map(function () {
+        return 0;
+      });
+      fregs = fregs.map(function () {
+        return 0;
+      });
       regIr = 0;
       regCycle = 4096;
       regXCycle = 4096 * 4;
@@ -1338,9 +1336,6 @@ function createAlex(printOut, breakPoints) {
   }
 
   function unsignRegs() {
-    regA >>>= 0;
-    regB >>>= 0;
-    regC >>>= 0;
     regXPc >>>= 0;
     regTPc >>>= 0;
     regFPc >>>= 0;
