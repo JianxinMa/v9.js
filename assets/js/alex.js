@@ -4,91 +4,106 @@
 "use strict";
 
 function createAlex(printOut, breakPoints) {
-  var PTE_P = 0x001,
-    PTE_W = 0x002,
-    PTE_U = 0x004,
-    PTE_A = 0x020,
-    PTE_D = 0x040,
-    FMEM = 0x00,
-    FTIMER = 0x01,
-    FKEYBD = 0x02,
-    FPRIV = 0x03,
-    FINST = 0x04,
-    FSYSCL = 0x05,
-    FARITH = 0x06,
-    FIPAGE = 0x07,
-    FWPAGE = 0x08,
-    FRPAGE = 0x09,
-    USER = 0x10,
-    kbBuffer,
-    hdrMem,
-    hdrMemSz,
-    hdrTrK,
-    hdrTwK,
-    hdrTrU,
-    hdrTwU,
-    hdrTpage,
-    regTpageCnt,
-    regUser,
-    regIena,
-    regIpend,
-    regTrap,
-    regIvec,
-    regVadr,
-    regPaging,
-    regPdir,
-    regTr,
-    regTw,
-    regNextHdlr,
-    regToLoadInfo,
-    regInfoOffset,
-    regIr,
-    regXPc,
-    regTPc,
-    regFPc,
-    regXSp,
-    regTSp,
-    regFSP,
-    regSSp,
-    regUSp,
-    regCycle,
-    regXCycle,
-    regTimer,
-    regTimeOut,
-    regKbChar,
-    regFrameBase,
-    executors,
-    hdlrFatal,
-    hdlrExcpt,
-    hdlrItrpt,
-    hdlrFixsp,
-    hdlrChkpc,
-    hdlrFixpc,
-    hdlrChkio,
-    hdlrInstr,
-    cpuEvent,
-    infoPool,
-    currentInfo;
+  // page table bits
+  var PTE_P = 0x001;
+  var PTE_W = 0x002;
+  var PTE_U = 0x004;
+  var PTE_A = 0x020;
+  var PTE_D = 0x040;
 
-  var regs = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // NOTE: store int32 value
-  var R0 = 0,
-    S0 = 1,
-    S1 = 2,
-    S2 = 3,
-    S3 = 4,
-    S4 = 5,
-    T0 = 6,
-    T1 = 7,
-    T2 = 8,
-    T3 = 9,
-    T4 = 10,
-    FP = 11,
-    SP = 12,
-    GP = 13,
-    AT = 14,
-    LR = 15,
-    I0 = 16, // simulator reserved
-    I1 = 17; // simulator reserved
+  // exceptions and interrupts
+  var FMEM = 0x00;
+  var FTIMER = 0x01;
+  var FKEYBD = 0x02;
+  var FPRIV = 0x03;
+  var FINST = 0x04;
+  var FSYSCL = 0x05;
+  var FARITH = 0x06;
+  var FIPAGE = 0x07;
+  var FWPAGE = 0x08;
+  var FRPAGE = 0x09;
+  var USER = 0x10;
+
+  // hardware
+  var kbBuffer;
+  var hdrMem;
+  var hdrMemSz;
+  var hdrTrK;
+  var hdrTwK;
+  var hdrTrU;
+  var hdrTwU;
+  var hdrTpage;
+
+  // special registers
+  var regTpageCnt;
+  var regUser;
+  var regIena;
+  var regIpend;
+  var regTrap;
+  var regIvec;
+  var regVadr;
+  var regPaging;
+  var regPdir;
+  var regTr;
+  var regTw;
+  var regNextHdlr;
+  var regToLoadInfo;
+  var regInfoOffset;
+  var regIr;
+  var regXPc;
+  var regTPc;
+  var regFPc;
+  var regXSp;
+  var regTSp;
+  var regFSP;
+  var regSSp;
+  var regUSp;
+  var regCycle;
+  var regXCycle;
+  var regTimer;
+  var regTimeOut;
+  var regKbChar;
+  var regFrameBase;
+
+  // handlers
+  var hdlrFatal;
+  var hdlrExcpt;
+  var hdlrItrpt;
+  var hdlrFixsp;
+  var hdlrChkpc;
+  var hdlrFixpc;
+  var hdlrChkio;
+  var hdlrInstr;
+
+  var executors;
+  var cpuEvent;
+  var infoPool;
+  var currentInfo;
+
+  // general registers (32 bits): store int32 value
+  var regs = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+  // general register alias
+  var R0 = 0;
+  var S0 = 1;
+  var S1 = 2;
+  var S2 = 3;
+  var S3 = 4;
+  var S4 = 5;
+  var T0 = 6;
+  var T1 = 7;
+  var T2 = 8;
+  var T3 = 9;
+  var T4 = 10;
+  var FP = 11;
+  var SP = 12;
+  var GP = 13;
+  var AT = 14;
+  var LR = 15;
+  var I0 = 16; // simulator reserved
+  var I1 = 17; // simulator reserved
+
+  // floating-point registers (64 bits)
   var fregs = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
   function clearTLB() {
@@ -606,10 +621,38 @@ function createAlex(printOut, breakPoints) {
       executors[0x08] = executor(decodeIType(ext32), exeBinI(mul32));
       executors[0x09] = executor(decodeIType(uext32), exeBinI(mul32));
 
-      executors[0x0A] = executor(decodeRType, exeBinR(div32));
-      executors[0x0B] = executor(decodeIType(ext32), exeBinI(div32));
-      executors[0x0C] = executor(decodeIType(uext32), exeBinI(div32));
-      executors[0x43] = executor(decodeRType, exeBinR(divu32));
+      executors[0x0A] = executor(decodeRType, function (args, next) {
+        if (regs[args['rc']] == 0) {
+          regTrap = FARITH;
+          regNextHdlr = hdlrExcpt;
+          return;
+        }
+        next(args);
+      }, [exeBinR(div32), nextNormal]);
+      executors[0x0B] = executor(decodeIType(ext32), function (args, next) {
+        if (args['imm'] == 0) {
+          regTrap = FARITH;
+          regNextHdlr = hdlrExcpt;
+          return;
+        }
+        next(args);
+      }, [exeBinI(div32), nextNormal]);
+      executors[0x0C] = executor(decodeIType(uext32), function (args, next) {
+        if (args['imm'] == 0) {
+          regTrap = FARITH;
+          regNextHdlr = hdlrExcpt;
+          return;
+        }
+        next(args);
+      }, [exeBinI(div32), nextNormal]);
+      executors[0x43] = executor(decodeRType, function (args, next) {
+        if (regs[args['rc']] == 0) {
+          regTrap = FARITH;
+          regNextHdlr = hdlrExcpt;
+          return;
+        }
+        next(args);
+      }, [exeBinR(divu32), nextNormal]);
 
       executors[0x0D] = executor(decodeRType, exeBinR(mod32));
       executors[0x0E] = executor(decodeIType(ext32), exeBinI(mod32));
@@ -848,9 +891,19 @@ function createAlex(printOut, breakPoints) {
       executors[0x4A] = executor(decodeRType, exeFloat(function (a, b) {
         return a * b;
       }));
-      executors[0x4B] = executor(decodeRType, exeFloat(function (a, b) {
-        return a / b;
-      }));
+      executors[0x4B] = executor(decodeRType, function (args, next) {
+        if (fregs[args['rc']] == 0) {
+          regTrap = FARITH;
+          regNextHdlr = hdlrExcpt;
+          return;
+        }
+        next(args);
+      }, [
+        exeFloat(function (a, b) {
+          return a / b;
+        }),
+        nextNormal
+      ]);
       executors[0x4C] = executor(decodeRType, exeFloat(function (a, b) {
         return a % b;
       }));
@@ -1038,7 +1091,7 @@ function createAlex(printOut, breakPoints) {
         tmp = ((regCycle + ((regXPc - regXCycle) | 0) / 4) >>> 0);
         var regsInfo = '';
         for (var i = 0; i < 15; i++) {
-          regsInfo += ' regs[' + i +'] = ' + hexStr(regs[i]) + '\n';
+          regsInfo += ' regs[' + i + '] = ' + hexStr(regs[i]) + '\n';
         }
         printOut(2, "processor halted! cycle = " + tmp.toString() +
           "\n pc = " + hexStr(regXPc - regTPc) +
