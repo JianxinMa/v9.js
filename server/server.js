@@ -8,8 +8,6 @@ var sk = require('socket.io');
 var sh = require('shelljs');
 var fs = require("fs");
 var tool = require("./js/tool");
-var xvcc = require("./js/xvcc");
-var mkfs = require("./js/mkfs");
 
 function textFileFilter(name) {
     return name.endsWith('.h') || name.endsWith('.c') ||

@@ -4213,7 +4213,7 @@ int main(int argc, char *argv[]) {
     uint magic, bss, entry, flags;
   } hdr;
 
-  cmd = *argv;
+  cmd = "xvcc"; // *argv;
   if (argc < 2) {
     goto usage;
   }
