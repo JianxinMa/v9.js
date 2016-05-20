@@ -3,23 +3,38 @@
 
 "use strict";
 
-function mkfs(env_argv, env_print, env_files) {
-    var Module = {
-        arguments: ["hd", "root"],
-        print: env_print,
+function mkfs(env_files, env_print) {
+    var env_disk, env_root, Module;
+    env_disk = 'disk.img';
+    env_root = "root"; // TODO: no hard coded root.
+    Module = {
+        arguments: [env_disk, env_root],
+        print: (env_print || console.log),
         preRun: [function() {
+            // TODO: remove hard coded directories.
             FS.mkdir('root');
+            FS.mkdir('root/bin');
+            FS.mkdir('root/dev');
             FS.mkdir('root/etc');
-            FS.writeFile('root/etc/os.c', 'int main() {return 0;}');
+            FS.mkdir('root/lib');
+            FS.mkdir('root/usr');
+            env_files.forEach(function(file) {
+                if (file.filename.startsWith('root/') &&
+                    !file.filename.endsWith('.d')) {
+                    FS.writeFile(file.filename, file.content, {
+                        encoding: file.encoding
+                    });
+                }
+            });
         }],
         postRun: [function() {
-            console.log(FS);
-            console.log(FS.readFile('os', {
-                encoding: 'utf8'
-            }));
-            console.log(FS.readFile('root/etc/os.d', {
-                encoding: 'utf8'
-            }));
-        }],
+            env_files.push({
+                filename: env_disk,
+                encoding: 'binary',
+                content: FS.readFile(env_disk, {
+                    encoding: 'binary'
+                })
+            });
+        }]
     };
 }

@@ -3,20 +3,20 @@
 
 "use strict";
 
-function xvcc_all(env_files) {
+function xvcc_all(env_files, env_print) {
     env_files.forEach(function(file) {
         if (file.filename.endsWith('.c')) {
-            xvcc(file.filename, env_files);
+            xvcc(file.filename, env_files, env_print);
         }
     });
 }
 
-function xvcc(env_src, env_files) {
+function xvcc(env_src, env_files, env_print) {
     var env_out, Module;
     env_out = env_src.substr(0, env_src.length - 2);
     Module = {
         arguments: ["-Iroot/lib", "-o", env_out, env_src],
-        print: console.log,
+        print: (env_print || console.log),
         preRun: [function() {
             // TODO: remove hard coded directories.
             FS.mkdir('root');
@@ -35,7 +35,7 @@ function xvcc(env_src, env_files) {
             var env_dbg;
             env_files.push({
                 filename: env_out,
-                encoding: null,
+                encoding: 'binary',
                 content: FS.readFile(env_out, {
                     encoding: 'binary'
                 })
