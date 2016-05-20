@@ -3440,6 +3440,7 @@ function createV9(printOut, breakPoints) {
             };
             hdlrItrpt = function() {
                 var p;
+                // TODO: no explicit main c file.
                 currentInfo = infoPool['root/etc/os.c'];
                 regInfoOffset = 0;
                 regXSp = regXSp - regTSp;
@@ -3581,6 +3582,7 @@ function createV9(printOut, breakPoints) {
         regNextHdlr = 0;
     }
 
+    // TODO: Uint8Array instead of ArrayBuffer.
     function setupSoftware(abOS, abFS, infoStr) {
         var cleanMemory, wipeMemory, wipeRegs, readInfo;
         cleanMemory = function() {
@@ -3706,6 +3708,7 @@ function createV9(printOut, breakPoints) {
                     }
                 }
             });
+            // TODO: no explicit main c file.
             currentInfo = infoPool['root/etc/os.c'];
             regInfoOffset = 0;
             regToLoadInfo = false;
@@ -3763,6 +3766,7 @@ function createV9(printOut, breakPoints) {
             }
             regInfoOffset = -16;
         } else if (m === 0xff2016ff) {
+            // TODO: no explicit main c file.
             s = 'root/etc/os.c';
             regInfoOffset = hdrMem.readUInt32LE(p - 16);
         } else {
@@ -3800,6 +3804,7 @@ function createV9(printOut, breakPoints) {
                 loadUserProcInfo();
             } else {
                 if (regNextHdlr === hdlrInstr) {
+                    // TODO: no explicit main c file.
                     if (!regUser && currentInfo === infoPool['root/etc/os.c']) {
                         addr = regXPc >>> 0;
                     } else {

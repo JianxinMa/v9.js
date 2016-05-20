@@ -369,6 +369,8 @@
         $("#loadingSign").show();
         // TODO: need check non-current files as well.
         if (saveCurrentFile() || v9Cpu.needInit()) {
+            // TODO: use front-end xvcc & mkfs.
+            // TODO: use Uint8Array instead of ArrayBuffer.
             sk = io();
             sk.emit('compileFiles', files);
             sk.on('filesCompiled', function(compiled) {
@@ -390,6 +392,8 @@
         var initFileList, initV9, initButtons;
         initFileList = function() {
             files.forEach(function(file, i) {
+                // TODO: remove hard coded directories.
+                // TODO: check in only .c, .h, .txt.
                 $('#files' + file.filename.substr(5, 3).toUpperCase()).append(
                     "<li id='file" + i.toString() + "'>" +
                     "<a href='#'>" + file.filename + "</a>" +
@@ -399,6 +403,7 @@
                     editFile($(this).text());
                 });
             });
+            // TODO: no explicit main c file.
             editFile("root/etc/os.c");
         };
         initV9 = function() {
