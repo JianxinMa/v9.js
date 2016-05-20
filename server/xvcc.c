@@ -15,8 +15,6 @@
 //
 // Written by Robert Swierczek
 
-#include <assert.h>
-#include <memory.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -276,39 +274,30 @@ void info_print_type_str(uint t) {
     switch (t & TMASK) {
     case CHAR:
       fprintf(info_fd, "char");
-      assert((t >> TSHIFT) == 0);
       break;
     case SHORT:
       fprintf(info_fd, "short");
-      assert((t >> TSHIFT) == 0);
       break;
     case INT:
       fprintf(info_fd, "int");
-      assert((t >> TSHIFT) == 0);
       break;
     case UCHAR:
       fprintf(info_fd, "uchar");
-      assert((t >> TSHIFT) == 0);
       break;
     case USHORT:
       fprintf(info_fd, "ushort");
-      assert((t >> TSHIFT) == 0);
       break;
     case UINT:
       fprintf(info_fd, "uint");
-      assert((t >> TSHIFT) == 0);
       break;
     case FLOAT:
       fprintf(info_fd, "float");
-      assert((t >> TSHIFT) == 0);
       break;
     case DOUBLE:
       fprintf(info_fd, "double");
-      assert((t >> TSHIFT) == 0);
       break;
     case VOID:
       fprintf(info_fd, "void");
-      assert((t >> TSHIFT) == 0);
       break;
     case FUN:
       fprintf(info_fd, "fun");
