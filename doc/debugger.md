@@ -189,3 +189,71 @@ def print_struct_type_str(var):
   }
   print(")")
 ```
+
+（以下是非正式文档）
+调试信息文件`root/etc/os.d`应该长什么样呢？长这样：
+```
+= root/etc/os.c
+# 注意上面，文件的第一行必须以=开始，后接代码的文件名。
+
+# 行首为`#`，表明这一行为注释。空行会被忽略。
+g proc bss +0 (array(64|132(struct<proc>)))                                     
+g u bss +8448 (ptr(struct<proc>))                                               
+g init bss +8452 (ptr(struct<proc>))                                            
+g mem_free bss +8456 (ptr(char))                                                
+g mem_top bss +8460 (ptr(char))                                                 
+g mem_sz bss +8464 (uint)                                                       
+g kreserved bss +8468 (uint)  
+# ...省略很多很多...
+# 上面这几个是全局变量，分别叫proc、u、init等等；
+# 由于它们在bss段，当然了，如果变量在data段就请把bss换成data；
+# bss后面的十进制数字表示这个变量的地址相对.bss开头处的偏移值，注意，是偏移值；
+# 偏移值之后是类型信息。
+
+# ...省略很多很多...
+
+# 接下来是某个函数相关的信息：
+> 0x00000018
+# 上面先用以>开头的一行表示出函数的入口；
+l n stk +24 (uint)
+l s stk +16 (ptr(void))
+l d stk +8 (ptr(void))
+# 然后立即用l（是小L，不是I）开头表示出都有什么局部变量；
+# 传入的参数也视为局部变量；
+# 实际上你看相对栈帧的偏移值的正负就可以判断这个局部变量是否传入参数；
+# 局部变量的格式和全局变量的格式差不多；
+# 这里stk表示该局部变量是在栈帧上的；
+# 如果一个局部变量是static的，那么这里stk应该相应地替换成bss或data；
+i 0x00000018 root/etc/os.c 213
+i 0x0000001c root/etc/os.c 213
+i 0x00000020 root/etc/os.c 214
+i 0x00000024 root/etc/os.c 215
+i 0x00000028 root/etc/os.c 216
+i 0x0000002c root/etc/os.c 217
+i 0x00000030 root/etc/os.c 218
+# ...省略很多很多...
+# 然后对函数里的每一条指令，用i开头的一行标注它的位置。
+
+# ...省略很多很多...
+
+# 下面是另一个函数的相关信息，作为另一个例子：
+> 0x0000687c
+l endbss bss +211180 (int)
+l kstack bss +210924 (array(256|1(char)))
+l ksp stk -4 (ptr(int))
+i 0x0000687c root/etc/os.c 2621
+i 0x00006880 root/etc/os.c 2621
+i 0x00006884 root/etc/os.c 2621
+i 0x00006888 root/etc/os.c 2621
+i 0x0000688c root/etc/os.c 2621
+# ...省略很多很多...
+
+# 接下来给出定义的结构体的信息：
+d struct pollfd (8|(fd:+0:(int))(events:+4:(short))(revents:+6:(short)))
+# ...省略很多很多...
+# 可以看到结构体的类型信息还给出了各个成员的偏移值
+
+# 最后给出.bss和.data的起始地址，注意是起始地址，不是大小
+.data 0x00006948
+.bss  0x00006ed8
+```
