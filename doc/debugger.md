@@ -168,7 +168,7 @@ def print_type_str(var):
       warn("Unknown Type");
     }
   }
-  printf(")")
+  print(")")
 
 
 #
@@ -187,5 +187,5 @@ def print_struct_type_str(var):
     print_type_str(m)
     print(")")
   }
-  fprintf(")")
+  print(")")
 ```
