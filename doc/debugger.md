@@ -146,17 +146,17 @@ def print_type_str(var):
       # You can use `fancy_t var` to declare a variable in C.
       # But the struct's name is `fancy_st`, not `fancy_t`.
       #
-      # This also means the following struct has no name, i.e. is anonymous:
+      # This also means the following struct has no name, i.e. is unnamed:
       #   typedef struct {
       #     ..
       #   } fancy_t;
       #
       # Moreover, if a varialbe is defined like this:
       #   struct { int x, y; } p;
-      # It is also  of an anonymous struct type.
+      # It is also  of an unnamed struct type.
       #
       print("struct");
-      if (is_an_anonymous_struct) {
+      if (is_an_unnamed_struct) {
         print_struct_type_str(var)  # See print_struct_type_str below.
       } else {
         print("<")
