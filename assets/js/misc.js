@@ -569,7 +569,7 @@
         };
         initEntryButtons = function() {
             $('#newLabBtn').on('click', function() {
-                var path, nFiles, fetchEachFile, fetchFiles;
+                var labPath, nFiles, fetchEachFile, fetchFiles;
                 fetchEachFile = function(path, counting) {
                     if (counting) {
                         nFiles = nFiles + 1;
@@ -601,13 +601,13 @@
                     }
                 };
                 $("#loadingSign").show();
-                path = "labs/xv6/";
-                $.getJSON(path + "config.json", function(config) {
+                labPath = "labs/xv6/";
+                $.getJSON(labPath + "config.json", function(config) {
                     labConfg = config;
                     nFiles = 0;
                     files = [];
-                    fetchFiles(path, labConfg.file, true);
-                    fetchFiles(path, labConfg.file, false);
+                    fetchFiles(labPath, labConfg.file, true);
+                    fetchFiles(labPath, labConfg.file, false);
                 });
             });
             $("#oldLabBtn").on('click', function() {

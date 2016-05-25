@@ -39,8 +39,7 @@
                 "euhello.c": 0,
                 "hello.c": 0,
                 "prseg.c": 0,
-                "scratch.c": 0,
-                "sdk.c": 0
+                "scratch.c": 0
             }
         }
     },
@@ -111,8 +110,5 @@
     }, {
         "include": ["root/lib"],
         "sources": ["root/usr/scratch.c"]
-    }, {
-        "include": ["root/lib"],
-        "sources": ["root/usr/sdk.c"]
     }]
 }
