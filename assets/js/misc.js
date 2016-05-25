@@ -476,6 +476,7 @@
                 files.forEach(function(file) {
                     zip.file(file.filename, file.content);
                 });
+                zip.file('config.json', JSON.stringify(labConfg));
                 zip.generateAsync({
                     type: "blob"
                 }).then(function(d) {
@@ -574,7 +575,7 @@
                     if (counting) {
                         nFiles = nFiles + 1;
                     } else {
-                        $.get(path, function(data) {
+                        $.get(labPath + path, function(data) {
                             files.push({
                                 filename: path,
                                 encoding: 'utf8',
@@ -606,8 +607,8 @@
                     labConfg = config;
                     nFiles = 0;
                     files = [];
-                    fetchFiles(labPath, labConfg.file, true);
-                    fetchFiles(labPath, labConfg.file, false);
+                    fetchFiles('', labConfg.file, true);
+                    fetchFiles('', labConfg.file, false);
                 });
             });
             $("#oldLabBtn").on('click', function() {
