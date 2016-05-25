@@ -69,8 +69,8 @@
         </div>
         <div class="col-2-1">
             <div class="row-2-1">
-                <ul class="menu">
-                    <li id="fileMenu" style="float:right">
+                <ul id="fileMenu" class="menu">
+                    <li style="float:right">
                         <a id="currentFile" href="#" class="disabled">~ empty ~</a>
                     </li>
                 </ul>
@@ -78,9 +78,7 @@
             <div class="row-2-2">
                 <textarea id="editor" style="display:none"></textarea>
             </div>
-        </div>
-        <div class="col-2-2">
-            <!-- STUPID FORMATTER: NO SPACE BETWEEN INLINE-BLOCKS! -->
+        </div><div class="col-2-2"><!-- NO SPACE BETWEEN INLINE-BLOCK col-2-1 and col-2-2! -->
             <div class="row-2-1">
                 <ul class="rbar">
                     <li><a id="runBtn" class="btn" href="#">Run</a></li>
@@ -90,7 +88,8 @@
                     <li style="float:right">
                         <a id="downloadBtn" class="btn" href="#">Download</a></li>
                 </ul>
-            </div><div class="row-2-2">
+            </div>
+            <div class="row-2-2">
                 <div id="terminal" tabindex="1">
                     <div class="jquery-console-inner">
                         <div class="jquery-console-message">
