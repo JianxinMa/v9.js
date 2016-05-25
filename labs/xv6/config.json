@@ -43,72 +43,91 @@
             }
         }
     },
+    "disk" : "root",
     "kern": {
         "include": ["root/lib"],
-        "sources": ["root/etc/os.c"]
+        "sources": ["root/etc/os.c"],
+        "target": "os"
     },
     "user": [{
         "include": ["root/lib"],
-        "sources": ["root/bin/cp.c"]
+        "sources": ["root/bin/cp.c"],
+        "target": "root/bin/cp"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/halt.c"]
+        "sources": ["root/bin/halt.c"],
+        "target": "root/bin/halt"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/ln.c"]
+        "sources": ["root/bin/ln.c"],
+        "target": "root/bin/ln"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/man.c"]
+        "sources": ["root/bin/man.c"],
+        "target": "root/bin/man"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/mv.c"]
+        "sources": ["root/bin/mv.c"],
+        "target": "root/bin/mv"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/rm.c"]
+        "sources": ["root/bin/rm.c"],
+        "target": "root/bin/rm"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/sh.c"]
+        "sources": ["root/bin/sh.c"],
+        "target": "root/bin/sh"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/cat.c"]
+        "sources": ["root/bin/cat.c"],
+        "target": "root/bin/cat"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/echo.c"]
+        "sources": ["root/bin/echo.c"],
+        "target": "root/bin/echo"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/kill.c"]
+        "sources": ["root/bin/kill.c"],
+        "target": "root/bin/kill"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/ls.c"]
+        "sources": ["root/bin/ls.c"],
+        "target": "root/bin/ls"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/mkdir.c"]
+        "sources": ["root/bin/mkdir.c"],
+        "target": "root/bin/mkdir"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/pwd.c"]
+        "sources": ["root/bin/pwd.c"],
+        "target": "root/bin/pwd"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/rmdir.c"]
+        "sources": ["root/bin/rmdir.c"],
+        "target": "root/bin/rmdir"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/bin/wc.c"]
+        "sources": ["root/bin/wc.c"],
+        "target": "root/bin/wc"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/etc/init.c"]
+        "sources": ["root/etc/init.c"],
+        "target": "root/etc/init"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/etc/os.c"]
+        "sources": ["root/usr/euhello.c"],
+        "target": "root/usr/euhello"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/usr/euhello.c"]
+        "sources": ["root/usr/hello.c"],
+        "target": "root/usr/hello"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/usr/hello.c"]
+        "sources": ["root/usr/prseg.c"],
+        "target": "root/usr/prseg"
     }, {
         "include": ["root/lib"],
-        "sources": ["root/usr/prseg.c"]
-    }, {
-        "include": ["root/lib"],
-        "sources": ["root/usr/scratch.c"]
+        "sources": ["root/usr/scratch.c"],
+        "target": "root/usr/scratch"
     }]
 }

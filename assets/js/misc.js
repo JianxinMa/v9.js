@@ -1,6 +1,5 @@
 /*jslint white:true browser:true maxlen:80 */
-/*global CodeMirror, d3, $,JSZip, saveAs,
-    createV9, xvcc_all, mkfs */
+/*global CodeMirror, d3, $,JSZip, saveAs, createV9, xvcc, mkfs */
 
 "use strict";
 
@@ -322,7 +321,6 @@
                 return k;
             }
         }
-        console.log('In readTypedVal: bad type', t);
         return 'BAD_TYPE';
     }
 
@@ -388,8 +386,27 @@
         $("#termcursor").removeClass("blinking-cursor");
     }
 
-    function compile(onSuccess, onFailure) {
-        ///
+    function compile(onSuccess) {
+        var xvccEach, currentUser, binFiles, debugInfo;
+        xvccEach = function(result, info) {
+            binFiles.push(result);
+            debugInfo += info;
+            currentUser += 1;
+            if (currentUser < labConfg.user.length) {
+                xvcc(labConfg.user[currentUser], labConfg.file,
+                    files, xvccEach, printTerm);
+            } else {
+                mkfs(labConfg.disk, files, binFiles, labConfg.file,
+                    function(hd) {
+                        onSuccess(binFiles[0].content, hd, debugInfo);
+                    }, printTerm);
+            }
+        };
+        currentUser = -1;
+        binFiles = [];
+        debugInfo = '';
+        xvcc(labConfg.kern, labConfg.file,
+            files, xvccEach, printTerm);
     }
 
     function onCpuReady(cb) {
@@ -400,8 +417,6 @@
                 v9Cpu.setupSoftware(os, hd, de);
                 clearTerm();
                 cb();
-            }, function(errorStr) {
-                printTerm(errorStr);
             });
         } else {
             cb();

@@ -1,40 +1,38 @@
 /*jslint white:true browser:true maxlen:80 bitwise:true */
-/*global FS */
+/*global FS, mkDirs */
 
 "use strict";
 
-function mkfs(env_files, env_print) {
-    var env_disk, env_root, Module;
-    env_disk = 'disk.img';
-    env_root = "root"; // TODO: no hard coded root.
-    Module = {
-        arguments: [env_disk, env_root],
-        print: (env_print || console.log),
-        preRun: [function() {
-            // TODO: remove hard coded directories.
-            FS.mkdir('root');
-            FS.mkdir('root/bin');
-            FS.mkdir('root/dev');
-            FS.mkdir('root/etc');
-            FS.mkdir('root/lib');
-            FS.mkdir('root/usr');
-            env_files.forEach(function(file) {
-                if (file.filename.startsWith('root/') &&
-                    !file.filename.endsWith('.d')) {
+function mkfs(diskRoot, files, binFiles, dirStruct, onReturn, printOut) {
+    var Module;
+    (function() {
+        var diskImg;
+        diskImg = diskRoot + '.img';
+        Module = {
+            arguments: [diskImg, diskRoot],
+            print: (printOut || console.log),
+            preRun: [function() {
+                var saveFile;
+                saveFile = function(file) {
                     FS.writeFile(file.filename, file.content, {
                         encoding: file.encoding
                     });
-                }
-            });
-        }],
-        postRun: [function() {
-            env_files.push({
-                filename: env_disk,
-                encoding: 'binary',
-                content: FS.readFile(env_disk, {
-                    encoding: 'binary'
-                })
-            });
-        }]
-    };
+                };
+                mkDirs('', dirStruct, FS.mkdir);
+                files.forEach(saveFile);
+                binFiles.forEach(saveFile);
+            }],
+            postRun: [function() {
+                var img;
+                img = {
+                    filename: diskImg,
+                    encoding: 'binary',
+                    content: FS.readFile(diskImg, {
+                        encoding: 'binary'
+                    })
+                };
+                onReturn(img);
+            }]
+        };
+    }());
 }

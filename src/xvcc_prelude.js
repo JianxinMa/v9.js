@@ -1,55 +1,58 @@
-/*jslint white:true browser:true maxlen:80 bitwise:true */
+/*jslint white:true browser:true maxlen:80*/
 /*global FS */
 
 "use strict";
 
-function xvcc_all(env_files, env_print) {
-    env_files.forEach(function(file) {
-        if (file.filename.endsWith('.c')) {
-            xvcc(file.filename, env_files, env_print);
+function mkDirs(path, dir, mkdirImpl) {
+    var p;
+    for (p in dir) {
+        if (dir.hasOwnProperty(p)) {
+            if (dir[p] !== 0) {
+                mkdirImpl(path + p);
+                mkDirs(path + p + '/', dir[p], mkdirImpl);
+            }
         }
-    });
+    }
 }
 
-function xvcc(env_src, env_files, env_print) {
-    var env_out, Module;
-    env_out = env_src.substr(0, env_src.length - 2);
-    Module = {
-        // TODO: remove hard coded -I
-        arguments: ["-Iroot/lib", "-o", env_out, env_src],
-        print: (env_print || console.log),
-        preRun: [function() {
-            // TODO: remove hard coded directories.
-            FS.mkdir('root');
-            FS.mkdir('root/bin');
-            FS.mkdir('root/dev');
-            FS.mkdir('root/etc');
-            FS.mkdir('root/lib');
-            FS.mkdir('root/usr');
-            env_files.forEach(function(file) {
-                if (file.filename.endsWith('.h') ||
-                    file.filename === env_src) {
-                    FS.writeFile(file.filename, file.content);
-                }
-            });
-        }],
-        postRun: [function() {
-            var env_dbg;
-            env_files.push({
-                filename: env_out,
-                encoding: 'binary',
-                content: FS.readFile(env_out, {
-                    encoding: 'binary'
-                })
-            });
-            env_dbg = env_out + '.d';
-            env_files.push({
-                filename: env_dbg,
-                encoding: 'utf8',
-                content: FS.readFile(env_dbg, {
+/**
+ * XVCC supports only single .c file and single include directory.
+ */
+function xvcc(xvccOpt, dirStruct, files, onReturn, printOut) {
+    var Module;
+    (function() {
+        var include, infile, outfile, infofile;
+        include = xvccOpt.include[0];
+        infile = xvccOpt.sources[0];
+        outfile = xvccOpt.target;
+        infofile = infile.substr(0, infile.length - 1) + 'd';
+        Module = {
+            arguments: ["-I" + include, "-o", outfile, infile],
+            print: (printOut || console.log),
+            preRun: [function() {
+                mkDirs('', dirStruct, FS.mkdir);
+                files.forEach(function(file) {
+                    if ((file.filename === infile) ||
+                        (file.filename.endsWith('.h') &&
+                            file.filename.startsWith(include))) {
+                        FS.writeFile(file.filename, file.content);
+                    }
+                });
+            }],
+            postRun: [function() {
+                var result, info;
+                result = {
+                    filename: outfile,
+                    encoding: 'binary',
+                    content: FS.readFile(outfile, {
+                        encoding: 'binary'
+                    })
+                };
+                info = FS.readFile(infofile, {
                     encoding: 'utf8'
-                })
-            });
-        }]
-    };
+                });
+                onReturn(result, info);
+            }]
+        };
+    }());
 }
