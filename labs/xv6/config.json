@@ -1,0 +1,118 @@
+{
+    "file": {
+        "root": {
+            "bin": {
+                "cp.c": 0,
+                "halt.c": 0,
+                "ln.c": 0,
+                "man.c": 0,
+                "mv.c": 0,
+                "rm.c": 0,
+                "sh.c": 0,
+                "cat.c": 0,
+                "echo.c": 0,
+                "kill.c": 0,
+                "ls.c": 0,
+                "mkdir.c": 0,
+                "pwd.c": 0,
+                "rmdir.c": 0,
+                "wc.c": 0
+            },
+            "dev": {
+                "empty.txt": 0
+            },
+            "etc": {
+                "init.c": 0,
+                "os.c": 0
+            },
+            "lib": {
+                "ctype.h": 0,
+                "curses.h": 0,
+                "dir.h": 0,
+                "font.h": 0,
+                "libc.h": 0,
+                "libm.h": 0,
+                "mem.h": 0,
+                "u.h": 0
+            },
+            "usr": {
+                "euhello.c": 0,
+                "hello.c": 0,
+                "prseg.c": 0,
+                "scratch.c": 0,
+                "sdk.c": 0
+            }
+        }
+    },
+    "kern": {
+        "include": ["root/lib"],
+        "sources": ["root/etc/os.c"]
+    },
+    "user": [{
+        "include": ["root/lib"],
+        "sources": ["root/bin/cp.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/halt.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/ln.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/man.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/mv.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/rm.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/sh.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/cat.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/echo.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/kill.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/ls.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/mkdir.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/pwd.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/rmdir.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/bin/wc.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/etc/init.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/etc/os.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/usr/euhello.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/usr/hello.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/usr/prseg.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/usr/scratch.c"]
+    }, {
+        "include": ["root/lib"],
+        "sources": ["root/usr/sdk.c"]
+    }]
+}

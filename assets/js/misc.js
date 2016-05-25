@@ -1,10 +1,11 @@
 /*jslint white:true browser:true maxlen:80 */
-/*global CodeMirror, d3, $, createV9, io, JSZip, saveAs */
+/*global CodeMirror, d3, $,JSZip, saveAs,
+    createV9, xvcc_all, mkfs */
 
 "use strict";
 
 (function() {
-    var editor, files, curFileId, breakPoints, v9Cpu;
+    var editor, labConfg, files, curFileId, breakPoints, v9Cpu;
 
     function renderTreeView(root, level) {
         var m, w, h, i, tree, diagonal, vis;
@@ -20,8 +21,8 @@
         }
 
         function update(source) {
-            var duration, nodes, node, nodeEnter, nodeUpdate, nodeExit,
-                link;
+            var duration, nodes, node, nodeEnter,
+                nodeUpdate, nodeExit, link;
             duration = (d3.event && d3.event.altKey ? 1500 : 150);
             nodes = tree.nodes(root).reverse();
             nodes.forEach(function(d) {
@@ -38,8 +39,8 @@
             nodeEnter = node.enter().append("svg:g")
                 .attr("class", "node")
                 .attr("transform", function() {
-                    return "translate(" + source.y0 + "," + source.x0 +
-                        ")";
+                    return "translate(" + source.y0 +
+                        "," + source.x0 + ")";
                 })
                 .on("click", function(d) {
                     toggle(d);
@@ -77,8 +78,8 @@
             nodeExit = node.exit().transition()
                 .duration(duration)
                 .attr("transform", function() {
-                    return "translate(" + source.y + "," + source.x +
-                        ")";
+                    return "translate(" + source.y +
+                        "," + source.x + ")";
                 })
                 .remove();
             nodeExit.select("circle")
@@ -175,16 +176,6 @@
         return marker;
     }
 
-    function saveCurrentFile() {
-        if (curFileId !== -1) {
-            if (files[curFileId].content !== editor.getValue()) {
-                files[curFileId].content = editor.getValue();
-                return true;
-            }
-        }
-        return false;
-    }
-
     function renderBreakPoints() {
         var point, name;
         name = files[curFileId].filename;
@@ -197,6 +188,15 @@
                         "breakPoints",
                         makeMarker());
                 }
+            }
+        }
+    }
+
+    function saveCurrentFile() {
+        if (curFileId !== -1) {
+            if (files[curFileId].content !== editor.getValue()) {
+                v9Cpu.forceInit();
+                files[curFileId].content = editor.getValue();
             }
         }
     }
@@ -221,7 +221,6 @@
     function findMatched(s, l) {
         var lv, r;
         if (s[l] !== '(') {
-            console.log('In findMatched: bad s[l]', s, s[l]);
             return -1;
         }
         lv = 1;
@@ -340,6 +339,27 @@
         return ret;
     }
 
+    function asciiToHtml(ascii) {
+        var i, j, c, html;
+        html = '';
+        j = ascii.length;
+        for (i = 0; i < j; i = i + 1) {
+            c = ascii.charCodeAt(i);
+            html = html + '&#' + c.toString() + ';';
+        }
+        return html;
+    }
+
+    function printTerm(msg) {
+        var termtext;
+        termtext = $("#termtext");
+        termtext.html(termtext.html() + asciiToHtml(msg));
+    }
+
+    function clearTerm() {
+        $("#termtext").text("");
+    }
+
     function doAtCpuReady() {
         $("#viewBtn").addClass("disabled");
         $("#loadingSign").hide();
@@ -349,7 +369,7 @@
 
     function doAtCpuPause(point, localDefs, globalDefs) {
         if (!point) {
-            $("#termtext").text("End of program reached.");
+            printTerm("End of program reached.");
         } else {
             point = point.split(' ');
             editFile(point[0], Number(point[1]));
@@ -368,25 +388,20 @@
         $("#termcursor").removeClass("blinking-cursor");
     }
 
+    function compile(onSuccess, onFailure) {
+        ///
+    }
+
     function onCpuReady(cb) {
-        var sk;
         $("#loadingSign").show();
-        // TODO: need check non-current files as well.
-        if (saveCurrentFile() || v9Cpu.needInit()) {
-            // TODO: use front-end xvcc & mkfs.
-            // TODO: use Uint8Array instead of ArrayBuffer.
-            sk = io();
-            sk.emit('compileFiles', files);
-            sk.on('filesCompiled', function(compiled) {
-                sk.disconnect();
-                if (compiled.error) {
-                    console.log(compiled.error);
-                } else {
-                    v9Cpu.setupSoftware(compiled.os, compiled.hd,
-                        compiled.de);
-                    $("#termtext").text("");
-                    cb();
-                }
+        saveCurrentFile();
+        if (v9Cpu.needInit()) {
+            compile(function(os, hd, de) {
+                v9Cpu.setupSoftware(os, hd, de);
+                clearTerm();
+                cb();
+            }, function(errorStr) {
+                printTerm(errorStr);
             });
         } else {
             cb();
@@ -396,36 +411,32 @@
     function loadLabPage() {
         var initFileList, initV9, initButtons;
         initFileList = function() {
+            ///
+            $("#fileMenu").prepend(
+                '<li><a href="#">xv6</a>' +
+                '<ul id="files"></ul></li>');
             files.forEach(function(file, i) {
-                // TODO: remove hard coded directories.
-                // TODO: check in only .c, .h, .txt.
-                $('#files' + file.filename.substr(5, 3).toUpperCase())
-                    .append(
-                        "<li id='file" + i.toString() + "'>" +
-                        "<a href='#'>" + file.filename + "</a>" +
-                        "</li>"
-                    );
+                $('#files').append(
+                    "<li id='file" + i.toString() + "'>" +
+                    "<a href='#'>" + file.filename + "</a>" +
+                    "</li>"
+                );
                 $("#file" + i.toString()).click(function() {
                     editFile($(this).text());
                 });
             });
-            // TODO: no explicit main c file.
-            editFile("root/etc/os.c");
+            editFile(labConfg.kern.sources[0]);
         };
         initV9 = function() {
             var printOut;
             printOut = function(fd, msg) {
-                var termtext;
                 if (fd === 2) {
                     console.log(msg);
                 }
-                // TODO: many other ASCII chars to be converted.
-                msg = msg.replace(/\t/g, '&nbsp;&nbsp;');
-                msg = msg.replace(/\n/g, '<br/>');
-                termtext = $("#termtext");
-                termtext.html(termtext.html() + msg);
+                printTerm(msg);
             };
-            v9Cpu = createV9(printOut, breakPoints);
+            v9Cpu = createV9(printOut, breakPoints,
+                labConfg.kern.sources[0]);
             $("#terminal").keypress(function(e) {
                 var keyCode;
                 keyCode = e.keyCode || e.which;
@@ -517,75 +528,86 @@
                 JSZip
                     .loadAsync(event.target.files[0])
                     .then(function(zip) {
-                        var numTask, finished;
-                        numTask = 0;
+                        var nFiles;
+                        nFiles = 0;
+                        /*jslint unparam:true*/
                         zip.forEach(function(path, entry) {
                             if (!entry.dir) {
-                                numTask += 1;
-                                if (!(path.endsWith(
-                                            '.c') ||
-                                        path.endsWith(
-                                            '.h') ||
-                                        path.endsWith(
-                                            '.txt')
-                                    )) {
-                                    console.log(
-                                        'Unexpected extension : ' +
-                                        path);
-                                }
+                                nFiles += 1;
                             }
                         });
-                        finished = 0;
+                        /*jslint unparam:false*/
                         zip.forEach(function(path, entry) {
+                            var onReadSuccess;
+                            onReadSuccess = function(data) {
+                                if (path === 'config.json') {
+                                    labConfg = $.parseJSON(data);
+                                } else {
+                                    files.push({
+                                        filename: path,
+                                        encoding: 'utf8',
+                                        content: data
+                                    });
+                                }
+                                nFiles -= 1;
+                                if (nFiles === 0) {
+                                    loadLabPage();
+                                }
+                            };
                             if (!entry.dir) {
-                                zip.file(path).async(
-                                    'string').then(
-                                    function(d) {
-                                        files.push({
-                                            // TODO: path separator on windows.
-                                            filename: path,
-                                            encoding: 'utf8',
-                                            content: d
-                                        });
-                                        finished
-                                            +=
-                                            1;
-                                        if (
-                                            finished ===
-                                            numTask
-                                        ) {
-                                            loadLabPage
-                                                ();
-                                        }
-                                    },
+                                zip.file(path).async('string').then(
+                                    onReadSuccess,
                                     function(e) {
-                                        console
-                                            .log(
-                                                "Error extracting file " +
-                                                path +
-                                                " : " +
-                                                e
-                                                .message
-                                            );
+                                        throw e;
                                     });
                             }
                         });
                     }, function(e) {
-                        console.log("Error reading file : " +
-                            e.message);
+                        throw e;
                     });
             });
         };
         initEntryButtons = function() {
             $('#newLabBtn').on('click', function() {
-                var sk;
+                var url, nFiles, fetchEachFile, fetchFiles;
+                fetchEachFile = function(path, counting) {
+                    if (counting) {
+                        nFiles = nFiles + 1;
+                    } else {
+                        $.get(url + path, function(data) {
+                            files.push({
+                                filename: path,
+                                encoding: 'utf8',
+                                content: data
+                            });
+                            nFiles = nFiles - 1;
+                            if (nFiles === 0) {
+                                loadLabPage();
+                            }
+                        });
+                    }
+                };
+                fetchFiles = function(path, dir, counting) {
+                    var p;
+                    for (p in dir) {
+                        if (dir.hasOwnProperty(p)) {
+                            if (dir[p] === 0) {
+                                fetchEachFile(path + p, counting);
+                            } else {
+                                fetchFiles(path + p + '/', dir[p],
+                                    counting);
+                            }
+                        }
+                    }
+                };
                 $("#loadingSign").show();
-                sk = io();
-                sk.emit('fetchFiles');
-                sk.on('filesSent', function(fetchedFiles) {
-                    sk.disconnect();
-                    files = fetchedFiles;
-                    loadLabPage();
+                url = window.location.hostname + "/labs/xv6/";
+                $.getJSON(url + "config.json", function(config) {
+                    labConfg = config;
+                    nFiles = 0;
+                    files = [];
+                    fetchFiles('', labConfg.file, true);
+                    fetchFiles('', labConfg.file, false);
                 });
             });
             $("#oldLabBtn").on('click', function() {

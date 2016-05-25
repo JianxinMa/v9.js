@@ -3,7 +3,7 @@
 
 "use strict";
 
-function createV9(printOut, breakPoints, osInfoFileName) {
+function createV9(printOut, breakPoints, kernMainTag) {
     var PTE_P = 0x001,
         PTE_W = 0x002,
         PTE_U = 0x004,
@@ -3440,7 +3440,7 @@ function createV9(printOut, breakPoints, osInfoFileName) {
             };
             hdlrItrpt = function() {
                 var p;
-                currentInfo = infoPool[osInfoFileName];
+                currentInfo = infoPool[kernMainTag];
                 regInfoOffset = 0;
                 regXSp = regXSp - regTSp;
                 regTSp = 0;
@@ -3706,7 +3706,7 @@ function createV9(printOut, breakPoints, osInfoFileName) {
                     }
                 }
             });
-            currentInfo = infoPool[osInfoFileName];
+            currentInfo = infoPool[kernMainTag];
             regInfoOffset = 0;
             regToLoadInfo = false;
         };
@@ -3763,7 +3763,7 @@ function createV9(printOut, breakPoints, osInfoFileName) {
             }
             regInfoOffset = -16;
         } else if (m === 0xff2016ff) {
-            s = osInfoFileName;
+            s = kernMainTag;
             regInfoOffset = hdrMem.readUInt32LE(p - 16);
         } else {
             console.log('In loadUserProcInfo: bad m', '0x' + m.toString(16));
@@ -3805,7 +3805,7 @@ function createV9(printOut, breakPoints, osInfoFileName) {
                 loadUserProcInfo();
             } else {
                 if (regNextHdlr === hdlrInstr) {
-                    if (!regUser && currentInfo === infoPool[osInfoFileName]) {
+                    if (!regUser && currentInfo === infoPool[kernMainTag]) {
                         addr = regXPc >>> 0;
                     } else {
                         addr = (regXPc - regTPc) >>> 0;
