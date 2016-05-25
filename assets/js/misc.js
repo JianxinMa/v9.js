@@ -20,7 +20,8 @@
         }
 
         function update(source) {
-            var duration, nodes, node, nodeEnter, nodeUpdate, nodeExit, link;
+            var duration, nodes, node, nodeEnter, nodeUpdate, nodeExit,
+                link;
             duration = (d3.event && d3.event.altKey ? 1500 : 150);
             nodes = tree.nodes(root).reverse();
             nodes.forEach(function(d) {
@@ -37,7 +38,8 @@
             nodeEnter = node.enter().append("svg:g")
                 .attr("class", "node")
                 .attr("transform", function() {
-                    return "translate(" + source.y0 + "," + source.x0 + ")";
+                    return "translate(" + source.y0 + "," + source.x0 +
+                        ")";
                 })
                 .on("click", function(d) {
                     toggle(d);
@@ -75,7 +77,8 @@
             nodeExit = node.exit().transition()
                 .duration(duration)
                 .attr("transform", function() {
-                    return "translate(" + source.y + "," + source.x + ")";
+                    return "translate(" + source.y + "," + source.x +
+                        ")";
                 })
                 .remove();
             nodeExit.select("circle")
@@ -285,7 +288,8 @@
                 memType = memType.substr(i);
                 for (i = 0; i < j; i = i + 1) {
                     k.children.push(getOneVarValue('[' + i.toString() + ']',
-                        v + i * offset, memType, showType, showAddr));
+                        v + i * offset, memType, showType, showAddr
+                    ));
                 }
                 return k;
             }
@@ -378,7 +382,8 @@
                 if (compiled.error) {
                     console.log(compiled.error);
                 } else {
-                    v9Cpu.setupSoftware(compiled.os, compiled.hd, compiled.de);
+                    v9Cpu.setupSoftware(compiled.os, compiled.hd,
+                        compiled.de);
                     $("#termtext").text("");
                     cb();
                 }
@@ -394,11 +399,12 @@
             files.forEach(function(file, i) {
                 // TODO: remove hard coded directories.
                 // TODO: check in only .c, .h, .txt.
-                $('#files' + file.filename.substr(5, 3).toUpperCase()).append(
-                    "<li id='file" + i.toString() + "'>" +
-                    "<a href='#'>" + file.filename + "</a>" +
-                    "</li>"
-                );
+                $('#files' + file.filename.substr(5, 3).toUpperCase())
+                    .append(
+                        "<li id='file" + i.toString() + "'>" +
+                        "<a href='#'>" + file.filename + "</a>" +
+                        "</li>"
+                    );
                 $("#file" + i.toString()).click(function() {
                     editFile($(this).text());
                 });
@@ -486,16 +492,20 @@
                     mode: "text/x-csrc",
                     styleActiveLine: true,
                     lineNumbers: true,
-                    gutters: ["CodeMirror-linenumbers", "breakPoints"]
+                    gutters: ["CodeMirror-linenumbers",
+                        "breakPoints"
+                    ]
                 });
             editor.on("gutterClick", function(cm, ln) {
                 var point;
-                point = files[curFileId].filename + ' ' + (ln + 1).toString();
+                point = files[curFileId].filename + ' ' + (ln +
+                    1).toString();
                 if (cm.lineInfo(ln).gutterMarkers) {
                     cm.setGutterMarker(ln, "breakPoints", null);
                     delete breakPoints[point];
                 } else {
-                    cm.setGutterMarker(ln, "breakPoints", makeMarker());
+                    cm.setGutterMarker(ln, "breakPoints",
+                        makeMarker());
                     breakPoints[point] = true;
                 }
             });
@@ -512,10 +522,15 @@
                         zip.forEach(function(path, entry) {
                             if (!entry.dir) {
                                 numTask += 1;
-                                if (!(path.endsWith('.c') ||
-                                        path.endsWith('.h') ||
-                                        path.endsWith('.txt'))) {
-                                    console.log('Unexpected extension : ' +
+                                if (!(path.endsWith(
+                                            '.c') ||
+                                        path.endsWith(
+                                            '.h') ||
+                                        path.endsWith(
+                                            '.txt')
+                                    )) {
+                                    console.log(
+                                        'Unexpected extension : ' +
                                         path);
                                 }
                             }
@@ -523,7 +538,8 @@
                         finished = 0;
                         zip.forEach(function(path, entry) {
                             if (!entry.dir) {
-                                zip.file(path).async('string').then(
+                                zip.file(path).async(
+                                    'string').then(
                                     function(d) {
                                         files.push({
                                             // TODO: path separator on windows.
@@ -531,19 +547,32 @@
                                             encoding: 'utf8',
                                             content: d
                                         });
-                                        finished += 1;
-                                        if (finished === numTask) {
-                                            loadLabPage();
+                                        finished
+                                            +=
+                                            1;
+                                        if (
+                                            finished ===
+                                            numTask
+                                        ) {
+                                            loadLabPage
+                                                ();
                                         }
                                     },
                                     function(e) {
-                                        console.log("Error extracting file " +
-                                            path + " : " + e.message);
+                                        console
+                                            .log(
+                                                "Error extracting file " +
+                                                path +
+                                                " : " +
+                                                e
+                                                .message
+                                            );
                                     });
                             }
                         });
                     }, function(e) {
-                        console.log("Error reading file : " + e.message);
+                        console.log("Error reading file : " +
+                            e.message);
                     });
             });
         };

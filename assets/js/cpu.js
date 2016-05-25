@@ -3,7 +3,7 @@
 
 "use strict";
 
-function createV9(printOut, breakPoints) {
+function createV9(printOut, breakPoints, osInfoFileName) {
     var PTE_P = 0x001,
         PTE_W = 0x002,
         PTE_U = 0x004,
@@ -3440,8 +3440,7 @@ function createV9(printOut, breakPoints) {
             };
             hdlrItrpt = function() {
                 var p;
-                // TODO: no explicit main c file.
-                currentInfo = infoPool['root/etc/os.c'];
+                currentInfo = infoPool[osInfoFileName];
                 regInfoOffset = 0;
                 regXSp = regXSp - regTSp;
                 regTSp = 0;
@@ -3582,7 +3581,6 @@ function createV9(printOut, breakPoints) {
         regNextHdlr = 0;
     }
 
-    // TODO: Uint8Array instead of ArrayBuffer.
     function setupSoftware(abOS, abFS, infoStr) {
         var cleanMemory, wipeMemory, wipeRegs, readInfo;
         cleanMemory = function() {
@@ -3708,8 +3706,7 @@ function createV9(printOut, breakPoints) {
                     }
                 }
             });
-            // TODO: no explicit main c file.
-            currentInfo = infoPool['root/etc/os.c'];
+            currentInfo = infoPool[osInfoFileName];
             regInfoOffset = 0;
             regToLoadInfo = false;
         };
@@ -3766,8 +3763,7 @@ function createV9(printOut, breakPoints) {
             }
             regInfoOffset = -16;
         } else if (m === 0xff2016ff) {
-            // TODO: no explicit main c file.
-            s = 'root/etc/os.c';
+            s = osInfoFileName;
             regInfoOffset = hdrMem.readUInt32LE(p - 16);
         } else {
             console.log('In loadUserProcInfo: bad m', '0x' + m.toString(16));
@@ -3788,6 +3784,11 @@ function createV9(printOut, breakPoints) {
         }
     }
 
+    function forceInit() {
+        pauseRunning();
+        regNextHdlr = 0;
+    }
+
     function runSingleStep(cb, continuing) {
         var fst, nxt, addr, localDefs;
         if (!continuing) {
@@ -3804,8 +3805,7 @@ function createV9(printOut, breakPoints) {
                 loadUserProcInfo();
             } else {
                 if (regNextHdlr === hdlrInstr) {
-                    // TODO: no explicit main c file.
-                    if (!regUser && currentInfo === infoPool['root/etc/os.c']) {
+                    if (!regUser && currentInfo === infoPool[osInfoFileName]) {
                         addr = regXPc >>> 0;
                     } else {
                         addr = (regXPc - regTPc) >>> 0;
@@ -3874,22 +3874,6 @@ function createV9(printOut, breakPoints) {
         runUntilBreak(cb, true);
     }
 
-    // TODO: remove this when production ready.
-    function runNonDebug(cb) {
-        var i;
-        cpuEvent = setInterval(function() {
-            for (i = 0; i < (1 << 18); i = i + 1) {
-                if (regNextHdlr === 0) {
-                    pauseRunning();
-                    cb();
-                    return;
-                }
-                unsignRegs();
-                regNextHdlr();
-            }
-        }, 50);
-    }
-
     function writeKbBuf(c) {
         kbBuffer.push(c);
     }
@@ -3956,9 +3940,8 @@ function createV9(printOut, breakPoints) {
     setupHardware();
     return {
         setupSoftware: setupSoftware,
-        pauseRunning: pauseRunning,
+        forceInit: forceInit,
         runNonStop: runNonStop,
-        // runNonStop: runNonDebug,  // TODO: remove this.
         runSingleStep: runSingleStep,
         runUntilBreak: runUntilBreak,
         writeKbBuf: writeKbBuf,

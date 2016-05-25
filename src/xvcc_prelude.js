@@ -15,6 +15,7 @@ function xvcc(env_src, env_files, env_print) {
     var env_out, Module;
     env_out = env_src.substr(0, env_src.length - 2);
     Module = {
+        // TODO: remove hard coded -I
         arguments: ["-Iroot/lib", "-o", env_out, env_src],
         print: (env_print || console.log),
         preRun: [function() {
@@ -26,7 +27,8 @@ function xvcc(env_src, env_files, env_print) {
             FS.mkdir('root/lib');
             FS.mkdir('root/usr');
             env_files.forEach(function(file) {
-                if (file.filename.endsWith('.h') || file.filename === env_src) {
+                if (file.filename.endsWith('.h') ||
+                    file.filename === env_src) {
                     FS.writeFile(file.filename, file.content);
                 }
             });
