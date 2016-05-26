@@ -1,5 +1,6 @@
 /*jslint white:true browser:true maxlen:80 */
-/*global CodeMirror, d3, $,JSZip, saveAs, createV9, xvcc, mkfs */
+/*global CodeMirror, d3, $,JSZip, saveAs */
+/*global createV9, xvcc, mkfs, expandedFileSuffix */
 
 "use strict";
 
@@ -362,6 +363,11 @@
         termtext.html(termtext.html() + asciiToHtml(msg));
     }
 
+    function printTermDebug(msg) {
+        console.log(msg);
+        printTerm(msg);
+    }
+
     function clearTerm() {
         $("#termtext").text("");
     }
@@ -396,25 +402,25 @@
 
     function compile(onSuccess) {
         var xvccEach, currentUser, binFiles, debugInfo;
-        xvccEach = function(result, info) {
+        xvccEach = function(result, info, expandedFile) {
             binFiles.push(result);
             debugInfo += info;
             currentUser += 1;
             if (currentUser < labConfg.user.length) {
                 xvcc(labConfg.user[currentUser], labConfg.file,
-                    files, xvccEach, printTerm);
+                    files, xvccEach, printTermDebug);
             } else {
                 mkfs(labConfg.disk, files, binFiles, labConfg.file,
                     function(hd) {
                         onSuccess(binFiles[0].content, hd, debugInfo);
-                    }, printTerm);
+                    }, printTermDebug);
             }
         };
         currentUser = -1;
         binFiles = [];
         debugInfo = '';
         xvcc(labConfg.kern, labConfg.file,
-            files, xvccEach, printTerm);
+            files, xvccEach, printTermDebug);
     }
 
     function onCpuReady(cb) {
@@ -453,13 +459,14 @@
         initV9 = function() {
             var printOut;
             printOut = function(fd, msg) {
-                if (fd === 2) {
-                    console.log(msg);
+                if (fd === 1) {
+                    printTerm(msg);
+                } else {
+                    printTermDebug(msg);
                 }
-                printTerm(msg);
             };
             v9Cpu = createV9(printOut, breakPoints,
-                labConfg.kern.sources[0]);
+                labConfg.kern.sources[0] + expandedFileSuffix);
             $("#terminal").keypress(function(e) {
                 var keyCode;
                 keyCode = e.keyCode || e.which;

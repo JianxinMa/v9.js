@@ -12,7 +12,7 @@ do
     sed '$d' $src/$file\_prelude.js > $file.js.tmp
     cat $file.js >> $file.js.tmp
     rm $file.js
-    echo "}" >> $file.js.tmp
+    echo "};" >> $file.js.tmp
     mv $file.js.tmp $dst/$file.js
     # Compress
     uglifyjs --compress --mangle -- $dst/$file.js > $dst/$file.min.js
