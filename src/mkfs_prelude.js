@@ -24,13 +24,9 @@ function mkfs(diskRoot, files, binFiles, dirStruct, onReturn, printOut) {
             }],
             postRun: [function() {
                 var img;
-                img = {
-                    filename: diskImg,
-                    encoding: 'binary',
-                    content: FS.readFile(diskImg, {
-                        encoding: 'binary'
-                    })
-                };
+                img = FS.readFile(diskImg, {
+                    encoding: 'binary'
+                });
                 onReturn(img);
             }]
         };

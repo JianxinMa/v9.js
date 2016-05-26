@@ -342,8 +342,16 @@
         html = '';
         j = ascii.length;
         for (i = 0; i < j; i = i + 1) {
-            c = ascii.charCodeAt(i);
-            html = html + '&#' + c.toString() + ';';
+            if (ascii[i] === '\n') {
+                c = '<br>';
+            } else if (ascii[i] === ' ') {
+                c = '&nbsp;';
+            } else {
+                // This doesn't really work.
+                c = ascii.charCodeAt(i);
+                c = '&#' + c.toString() + ';';
+            }
+            html = html + c;
         }
         return html;
     }
@@ -487,6 +495,7 @@
             });
             $("#downloadBtn").click(function() {
                 var zip;
+                saveCurrentFile();
                 zip = new JSZip();
                 files.forEach(function(file) {
                     zip.file(file.filename, file.content);
@@ -495,7 +504,6 @@
                 zip.generateAsync({
                     type: "blob"
                 }).then(function(d) {
-                    saveCurrentFile();
                     saveAs(d, "lab.zip");
                 });
             });
