@@ -890,7 +890,7 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeStore(storeWord),
         function (data, next) {
-          rwriteRegister(SP, sub32(getRegister(SP), 8));
+          writeRegister(SP, sub32(getRegister(SP), 8));
           next();
         },
         nextNormal
