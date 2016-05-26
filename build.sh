@@ -15,6 +15,6 @@ do
     echo "}" >> $file.js.tmp
     mv $file.js.tmp $dst/$file.js
     # Compress
-    uglifyjs --compress --mangle -- $dst/$file.js > $file.js.tmp
-    mv $file.js.tmp $dst/$file.js
+    uglifyjs --compress --mangle -- $dst/$file.js > $dst/$file.min.js
+    rm $dst/$file.js
 done
