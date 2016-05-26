@@ -53,7 +53,6 @@ function createAlex(printOut, breakPoints) {
   var regXPc;
   var regTPc;
   var regFPc;
-  // TODO: fix SP access
   var regXSp;
   var regTSp;
   var regFSP;
@@ -315,10 +314,34 @@ function createAlex(printOut, breakPoints) {
       return ext32(imm) << 2;
     };
 
+    // int -> int32
+    var getRegister = function (regIndex) {
+      return regIndex == SP ? (regXSp - regTSp) << 0 : regs[regIndex];
+    };
+
+    // int32
+    var getPC = function () {
+      return (regXPc - regTPc) << 0;
+    };
+
     // int -> int32 -> unit
     var writeRegister = function (regIndex, val) {
       if (regIndex == 0) {
         printOut("Warning: trying to write register R0");
+      } else if (regIndex == SP) {
+        // NOTE: val == SP + (val - SP)
+        var offset = val >>> 0 - getRegister(SP) >>> 0;
+        if (regFSP) {
+          regFSP = regFSP - offset;
+          if (regFSP < 0 || regFSP > (4096 << 8)) {
+            regFSP = 0;
+          }
+        }
+        regXSp = regXSp + offset;
+        if (regFSP) {
+          return;
+        }
+        hdlrFixsp();
       } else {
         regs[regIndex] = val;
       }
@@ -329,7 +352,7 @@ function createAlex(printOut, breakPoints) {
     // (int32 -> int32 -> int32) -> (obj -> unit -> unit)
     var exeBinR = function (op) {
       return function (args, next) {
-        writeRegister(args['ra'], op(regs[args['rb']], regs[args['rc']]));
+        writeRegister(args['ra'], op(getRegister(args['rb']), getRegister(args['rc'])));
         next();
       };
     };
@@ -337,7 +360,7 @@ function createAlex(printOut, breakPoints) {
     // (int32 -> int32 -> int32) -> (obj -> unit -> unit)
     var exeBinI = function (op) {
       return function (args, next) {
-        writeRegister(args['ra'], op(regs[args['rb']], args['imm']));
+        writeRegister(args['ra'], op(getRegister(args['rb']), args['imm']));
         next();
       };
     };
@@ -345,8 +368,8 @@ function createAlex(printOut, breakPoints) {
     // (int32 -> int32 -> int32) -> (obj -> unit -> unit)
     var exeBranch = function (tester) {
       return function (args, next) {
-        if (tester(regs[args['ra']], regs[args['rb']]) == 1) { // jump
-          next(regs[args['imm']]);
+        if (tester(getRegister(args['ra']), getRegister(args['rb'])) == 1) { // jump
+          next(args['imm']);
         } else { // not jump
           regNextHdlr = hdlrChkpc;
         }
@@ -357,7 +380,7 @@ function createAlex(printOut, breakPoints) {
     var exeLoad = function (loader) {
       return function (args, next) {
         var p, v;
-        v = add32(regs[args['rb']], args['imm']) >>> 0;
+        v = add32(getRegister(args['rb']), args['imm']) >>> 0;
         p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
           p = pageLookR(v);
@@ -374,7 +397,7 @@ function createAlex(printOut, breakPoints) {
     // obj -> unit -> unit
     var exeFLoad = function (args, next) {
       var p, v;
-      v = add32(regs[args['rb']], args['imm']) >>> 0;
+      v = add32(getRegister(args['rb']), args['imm']) >>> 0;
       p = regTr.readUInt32LE((v >>> 12) * 4);
       if (!p) {
         p = pageLookR(v);
@@ -391,7 +414,7 @@ function createAlex(printOut, breakPoints) {
     var exeStore = function (saver) {
       return function (args, next) {
         var p, v;
-        v = add32(regs[args['rb']], args['imm']) >>> 0;
+        v = add32(getRegister(args['rb']), args['imm']) >>> 0;
         p = regTw.readUInt32LE((v >>> 12) * 4);
         if (!p) {
           p = pageLookW(v);
@@ -400,7 +423,7 @@ function createAlex(printOut, breakPoints) {
             return;
           }
         }
-        saver(v, p, regs[args['ra']]);
+        saver(v, p, getRegister(args['ra']));
         next();
       };
     };
@@ -408,7 +431,7 @@ function createAlex(printOut, breakPoints) {
     // obj -> unit -> unit
     var exeFStore = function (args, next) {
       var p, v;
-      v = add32(regs[args['rb']], args['imm']) >>> 0;
+      v = add32(getRegister(args['rb']), args['imm']) >>> 0;
       p = regTw.readUInt32LE((v >>> 12) * 4);
       if (!p) {
         p = pageLookW(v);
@@ -457,8 +480,10 @@ function createAlex(printOut, breakPoints) {
 
     // int32 -> unit -> unit
     var addrJumper = function (addr, next) {
-      regXCycle = addr >>> 0;
-      regXPc = addr >>> 0;
+      // NOTE: addr == PC + (addr - PC)
+      var offset = addr >>> 0 - getPC() >>> 0;
+      regXCycle = (regXCycle + offset);
+      regXPc = (regXPc + (offset >> 2) << 2);
       if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
         regNextHdlr = hdlrFixpc;
         return;
@@ -624,7 +649,7 @@ function createAlex(printOut, breakPoints) {
       executors[0x09] = executor(decodeIType(uext32), exeBinI(mul32));
 
       executors[0x0A] = executor(decodeRType, function (args, next) {
-        if (regs[args['rc']] == 0) {
+        if (getRegister(args['rc']) == 0) {
           regTrap = FARITH;
           regNextHdlr = hdlrExcpt;
           return;
@@ -648,7 +673,7 @@ function createAlex(printOut, breakPoints) {
         next(args);
       }, [exeBinI(div32), nextNormal]);
       executors[0x43] = executor(decodeRType, function (args, next) {
-        if (regs[args['rc']] == 0) {
+        if (getRegister(args['rc']) == 0) {
           regTrap = FARITH;
           regNextHdlr = hdlrExcpt;
           return;
@@ -693,11 +718,11 @@ function createAlex(printOut, breakPoints) {
       executors[0x28] = executor(decodeIType(oext32), exeBranch(gt32), [offsetJumper, nextJump]);
 
       executors[0x2A] = executor(decodeRType, function (args, next) {
-        next(regs[args['ra']]);
+        next(getRegister(args['ra']));
       }, [addrJumper, nextJump]);
       executors[0x2B] = executor(decodeRType, function (args, next) {
-        regs[I1] = regs[args['ra']]; // ra
-        regs[I0] = regXPc + 4; // PC + 4
+        writeRegister(I1, getRegister(args['ra'])); // ra
+        writeRegister(I0, add32(getPC(), 4)); // PC + 4
         args['ra'] = I0;
         args['rb'] = SP;
         args['imm'] = -4;
@@ -705,8 +730,8 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeStore(storeWord), // store(SP - 4, 4, PC + 4)
         function (data, next) {
-          regs[SP] = sub32(regs[SP], 4); // SP := SP - 4
-          next(regs[I1]);
+          writeRegister(SP, sub32(getRegister(SP), 4)); // SP := SP - 4
+          next(getRegister(I1));
         },
         addrJumper, // PC := ra
         nextJump
@@ -719,8 +744,8 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeLoad(loadWord), // x := load(SP, 4)
         function (data, next) {
-          regs[SP] = add32(regs[SP], 4); // SP := SP + 4
-          next(regs[I0]);
+          writeRegister(SP, add32(getRegister(SP), 4)); // SP := SP + 4
+          next(getRegister(I0));
         },
         addrJumper, // PC := x
         nextJump
@@ -740,7 +765,7 @@ function createAlex(printOut, breakPoints) {
         next();
       });
       executors[0x33] = executor(decodeIType(uext32), function (args, next) {
-        writeRegister(args['ra'], or32(and32(regs[args['ra']], 0xFFFF)), shl32(args['imm'], 16));
+        writeRegister(args['ra'], or32(and32(getRegister(args['ra']), 0xFFFF)), shl32(args['imm'], 16));
         next();
       });
 
@@ -756,7 +781,7 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeLoad(loadWord),
         function (data, next) {
-          regs[SP] = add32(regs[SP], 4);
+          writeRegister(SP, add32(getRegister(SP), 4));
           next();
         },
         nextNormal
@@ -768,7 +793,7 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeLoad(loadHalf),
         function (data, next) {
-          regs[SP] = add32(regs[SP], 2);
+          writeRegister(SP, add32(getRegister(SP), 2));
           next();
         },
         nextNormal
@@ -780,7 +805,7 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeLoad(loadHalf),
         function (data, next) {
-          regs[SP] = add32(regs[SP], 1);
+          writeRegister(SP, add32(getRegister(SP), 1));
           next();
         },
         nextNormal
@@ -792,7 +817,7 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeFLoad,
         function (data, next) {
-          regs[SP] = add32(regs[SP], 8);
+          writeRegister(SP, add32(getRegister(SP), 8));
           next();
         },
         nextNormal
@@ -804,7 +829,7 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeLoad(loadWord),
         function (data, next) {
-          regs[SP] = add32(regs[SP], 8);
+          writeRegister(SP, add32(getRegister(SP), 8));
           next();
         },
         nextNormal
@@ -817,7 +842,7 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeStore(storeWord),
         function (data, next) {
-          regs[SP] = sub32(regs[SP], 4);
+          writeRegister(SP, sub32(getRegister(SP), 4));
           next();
         },
         nextNormal
@@ -829,7 +854,7 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeStore(storeHalf),
         function (data, next) {
-          regs[SP] = sub32(regs[SP], 2);
+          writeRegister(SP, sub32(getRegister(SP), 2));
           next();
         },
         nextNormal
@@ -841,7 +866,7 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeStore(storeByte),
         function (data, next) {
-          regs[SP] = sub32(regs[SP], 1);
+          writeRegister(SP, sub32(getRegister(SP), 1));
           next();
         },
         nextNormal
@@ -853,7 +878,7 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeFStore,
         function (data, next) {
-          regs[SP] = sub32(regs[SP], 8);
+          writeRegister(SP, sub32(getRegister(SP), 8));
           next();
         },
         nextNormal
@@ -865,22 +890,22 @@ function createAlex(printOut, breakPoints) {
       }, [
         exeStore(storeWord),
         function (data, next) {
-          regs[SP] = sub32(regs[SP], 8);
+          writeRegister(SP, sub32(getRegister(SP), 8));
           next();
         },
         nextNormal
       ]);
 
       executors[0x45] = executor(decodeRType, function (args, next) {
-        fregs[args['ra']] = regs[args['rb']];
+        fregs[args['ra']] = getRegister(args['rb']);
         next();
       });
       executors[0x46] = executor(decodeRType, function (args, next) {
-        fregs[args['ra']] = (regs[args['rb']]) >>> 0;
+        fregs[args['ra']] = getRegister(args['rb']) >>> 0;
         next();
       });
       executors[0x47] = executor(decodeRType, function (args, next) {
-        regs[args['ra']] = Math.floor(fregs[args['rb']]);
+        writeRegister(args['ra'], Math.floor(fregs[args['rb']]));
         next();
       });
 
@@ -938,12 +963,13 @@ function createAlex(printOut, breakPoints) {
 
       // system
       executors[0x80] = kexecutor(decodeRType, function (args, next) {
-        regs[args['rb']] = regKbChar;
+        writeRegister(args['rb'], regKbChar);
         regKbChar = -1;
         next();
       });
       executors[0x81] = kexecutor(decodeRType, function (args, next) {
-        writeRegister(args['rc'], (printOut(regs[args['ra']], String.fromCharCode(regs[args['rb']])) ? 1 : 0));
+        writeRegister(args['rc'], printOut(getRegister(args['ra']), String.fromCharCode(getRegister(args['rb']))) ?
+          1 : 0);
         next();
       });
       executors[0x82] = kexecutor(decodeRType, function (args, next) {
@@ -951,7 +977,7 @@ function createAlex(printOut, breakPoints) {
         next();
       });
       executors[0x83] = kexecutor(decodeRType, function (args, next) {
-        regIvec = regs[args['ra']];
+        regIvec = getRegister(args['ra']);
         next();
       });
       executors[0x84] = kexecutor(decodeRType, function (args, next) {
@@ -959,18 +985,18 @@ function createAlex(printOut, breakPoints) {
         next();
       });
       executors[0x85] = kexecutor(decodeRType, function (args, next) {
-        if (regs[args['ra']] > hdrMemSz) {
+        if (getRegister(args['ra']) > hdrMemSz) {
           regTrap = FMEM;
           regNextHdlr = hdlrExcpt;
           return;
         }
-        regPdir = regs[args['ra']] & -4096;
+        regPdir = getRegister(args['ra']) & -4096;
         clearTLB();
         regFSP = 0;
         regNextHdlr = hdlrFixpc;
       });
       executors[0x86] = kexecutor(decodeRType, function (args, next) {
-        if (regs['ra'] == 0) { // clear
+        if (getRegister(args['ra']) == 0) { // clear
           regIena = 0;
           next();
         } else { // set
@@ -986,12 +1012,12 @@ function createAlex(printOut, breakPoints) {
         }
       });
       executors[0x87] = kexecutor(decodeRType, function (args, next) {
-        if (regs[args['ra']] && !regPdir) {
+        if (getRegister(args['ra']) && !regPdir) {
           regTrap = FMEM;
           regNextHdlr = hdlrExcpt;
           return;
         }
-        regPaging = regs[args['ra']];
+        regPaging = getRegister(args['ra']);
         clearTLB();
         regFSP = 0;
         regNextHdlr = hdlrFixpc;
@@ -1001,11 +1027,11 @@ function createAlex(printOut, breakPoints) {
         next();
       });
       executors[0x89] = kexecutor(decodeRType, function (args, next) {
-        regTimeOut = regs[args['ra']];
+        regTimeOut = getRegister(args['ra']);
         next();
       });
       executors[0x90] = kexecutor(decodeRType, function (args, next) {
-        writeRegister(args['ra'], regXPc);
+        writeRegister(args['ra'], getPC());
         next();
       });
       executors[0x91] = kexecutor(decodeRType, function (args, next) {
