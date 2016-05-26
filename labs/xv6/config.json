@@ -1,4 +1,5 @@
 {
+    "cpu": "v9",
     "file": {
         "root": {
             "bin": {
@@ -27,12 +28,8 @@
             },
             "lib": {
                 "ctype.h": 0,
-                "curses.h": 0,
                 "dir.h": 0,
-                "font.h": 0,
                 "libc.h": 0,
-                "libm.h": 0,
-                "mem.h": 0,
                 "u.h": 0
             },
             "usr": {
