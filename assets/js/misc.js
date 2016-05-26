@@ -5,7 +5,9 @@
 "use strict";
 
 (function() {
-    var editor, labConfg, files, curFileId, breakPoints, v9Cpu;
+    var editor, labName, labConfg, files, curFileId, breakPoints, cpu;
+
+    labName = "xv6"; /// 
 
     function renderTreeView(root, level) {
         var m, w, h, i, tree, diagonal, vis;
@@ -195,7 +197,7 @@
     function saveCurrentFile() {
         if (curFileId !== -1) {
             if (files[curFileId].content !== editor.getValue()) {
-                v9Cpu.forceInit();
+                cpu.forceInit();
                 files[curFileId].content = editor.getValue();
             }
         }
@@ -258,7 +260,7 @@
                     name: varName +
                         (showType ? (":" + t) : '') +
                         (showAddr ? ("@" + hexify(v)) : '') +
-                        "=" + v9Cpu.readBaseType(v, t).toString()
+                        "=" + cpu.readBaseType(v, t).toString()
                 };
             }
             car = t.substr(0, i);
@@ -268,7 +270,7 @@
                     name: varName +
                         (showType ? (":" + t) : '') +
                         (showAddr ? ("@" + hexify(v)) : '') +
-                        "=" + hexify(v9Cpu.readBaseType(v, 'uint'))
+                        "=" + hexify(cpu.readBaseType(v, 'uint'))
                 };
             }
             if (car === 'array') {
@@ -301,7 +303,7 @@
                 };
                 subTypes = cdr.substr(1, cdr.length - 2);
                 if (cdr[0] === '<' && cdr[cdr.length - 1] === '>') {
-                    subTypes = v9Cpu.getStructType(subTypes);
+                    subTypes = cpu.getStructType(subTypes);
                 }
                 i = subTypes.indexOf('|');
                 subTypes = subTypes.substr(i + 1);
@@ -331,7 +333,7 @@
         for (name in defs) {
             if (defs.hasOwnProperty(name)) {
                 info = defs[name];
-                v = v9Cpu.getVirtAddr(info.space, info.offset);
+                v = cpu.getVirtAddr(info.space, info.offset);
                 ret.push(getOneVarValue(name, v, info.type, true, true));
             }
         }
@@ -403,6 +405,7 @@
     function compile(onSuccess) {
         var xvccEach, currentUser, binFiles, debugInfo;
         xvccEach = function(result, info, expandedFile) {
+            files.push(expandedFile);
             binFiles.push(result);
             debugInfo += info;
             currentUser += 1;
@@ -426,9 +429,9 @@
     function onCpuReady(cb) {
         $("#loadingSign").show();
         saveCurrentFile();
-        if (v9Cpu.needInit()) {
+        if (cpu.needInit()) {
             compile(function(os, hd, de) {
-                v9Cpu.setupSoftware(os, hd, de);
+                cpu.setupSoftware(os, hd, de);
                 clearTerm();
                 cb();
             });
@@ -437,23 +440,63 @@
         }
     }
 
+    function onDirNavItemClicked(dirId) {
+        var i;
+        $(".dirNavItem").hide();
+        $("#dirNavRoot").parent().show();
+        while (true) {
+            $('#' + dirId).parent().show();
+            i = dirId.lastIndexOf('_');
+            if (i === -1) {
+                break;
+            }
+            dirId = dirId.substr(0, i);
+        }
+    }
+
+    function buildDirNavItem(name, dir, path) {
+        var f, id, eleId, metaEditFile, metaViewDir;
+        metaEditFile = function(s) {
+            return function() {
+                editFile(s);
+            };
+        };
+        metaViewDir = function(s) {
+            return function() {
+                onDirNavItemClicked(s);
+            };
+        };
+        id = 'dirNavRoot' + path.join('_');
+        $("#fileMenu").append('<li class="dirNavItem" ' +
+            'style="display:none"><a href="#">' + name +
+            '&nbsp;&gt;</a>' + '<ul id="' + id + '"></ul></li>');
+        for (f in dir) {
+            if (dir.hasOwnProperty(f)) {
+                path.push(f);
+                eleId = id + '__' + f;
+                eleId = eleId.split('.').join('_dot_');
+                $('#' + id).append('<li><a id="' + eleId + '" href="#">' +
+                    f + (dir[f] === 0 ? '' : '&nbsp;&gt;') + '</a></li>');
+                if (dir[f] === 0) {
+                    $('#' + eleId).click(metaEditFile(path.join('/')));
+                } else {
+                    buildDirNavItem(f, dir[f], path);
+                    $('#' + eleId).click(
+                        metaViewDir('dirNavRoot' + path.join('_')));
+                }
+                path.pop();
+            }
+        }
+    }
+
     function loadLabPage() {
         var initFileList, initV9, initButtons;
         initFileList = function() {
-            ///
-            $("#fileMenu").prepend(
-                '<li><a href="#">xv6</a>' +
-                '<ul id="files"></ul></li>');
-            files.forEach(function(file, i) {
-                $('#files').append(
-                    "<li id='file" + i.toString() + "'>" +
-                    "<a href='#'>" + file.filename + "</a>" +
-                    "</li>"
-                );
-                $("#file" + i.toString()).click(function() {
-                    editFile($(this).text());
-                });
-            });
+            buildDirNavItem(labName, labConfg.file, []);
+            $("#dirNavRoot").parent().show();
+            $("#fileMenu").append('<li style="float:right">' +
+                '<a id="currentFile" href="#" class="disabled">' +
+                '~ empty ~</a></li>');
             editFile(labConfg.kern.sources[0]);
         };
         initV9 = function() {
@@ -465,13 +508,13 @@
                     printTermDebug(msg);
                 }
             };
-            v9Cpu = createV9(printOut, breakPoints,
+            cpu = createV9(printOut, breakPoints,
                 labConfg.kern.sources[0] + expandedFileSuffix);
             $("#terminal").keypress(function(e) {
                 var keyCode;
                 keyCode = e.keyCode || e.which;
                 if (0 <= keyCode && keyCode <= 0x7F) {
-                    v9Cpu.writeKbBuf(keyCode);
+                    cpu.writeKbBuf(keyCode);
                 }
             });
         };
@@ -479,19 +522,19 @@
             $("#runBtn").click(function() {
                 onCpuReady(function() {
                     doAtCpuReady();
-                    v9Cpu.runNonStop(doAtCpuPause);
+                    cpu.runNonStop(doAtCpuPause);
                 });
             });
             $("#stepBtn").click(function() {
                 onCpuReady(function() {
                     doAtCpuReady();
-                    v9Cpu.runSingleStep(doAtCpuPause);
+                    cpu.runSingleStep(doAtCpuPause);
                 });
             });
             $("#contBtn").click(function() {
                 onCpuReady(function() {
                     doAtCpuReady();
-                    v9Cpu.runUntilBreak(doAtCpuPause);
+                    cpu.runUntilBreak(doAtCpuPause);
                 });
             });
             $("#viewBtn").click(function() {
@@ -505,7 +548,9 @@
                 saveCurrentFile();
                 zip = new JSZip();
                 files.forEach(function(file) {
-                    zip.file(file.filename, file.content);
+                    if (!file.filename.endsWith(expandedFileSuffix)) {
+                        zip.file(file.filename, file.content);
+                    }
                 });
                 zip.file('config.json', JSON.stringify(labConfg));
                 zip.generateAsync({
@@ -632,7 +677,7 @@
                     }
                 };
                 $("#loadingSign").show();
-                labPath = "labs/xv6/";
+                labPath = "labs/" + labName + '/';
                 $.getJSON(labPath + "config.json", function(config) {
                     labConfg = config;
                     nFiles = 0;

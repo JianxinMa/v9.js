@@ -1,6 +1,7 @@
 {
     "cpu": "v9",
     "file": {
+        "os.c": 0,
         "root": {
             "bin": {
                 "cp.c": 0,
@@ -23,8 +24,7 @@
                 "empty.txt": 0
             },
             "etc": {
-                "init.c": 0,
-                "os.c": 0
+                "init.c": 0
             },
             "lib": {
                 "ctype.h": 0,
@@ -40,10 +40,10 @@
             }
         }
     },
-    "disk" : "root",
+    "disk": "root",
     "kern": {
         "include": ["root/lib"],
-        "sources": ["root/etc/os.c"],
+        "sources": ["os.c"],
         "target": "os"
     },
     "user": [{

@@ -1,5 +1,5 @@
 /*jslint white:true browser:true maxlen:80 bitwise:true */
-/*global FS, mkDirs */
+/*global FS, mkDirs, expandedFileSuffix */
 
 "use strict";
 
@@ -14,9 +14,11 @@ function mkfs(diskRoot, files, binFiles, dirStruct, onReturn, printOut) {
             preRun: [function() {
                 var saveFile;
                 saveFile = function(file) {
-                    FS.writeFile(file.filename, file.content, {
-                        encoding: file.encoding
-                    });
+                    if (!file.filename.endsWith(expandedFileSuffix)) {
+                        FS.writeFile(file.filename, file.content, {
+                            encoding: file.encoding
+                        });
+                    }
                 };
                 mkDirs('', dirStruct, FS.mkdir);
                 files.forEach(saveFile);

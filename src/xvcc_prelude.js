@@ -5,7 +5,7 @@
 
 var xvccCore;
 
-var expandedFileSuffix = '_expanded.c';
+var expandedFileSuffix = '.xpd.c';
 
 function mkDirs(path, dir, mkdirImpl) {
     var p;
