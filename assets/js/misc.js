@@ -402,11 +402,41 @@
         $("#termcursor").removeClass("blinking-cursor");
     }
 
+    function addFileNavItem(filename) {
+        var path, tail, id, eleId;
+        path = filename.split('/');
+        tail = path.pop();
+        id = 'dirNavRoot' + path.join('_');
+        eleId = id + '__' + tail;
+        eleId = eleId.split('.').join('_dot_');
+        $('#' + id).append('<li><a id="' + eleId + '" href="#">' +
+            tail + '</a></li>');
+        $('#' + eleId).click(function() {
+            editFile(filename);
+        });
+    }
+
+    function tryAddToFiles(newfile) {
+        var found;
+        found = false;
+        files.forEach(function(file) {
+            if (file.filename === newfile.filename) {
+                found = true;
+                file.encoding = newfile.encoding;
+                file.content = newfile.content;
+            }
+        });
+        if (!found) {
+            files.push(newfile);
+            addFileNavItem(newfile.filename);
+        }
+    }
+
     function compile(onSuccess) {
         // TODO: error handling
         var xvccEach, currentUser, binFiles, debugInfo;
         xvccEach = function(result, info, expandedFile) {
-            files.push(expandedFile);
+            tryAddToFiles(expandedFile);
             binFiles.push(result);
             debugInfo += info;
             currentUser += 1;
