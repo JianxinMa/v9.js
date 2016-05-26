@@ -325,25 +325,23 @@ function createAlex(printOut, breakPoints) {
     };
 
     // int -> int32 -> unit
-    // WARNING: if regIndex == SP, the val should be the offset, say
-    // regs[SP] := regs[SP] + val
     var writeRegister = function (regIndex, val) {
       if (regIndex == 0) {
         printOut("Warning: trying to write register R0");
       } else if (regIndex == SP) {
-        // TODO: check in the future
+        // NOTE: val == SP + (val - SP)
+        var offset = val >>> 0 - getRegister(SP) >>> 0;
         if (regFSP) {
-          regFSP = regFSP - val;
+          regFSP = regFSP - offset;
           if (regFSP < 0 || regFSP > (4096 << 8)) {
             regFSP = 0;
           }
         }
-        regXSp = regXSp + val;
+        regXSp = regXSp + offset;
         if (regFSP) {
-          //regNextHdlr = hdlrChkpc;
           return;
         }
-        //regNextHdlr = hdlrFixsp;
+        hdlrFixsp();
       } else {
         regs[regIndex] = val;
       }
@@ -482,6 +480,7 @@ function createAlex(printOut, breakPoints) {
 
     // int32 -> unit -> unit
     var addrJumper = function (addr, next) {
+      // NOTE: addr == PC + (addr - PC)
       var offset = addr >>> 0 - getPC() >>> 0;
       regXCycle = (regXCycle + offset);
       regXPc = (regXPc + (offset >> 2) << 2);
