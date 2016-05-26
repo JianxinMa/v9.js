@@ -7,7 +7,7 @@
 (function() {
     var editor, labName, labConfg, files, curFileId, breakPoints, cpu;
 
-    labName = "xv6"; /// 
+    labName = "xv6"; // TODO
 
     function renderTreeView(root, level) {
         var m, w, h, i, tree, diagonal, vis;
@@ -403,6 +403,7 @@
     }
 
     function compile(onSuccess) {
+        // TODO: error handling
         var xvccEach, currentUser, binFiles, debugInfo;
         xvccEach = function(result, info, expandedFile) {
             files.push(expandedFile);
@@ -644,6 +645,8 @@
             });
         };
         initEntryButtons = function() {
+            var clicked;
+            clicked = false;
             $('#newLabBtn').on('click', function() {
                 var labPath, nFiles, fetchEachFile, fetchFiles;
                 fetchEachFile = function(path, counting) {
@@ -676,18 +679,24 @@
                         }
                     }
                 };
-                $("#loadingSign").show();
-                labPath = "labs/" + labName + '/';
-                $.getJSON(labPath + "config.json", function(config) {
-                    labConfg = config;
-                    nFiles = 0;
-                    files = [];
-                    fetchFiles('', labConfg.file, true);
-                    fetchFiles('', labConfg.file, false);
-                });
+                if (!clicked) {
+                    clicked = true;
+                    $("#loadingSign").show();
+                    labPath = "labs/" + labName + '/';
+                    $.getJSON(labPath + "config.json", function(config) {
+                        labConfg = config;
+                        nFiles = 0;
+                        files = [];
+                        fetchFiles('', labConfg.file, true);
+                        fetchFiles('', labConfg.file, false);
+                    });
+                }
             });
             $("#oldLabBtn").on('click', function() {
-                $("#askForFiles").click();
+                if (!clicked) {
+                    clicked = true;
+                    $("#askForFiles").click();
+                }
             });
         };
         initCodeMirror();
