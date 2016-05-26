@@ -5,24 +5,22 @@
 // Description:
 //   rm removes the entries for one or more files from a directory.
 
-// clang-format off
-#include <u.h>
 #include <libc.h>
-// clang-format on
 
-int main(int argc, char *argv[]) {
-  int i;
+int main(int argc, char* argv[])
+{
+    int i;
 
-  if (argc < 2) {
-    dprintf(2, "Usage: rm file ...\n");
-    return -1;
-  }
-
-  for (i = 1; i < argc; i++) {
-    if (unlink(argv[i])) {
-      dprintf(2, "rm: failed to delete %s\n", argv[i]);
-      return -1;
+    if (argc < 2) {
+        dprintf(2, "Usage: rm file ...\n");
+        return -1;
     }
-  }
-  return 0;
+
+    for (i = 1; i < argc; i++) {
+        if (unlink(argv[i])) {
+            dprintf(2, "rm: failed to delete %s\n", argv[i]);
+            return -1;
+        }
+    }
+    return 0;
 }
