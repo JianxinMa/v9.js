@@ -1,155 +1,137 @@
 <!DOCTYPE html>
 <html lang="en">
 
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <meta name="description" content="">
-        <meta name="author" content="">
-        <link rel="icon" href="assets/img/favicon.ico">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="assets/img/favicon.ico">
 
-        <title>V9@Web: An In-browser Operating System Learning Platform</title>
+    <title>V9@Web: An In-browser Operating System Learning Platform</title>
 
-        <link href="assets/lib/codemirror/css/codemirror.css" rel="stylesheet">
-        <link href="assets/css/misc.css" rel="stylesheet">
+    <link href="assets/lib/codemirror/css/codemirror.css" rel="stylesheet">
+    <link href="assets/css/misc.css" rel="stylesheet">
 
-        <script src="assets/lib/jquery.min.js"></script>
-        <script src="assets/lib/d3.min.js"></script>
-        <script src="assets/lib/d3.layout.min.js"></script>
-        <script src="assets/lib/buffer.min.js"></script>
-        <script src="assets/lib/FileSaver.min.js"></script>
-        <script src="assets/lib/jszip.min.js"></script>
-        <script src="assets/lib/socket.io.min.js"></script>
-        <script src="assets/lib/codemirror/js/codemirror.min.js"></script>
-        <script src="assets/lib/codemirror/mode/clike/clike.js"></script>
-        <script src="assets/lib/codemirror/addon/selection/active-line.js"></script>
-        <script src="assets/js/xvcc.js"></script>
-        <script src="assets/js/mkfs.js"></script>
-        <script src="assets/js/cpu.js"></script>
-        <!-- <script src="assets/js/alex.js"></script> -->
-    </head>
+    <script src="assets/lib/jquery.min.js"></script>
+    <script src="assets/lib/d3.min.js"></script>
+    <script src="assets/lib/d3.layout.min.js"></script>
+    <script src="assets/lib/buffer.min.js"></script>
+    <script src="assets/lib/FileSaver.min.js"></script>
+    <script src="assets/lib/jszip.min.js"></script>
+    <script src="assets/lib/codemirror/js/codemirror.min.js"></script>
+    <script src="assets/lib/codemirror/mode/clike/clike.js"></script>
+    <script src="assets/lib/codemirror/addon/selection/active-line.js"></script>
+    <script src="assets/lib/cpp.min.js"></script>
+    <script src="assets/js/xvcc.min.js"></script>
+    <script src="assets/js/mkfs.min.js"></script>
+    <script src="assets/js/cpu.js"></script>
+</head>
 
-    <body>
-        <div id="labPage">
-            <div id="menuMain">
-                <ul class="menu">
-                    <li style="float:left"><a href="#" class="disabled">&nbsp</a></li>
-	                  <li style="float:left"><a target="_blank"
-                                              href="https://github.com/JianxinMa/v9.js">
+<body>
+    <div id="labPage">
+        <div id="menuMain">
+            <ul class="menu">
+                <li style="float:left"><a href="#" class="disabled">&nbsp</a></li>
+                <li style="float:left">
+                    <a target="_blank" href="https://github.com/JianxinMa/v9.js">
                         <strong>V9@Web</strong>
-                    </a></li>
-                    <li><a href="#" class="disabled">&nbsp</a></li>
-	                  <li><a href="#" class="disabled">2016 Spring</a></li>
-                    <li><a href="#" class="disabled">&nbsp</a></li>
-	                  <li><a href="#">About</a></li>
-	                  <li><a href="#">Documentation</a>
-		                    <ul>
-			                      <li><a href="#">Lorem ipsum dolor</a></li>
-			                      <li><a href="#">Maecenas dignissim fermentum luctus</a></li>
-			                      <li><a href="#">Suspendisse fringilla</a></li>
-		                    </ul>
-	                  </li>
-	                  <li><a href="#">Tutorials</a>
-		                    <ul>
-			                      <li><a href="#">Lorem ipsum dolor</a></li>
-			                      <li><a href="#">Maecenas lacinia sem</a></li>
-			                      <li><a href="#">Suspendisse fringilla</a></li>
-		                    </ul>
-	                  </li>
-	                  <li><a href="#">Get Started</a>
-		                    <ul>
-			                      <li><a href="#">Lorem ipsum dolor</a></li>
-			                      <li><a href="#">Maecenas lacinia sem</a></li>
-			                      <li><a href="#">Suspendisse fringilla</a></li>
-		                    </ul>
-	                  </li>
-                    <li><a href="#" class="disabled">&nbsp</a></li>
+                    </a>
+                </li>
+                <li><a href="#" class="disabled">&nbsp</a></li>
+                <li><a href="#" class="disabled">2016 Spring</a></li>
+                <li><a href="#" class="disabled">&nbsp</a></li>
+                <li><a href="#">About</a></li>
+                <li><a href="#">Documentation</a>
+                    <ul>
+                        <li><a href="#">Lorem ipsum dolor</a></li>
+                        <li><a href="#">Maecenas dignissim fermentum luctus</a></li>
+                        <li><a href="#">Suspendisse fringilla</a></li>
+                    </ul>
+                </li>
+                <li><a href="#">Tutorials</a>
+                    <ul>
+                        <li><a href="#">Lorem ipsum dolor</a></li>
+                        <li><a href="#">Maecenas lacinia sem</a></li>
+                        <li><a href="#">Suspendisse fringilla</a></li>
+                    </ul>
+                </li>
+                <li><a href="#">Get Started</a>
+                    <ul>
+                        <li><a href="#">Lorem ipsum dolor</a></li>
+                        <li><a href="#">Maecenas lacinia sem</a></li>
+                        <li><a href="#">Suspendisse fringilla</a></li>
+                    </ul>
+                </li>
+                <li><a href="#" class="disabled">&nbsp</a></li>
+            </ul>
+        </div>
+        <div class="col-2-1">
+            <div class="row-2-1">
+                <ul id="fileMenu" class="menu">
                 </ul>
             </div>
-            <div class="col-2-1">
-                <div class="row-2-1">
-                    <ul class="menu">
-                        <!-- TODO: remove hard coded directories. -->
-                        <li><a href="#">root/bin</a>
-                            <ul id="filesBIN"></ul>
-                        </li>
-                        <li><a href="#">root/dev</a>
-                            <ul id="filesDEV"></ul>
-                        </li>
-                        <li><a href="#">root/etc</a>
-                            <ul id="filesETC"></ul>
-                        </li>
-                        <li><a href="#">root/lib</a>
-                            <ul id="filesLIB"></ul>
-                        </li>
-                        <li><a href="#">root/usr</a>
-                            <ul id="filesUSR"></ul>
-                        </li>
-                        <li style="float:right">
-                            <a id="currentFile" href="#" class="disabled">~ empty ~</a>
-                    </ul>
-                </div>
-                <div class="row-2-2">
-                    <textarea id="editor" style="display:none"></textarea>
-                </div>
-            </div><div class="col-2-2">  <!-- No space between inline-blocks. -->
-                <div class="row-2-1">
-                    <ul class="rbar">
-                        <li><a id="runBtn" class="btn" href="#">Run</a></li>
-                        <li><a id="contBtn" class="btn" href="#">Continue</a></li>
-                        <li><a id="stepBtn" class="btn" href="#">Step</a></li>
-                        <li><a id="viewBtn" class="btn disabled" href="#">Inspect</a></li>
-                        <li style="float:right">
-                            <a id="downloadBtn" class="btn" href="#">Download</a></li>
-                    </ul>
-                </div>
-                <div class="row-2-2">
-                    <div id="terminal" tabindex="1">
-                        <div class="jquery-console-inner">
-                            <div class="jquery-console-message">
-                                <span id="termtext">No process
+            <div class="row-2-2">
+                <textarea id="editor" style="display:none"></textarea>
+            </div>
+        </div><div class="col-2-2"><!-- NO SPACE BETWEEN INLINE-BLOCK col-2-1 and col-2-2! -->
+            <div class="row-2-1">
+                <ul class="rbar">
+                    <li><a id="runBtn" class="btn" href="#">Run</a></li>
+                    <li><a id="contBtn" class="btn" href="#">Continue</a></li>
+                    <li><a id="stepBtn" class="btn" href="#">Step</a></li>
+                    <li><a id="viewBtn" class="btn disabled" href="#">Inspect</a></li>
+                    <li style="float:right">
+                        <a id="downloadBtn" class="btn" href="#">Download</a></li>
+                </ul>
+            </div>
+            <div class="row-2-2">
+                <div id="terminal" tabindex="1">
+                    <div class="jquery-console-inner">
+                        <div class="jquery-console-message">
+                            <span id="termtext">No process
                                     running.</span><span id="termcursor">&nbsp</span>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div id="inspectPage" style="display:none">
-            <div id="treeView"></div>
-            <a id="closeInspectBtn" class="circle-btn" href="#">✖</a>
-        </div>
+    <div id="inspectPage" style="display:none">
+        <div id="treeView"></div>
+        <a id="closeInspectBtn" class="circle-btn" href="#">✖</a>
+    </div>
 
-        <div id="entryPage">
-            <div>
-                <a id="newLabBtn" href="#" data-wipe="create a new lab">
+    <div id="entryPage">
+        <div>
+            <a id="newLabBtn" href="#" data-wipe="create a new lab">
                     create a new lab
                 </a>
-            </div>
-            <div>
-                <a id="oldLabBtn" href="#" data-wipe="use an existing lab">
+        </div>
+        <div>
+            <a id="oldLabBtn" href="#" data-wipe="use an existing lab">
                     use an existing lab
                 </a>
-                <input type="file" id="askForFiles" name="file" style="display:none"/>
-            </div>
+            <input type="file" id="askForFiles" name="file" style="display:none" />
         </div>
+    </div>
 
-        <div id="loadingSign" class="loading" style="display:none">
-            <div class="loading-element"></div>
-            <div class="loading-element"></div>
-            <div class="loading-element"></div>
-            <div class="loading-element"></div>
-            <div class="loading-element"></div>
-            <div class="loading-element"></div>
-            <div class="loading-element"></div>
-            <div class="loading-element"></div>
-            <div class="loading-element"></div>
-        </div>
+    <div id="loadingSign" class="loading" style="display:none">
+        <div class="loading-element"></div>
+        <div class="loading-element"></div>
+        <div class="loading-element"></div>
+        <div class="loading-element"></div>
+        <div class="loading-element"></div>
+        <div class="loading-element"></div>
+        <div class="loading-element"></div>
+        <div class="loading-element"></div>
+        <div class="loading-element"></div>
+    </div>
 
-        <script src="assets/js/misc.js"></script>
-    </body>
+    <script src="assets/js/misc.js"></script>
+</body>
 
 </html>

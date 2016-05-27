@@ -1,9 +1,9 @@
-/*jslint white:true browser:true maxlen:80 bitwise:true */
+/*jslint white:true browser:true maxlen:120 bitwise:true sloppy:true*/
 /*global buffer, Uint8Array */
 
 "use strict";
 
-function createAlex(printOut, breakPoints) {
+function createAlex(printOut, breakPoints, kernMainTag) {
   // page table bits
   var PTE_P = 0x001;
   var PTE_W = 0x002;
@@ -633,8 +633,7 @@ function createAlex(printOut, breakPoints) {
           regNextHdlr = hdlrExcpt;
         });
       }
-      executors[0x00] = executor(decodeRType, function () {
-      });
+      executors[0x00] = executor(decodeRType, function () {});
 
       executors[0x01] = executor(decodeRType, exeBinR(add32));
       executors[0x02] = executor(decodeIType(ext32), exeBinI(add32));
@@ -1036,8 +1035,8 @@ function createAlex(printOut, breakPoints) {
       });
       executors[0x91] = kexecutor(decodeRType, function (args, next) {
         var flags = regIpend << 16; // fault code
-        flags |= regUser ? 8 : 0;   // user mode?
-        flags |= regIena ? 4 : 0;   // interrupt enabled?
+        flags |= regUser ? 8 : 0; // user mode?
+        flags |= regIena ? 4 : 0; // interrupt enabled?
         flags |= regPaging ? 1 : 0; // paging enabled?
         writeRegister(args['ra'], flags);
         next();
@@ -1139,7 +1138,7 @@ function createAlex(printOut, breakPoints) {
       };
       hdlrItrpt = function () {
         var p;
-        currentInfo = infoPool['root/etc/os.c'];
+        currentInfo = infoPool[kernMainTag];
         regInfoOffset = 0;
         regXSp = regXSp - regTSp;
         regTSp = 0;
@@ -1406,7 +1405,7 @@ function createAlex(printOut, breakPoints) {
           }
         }
       });
-      currentInfo = infoPool['root/etc/os.c'];
+      currentInfo = infoPool[kernMainTag];
       regInfoOffset = 0;
       regToLoadInfo = false;
     };
@@ -1460,7 +1459,7 @@ function createAlex(printOut, breakPoints) {
       }
       regInfoOffset = -16;
     } else if (m === 0xff2016ff) {
-      s = 'root/etc/os.c';
+      s = kernMainTag;
       regInfoOffset = hdrMem.readUInt32LE(p - 16);
     } else {
       console.log('In loadUserProcInfo: bad m', '0x' + m.toString(16));
@@ -1481,6 +1480,11 @@ function createAlex(printOut, breakPoints) {
     }
   }
 
+  function forceInit() {
+    pauseRunning();
+    regNextHdlr = 0;
+  }
+
   function runSingleStep(cb, continuing) {
     var fst, nxt, addr, localDefs;
     if (!continuing) {
@@ -1497,7 +1501,7 @@ function createAlex(printOut, breakPoints) {
         loadUserProcInfo();
       } else {
         if (regNextHdlr === hdlrInstr) {
-          if (!regUser && currentInfo === infoPool['root/etc/os.c']) {
+          if (!regUser && currentInfo === infoPool[kernMainTag]) {
             addr = regXPc >>> 0;
           } else {
             addr = (regXPc - regTPc) >>> 0;
@@ -1632,7 +1636,7 @@ function createAlex(printOut, breakPoints) {
   setupHardware();
   return {
     setupSoftware: setupSoftware,
-    pauseRunning: pauseRunning,
+    forceInit: forceInit,
     runNonStop: runNonStop,
     runSingleStep: runSingleStep,
     runUntilBreak: runUntilBreak,

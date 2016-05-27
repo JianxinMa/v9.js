@@ -1,10 +1,13 @@
 /*jslint white:true browser:true maxlen:80 */
-/*global CodeMirror, d3, $, createV9, io, JSZip, saveAs */
+/*global CodeMirror, d3, $,JSZip, saveAs */
+/*global createV9, xvcc, mkfs, expandedFileSuffix */
 
 "use strict";
 
 (function() {
-    var editor, files, curFileId, breakPoints, v9Cpu;
+    var editor, labName, labConfg, files, curFileId, breakPoints, cpu;
+
+    labName = "xv6"; // TODO
 
     function renderTreeView(root, level) {
         var m, w, h, i, tree, diagonal, vis;
@@ -20,7 +23,8 @@
         }
 
         function update(source) {
-            var duration, nodes, node, nodeEnter, nodeUpdate, nodeExit, link;
+            var duration, nodes, node, nodeEnter,
+                nodeUpdate, nodeExit, link;
             duration = (d3.event && d3.event.altKey ? 1500 : 150);
             nodes = tree.nodes(root).reverse();
             nodes.forEach(function(d) {
@@ -37,7 +41,8 @@
             nodeEnter = node.enter().append("svg:g")
                 .attr("class", "node")
                 .attr("transform", function() {
-                    return "translate(" + source.y0 + "," + source.x0 + ")";
+                    return "translate(" + source.y0 +
+                        "," + source.x0 + ")";
                 })
                 .on("click", function(d) {
                     toggle(d);
@@ -75,7 +80,8 @@
             nodeExit = node.exit().transition()
                 .duration(duration)
                 .attr("transform", function() {
-                    return "translate(" + source.y + "," + source.x + ")";
+                    return "translate(" + source.y +
+                        "," + source.x + ")";
                 })
                 .remove();
             nodeExit.select("circle")
@@ -172,16 +178,6 @@
         return marker;
     }
 
-    function saveCurrentFile() {
-        if (curFileId !== -1) {
-            if (files[curFileId].content !== editor.getValue()) {
-                files[curFileId].content = editor.getValue();
-                return true;
-            }
-        }
-        return false;
-    }
-
     function renderBreakPoints() {
         var point, name;
         name = files[curFileId].filename;
@@ -194,6 +190,15 @@
                         "breakPoints",
                         makeMarker());
                 }
+            }
+        }
+    }
+
+    function saveCurrentFile() {
+        if (curFileId !== -1) {
+            if (files[curFileId].content !== editor.getValue()) {
+                cpu.forceInit();
+                files[curFileId].content = editor.getValue();
             }
         }
     }
@@ -218,7 +223,6 @@
     function findMatched(s, l) {
         var lv, r;
         if (s[l] !== '(') {
-            console.log('In findMatched: bad s[l]', s, s[l]);
             return -1;
         }
         lv = 1;
@@ -256,7 +260,7 @@
                     name: varName +
                         (showType ? (":" + t) : '') +
                         (showAddr ? ("@" + hexify(v)) : '') +
-                        "=" + v9Cpu.readBaseType(v, t).toString()
+                        "=" + cpu.readBaseType(v, t).toString()
                 };
             }
             car = t.substr(0, i);
@@ -266,7 +270,7 @@
                     name: varName +
                         (showType ? (":" + t) : '') +
                         (showAddr ? ("@" + hexify(v)) : '') +
-                        "=" + hexify(v9Cpu.readBaseType(v, 'uint'))
+                        "=" + hexify(cpu.readBaseType(v, 'uint'))
                 };
             }
             if (car === 'array') {
@@ -285,7 +289,8 @@
                 memType = memType.substr(i);
                 for (i = 0; i < j; i = i + 1) {
                     k.children.push(getOneVarValue('[' + i.toString() + ']',
-                        v + i * offset, memType, showType, showAddr));
+                        v + i * offset, memType, showType, showAddr
+                    ));
                 }
                 return k;
             }
@@ -298,7 +303,7 @@
                 };
                 subTypes = cdr.substr(1, cdr.length - 2);
                 if (cdr[0] === '<' && cdr[cdr.length - 1] === '>') {
-                    subTypes = v9Cpu.getStructType(subTypes);
+                    subTypes = cpu.getStructType(subTypes);
                 }
                 i = subTypes.indexOf('|');
                 subTypes = subTypes.substr(i + 1);
@@ -319,7 +324,6 @@
                 return k;
             }
         }
-        console.log('In readTypedVal: bad type', t);
         return 'BAD_TYPE';
     }
 
@@ -329,11 +333,45 @@
         for (name in defs) {
             if (defs.hasOwnProperty(name)) {
                 info = defs[name];
-                v = v9Cpu.getVirtAddr(info.space, info.offset);
+                v = cpu.getVirtAddr(info.space, info.offset);
                 ret.push(getOneVarValue(name, v, info.type, true, true));
             }
         }
         return ret;
+    }
+
+    function asciiToHtml(ascii) {
+        var i, j, c, html;
+        html = '';
+        j = ascii.length;
+        for (i = 0; i < j; i = i + 1) {
+            if (ascii[i] === '\n') {
+                c = '<br>';
+            } else if (ascii[i] === ' ') {
+                c = '&nbsp;';
+            } else {
+                // This doesn't really work.
+                c = ascii.charCodeAt(i);
+                c = '&#' + c.toString() + ';';
+            }
+            html = html + c;
+        }
+        return html;
+    }
+
+    function printTerm(msg) {
+        var termtext;
+        termtext = $("#termtext");
+        termtext.html(termtext.html() + asciiToHtml(msg));
+    }
+
+    function printTermDebug(msg) {
+        console.log(msg.toString());
+        printTerm(msg);
+    }
+
+    function clearTerm() {
+        $("#termtext").text("");
     }
 
     function doAtCpuReady() {
@@ -345,7 +383,7 @@
 
     function doAtCpuPause(point, localDefs, globalDefs) {
         if (!point) {
-            $("#termtext").text("End of program reached.");
+            printTerm("End of program reached.");
         } else {
             point = point.split(' ');
             editFile(point[0], Number(point[1]));
@@ -364,67 +402,158 @@
         $("#termcursor").removeClass("blinking-cursor");
     }
 
+    function addFileNavItem(filename) {
+        var path, tail, id, eleId;
+        path = filename.split('/');
+        tail = path.pop();
+        id = 'dirNavRoot' + path.join('_');
+        eleId = id + '__' + tail;
+        eleId = eleId.split('.').join('_dot_');
+        $('#' + id).append('<li><a id="' + eleId + '" href="#">' +
+            tail + '</a></li>');
+        $('#' + eleId).click(function() {
+            editFile(filename);
+        });
+    }
+
+    function tryAddToFiles(newfile) {
+        var found;
+        found = false;
+        files.forEach(function(file) {
+            if (file.filename === newfile.filename) {
+                found = true;
+                file.encoding = newfile.encoding;
+                file.content = newfile.content;
+            }
+        });
+        if (!found) {
+            files.push(newfile);
+            addFileNavItem(newfile.filename);
+        }
+    }
+
+    function compile(onSuccess) {
+        var xvccEach, currentUser, binFiles, debugInfo, printErr;
+        clearTerm();
+        printErr = function(text) {
+            printTermDebug(text + '\n');
+        };
+        xvccEach = function(result, info, expandedFile) {
+            tryAddToFiles(expandedFile);
+            binFiles.push(result);
+            debugInfo += info;
+            currentUser += 1;
+            if (currentUser < labConfg.user.length) {
+                xvcc(labConfg.user[currentUser], labConfg.file,
+                    files, xvccEach, printErr);
+            } else {
+                mkfs(labConfg.disk, files, binFiles, labConfg.file,
+                    function(hd) {
+                        onSuccess(binFiles[0].content, hd, debugInfo);
+                    }, printErr);
+            }
+        };
+        try {
+            currentUser = -1;
+            binFiles = [];
+            debugInfo = '';
+            xvcc(labConfg.kern, labConfg.file,
+                files, xvccEach, printErr);
+        } catch (err) {
+            console.log(err.message);
+            $("#loadingSign").hide();
+        }
+    }
+
     function onCpuReady(cb) {
-        var sk;
         $("#loadingSign").show();
-        // TODO: need check non-current files as well.
-        if (saveCurrentFile() || v9Cpu.needInit()) {
-            // TODO: use front-end xvcc & mkfs.
-            // TODO: use Uint8Array instead of ArrayBuffer.
-            sk = io();
-            sk.emit('compileFiles', files);
-            sk.on('filesCompiled', function(compiled) {
-                sk.disconnect();
-                if (compiled.error) {
-                    console.log(compiled.error);
-                } else {
-                    v9Cpu.setupSoftware(compiled.os, compiled.hd, compiled.de);
-                    $("#termtext").text("");
-                    cb();
-                }
+        saveCurrentFile();
+        if (cpu.needInit()) {
+            compile(function(os, hd, de) {
+                cpu.setupSoftware(os, hd, de);
+                clearTerm();
+                cb();
             });
         } else {
             cb();
         }
     }
 
+    function onDirNavItemClicked(dirId) {
+        var i;
+        $(".dirNavItem").hide();
+        $("#dirNavRoot").parent().show();
+        while (true) {
+            $('#' + dirId).parent().show();
+            i = dirId.lastIndexOf('_');
+            if (i === -1) {
+                break;
+            }
+            dirId = dirId.substr(0, i);
+        }
+    }
+
+    function buildDirNavItem(name, dir, path) {
+        var f, id, eleId, metaEditFile, metaViewDir;
+        metaEditFile = function(s) {
+            return function() {
+                editFile(s);
+            };
+        };
+        metaViewDir = function(s) {
+            return function() {
+                onDirNavItemClicked(s);
+            };
+        };
+        id = 'dirNavRoot' + path.join('_');
+        $("#fileMenu").append('<li class="dirNavItem" ' +
+            'style="display:none"><a href="#">' + name +
+            '&nbsp;&gt;</a>' + '<ul id="' + id + '"></ul></li>');
+        for (f in dir) {
+            if (dir.hasOwnProperty(f)) {
+                path.push(f);
+                eleId = id + '__' + f;
+                eleId = eleId.split('.').join('_dot_');
+                $('#' + id).append('<li><a id="' + eleId + '" href="#">' +
+                    f + (dir[f] === 0 ? '' : '&nbsp;&gt;') + '</a></li>');
+                if (dir[f] === 0) {
+                    $('#' + eleId).click(metaEditFile(path.join('/')));
+                } else {
+                    buildDirNavItem(f, dir[f], path);
+                    $('#' + eleId).click(
+                        metaViewDir('dirNavRoot' + path.join('_')));
+                }
+                path.pop();
+            }
+        }
+    }
+
     function loadLabPage() {
         var initFileList, initV9, initButtons;
         initFileList = function() {
-            files.forEach(function(file, i) {
-                // TODO: remove hard coded directories.
-                // TODO: check in only .c, .h, .txt.
-                $('#files' + file.filename.substr(5, 3).toUpperCase()).append(
-                    "<li id='file" + i.toString() + "'>" +
-                    "<a href='#'>" + file.filename + "</a>" +
-                    "</li>"
-                );
-                $("#file" + i.toString()).click(function() {
-                    editFile($(this).text());
-                });
-            });
-            // TODO: no explicit main c file.
-            editFile("root/etc/os.c");
+            buildDirNavItem(labName, labConfg.file, []);
+            $("#dirNavRoot").parent().show();
+            $("#fileMenu").append('<li style="float:right">' +
+                '<a id="currentFile" href="#" class="disabled">' +
+                '~ empty ~</a></li>');
+            editFile(labConfg.kern.sources[0]);
         };
         initV9 = function() {
             var printOut;
             printOut = function(fd, msg) {
-                var termtext;
-                if (fd === 2) {
-                    console.log(msg);
+                if (fd === 1) {
+                    printTerm(msg);
+                } else {
+                    printTermDebug(msg);
                 }
-                // TODO: many other ASCII chars to be converted.
-                msg = msg.replace(/\t/g, '&nbsp;&nbsp;');
-                msg = msg.replace(/\n/g, '<br/>');
-                termtext = $("#termtext");
-                termtext.html(termtext.html() + msg);
             };
-            v9Cpu = createV9(printOut, breakPoints);
+            cpu = createV9(printOut, breakPoints,
+                labConfg.kern.sources[0] + expandedFileSuffix);
             $("#terminal").keypress(function(e) {
                 var keyCode;
                 keyCode = e.keyCode || e.which;
                 if (0 <= keyCode && keyCode <= 0x7F) {
-                    v9Cpu.writeKbBuf(keyCode);
+                    cpu.writeKbBuf(keyCode);
                 }
             });
         };
@@ -432,19 +561,19 @@
             $("#runBtn").click(function() {
                 onCpuReady(function() {
                     doAtCpuReady();
-                    v9Cpu.runNonStop(doAtCpuPause);
+                    cpu.runNonStop(doAtCpuPause);
                 });
             });
             $("#stepBtn").click(function() {
                 onCpuReady(function() {
                     doAtCpuReady();
-                    v9Cpu.runSingleStep(doAtCpuPause);
+                    cpu.runSingleStep(doAtCpuPause);
                 });
             });
             $("#contBtn").click(function() {
                 onCpuReady(function() {
                     doAtCpuReady();
-                    v9Cpu.runUntilBreak(doAtCpuPause);
+                    cpu.runUntilBreak(doAtCpuPause);
                 });
             });
             $("#viewBtn").click(function() {
@@ -455,14 +584,17 @@
             });
             $("#downloadBtn").click(function() {
                 var zip;
+                saveCurrentFile();
                 zip = new JSZip();
                 files.forEach(function(file) {
-                    zip.file(file.filename, file.content);
+                    if (!file.filename.endsWith(expandedFileSuffix)) {
+                        zip.file(file.filename, file.content);
+                    }
                 });
+                zip.file('config.json', JSON.stringify(labConfg));
                 zip.generateAsync({
                     type: "blob"
                 }).then(function(d) {
-                    saveCurrentFile();
                     saveAs(d, "lab.zip");
                 });
             });
@@ -486,16 +618,20 @@
                     mode: "text/x-csrc",
                     styleActiveLine: true,
                     lineNumbers: true,
-                    gutters: ["CodeMirror-linenumbers", "breakPoints"]
+                    gutters: ["CodeMirror-linenumbers",
+                        "breakPoints"
+                    ]
                 });
             editor.on("gutterClick", function(cm, ln) {
                 var point;
-                point = files[curFileId].filename + ' ' + (ln + 1).toString();
+                point = files[curFileId].filename + ' ' + (ln +
+                    1).toString();
                 if (cm.lineInfo(ln).gutterMarkers) {
                     cm.setGutterMarker(ln, "breakPoints", null);
                     delete breakPoints[point];
                 } else {
-                    cm.setGutterMarker(ln, "breakPoints", makeMarker());
+                    cm.setGutterMarker(ln, "breakPoints",
+                        makeMarker());
                     breakPoints[point] = true;
                 }
             });
@@ -507,60 +643,98 @@
                 JSZip
                     .loadAsync(event.target.files[0])
                     .then(function(zip) {
-                        var numTask, finished;
-                        numTask = 0;
+                        var nFiles;
+                        nFiles = 0;
+                        /*jslint unparam:true*/
                         zip.forEach(function(path, entry) {
                             if (!entry.dir) {
-                                numTask += 1;
-                                if (!(path.endsWith('.c') ||
-                                        path.endsWith('.h') ||
-                                        path.endsWith('.txt'))) {
-                                    console.log('Unexpected extension : ' +
-                                        path);
-                                }
+                                nFiles += 1;
                             }
                         });
-                        finished = 0;
+                        /*jslint unparam:false*/
                         zip.forEach(function(path, entry) {
+                            var onReadSuccess;
+                            onReadSuccess = function(data) {
+                                if (path === 'config.json') {
+                                    labConfg = $.parseJSON(data);
+                                } else {
+                                    files.push({
+                                        filename: path,
+                                        encoding: 'utf8',
+                                        content: data
+                                    });
+                                }
+                                nFiles -= 1;
+                                if (nFiles === 0) {
+                                    loadLabPage();
+                                }
+                            };
                             if (!entry.dir) {
                                 zip.file(path).async('string').then(
-                                    function(d) {
-                                        files.push({
-                                            // TODO: path separator on windows.
-                                            filename: path,
-                                            encoding: 'utf8',
-                                            content: d
-                                        });
-                                        finished += 1;
-                                        if (finished === numTask) {
-                                            loadLabPage();
-                                        }
-                                    },
+                                    onReadSuccess,
                                     function(e) {
-                                        console.log("Error extracting file " +
-                                            path + " : " + e.message);
+                                        throw e;
                                     });
                             }
                         });
                     }, function(e) {
-                        console.log("Error reading file : " + e.message);
+                        throw e;
                     });
             });
         };
         initEntryButtons = function() {
+            var clicked;
+            clicked = false;
             $('#newLabBtn').on('click', function() {
-                var sk;
-                $("#loadingSign").show();
-                sk = io();
-                sk.emit('fetchFiles');
-                sk.on('filesSent', function(fetchedFiles) {
-                    sk.disconnect();
-                    files = fetchedFiles;
-                    loadLabPage();
-                });
+                var labPath, nFiles, fetchEachFile, fetchFiles;
+                fetchEachFile = function(path, counting) {
+                    if (counting) {
+                        nFiles = nFiles + 1;
+                    } else {
+                        $.get(labPath + path, function(data) {
+                            files.push({
+                                filename: path,
+                                encoding: 'utf8',
+                                content: data
+                            });
+                            nFiles = nFiles - 1;
+                            if (nFiles === 0) {
+                                loadLabPage();
+                            }
+                        });
+                    }
+                };
+                fetchFiles = function(path, dir, counting) {
+                    var p;
+                    for (p in dir) {
+                        if (dir.hasOwnProperty(p)) {
+                            if (dir[p] === 0) {
+                                fetchEachFile(path + p, counting);
+                            } else {
+                                fetchFiles(path + p + '/', dir[p],
+                                    counting);
+                            }
+                        }
+                    }
+                };
+                if (!clicked) {
+                    clicked = true;
+                    $("#loadingSign").show();
+                    labPath = "labs/" + labName + '/';
+                    $.getJSON(labPath + "config.json", function(config) {
+                        labConfg = config;
+                        nFiles = 0;
+                        files = [];
+                        fetchFiles('', labConfg.file, true);
+                        fetchFiles('', labConfg.file, false);
+                    });
+                }
             });
             $("#oldLabBtn").on('click', function() {
-                $("#askForFiles").click();
+                if (!clicked) {
+                    clicked = true;
+                    $("#askForFiles").click();
+                }
             });
         };
         initCodeMirror();
