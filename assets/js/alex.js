@@ -327,7 +327,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     // int -> int32 -> unit
     var writeRegister = function (regIndex, val) {
       if (regIndex == 0) {
-        printOut("Warning: trying to write register R0");
+        printOut(2, "Warning: trying to write register R0");
       } else if (regIndex == SP) {
         // NOTE: val == SP + (val - SP)
         var offset = val >>> 0 - getRegister(SP) >>> 0;
