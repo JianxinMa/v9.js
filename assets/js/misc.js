@@ -366,7 +366,7 @@
     }
 
     function printTermDebug(msg) {
-        console.log(msg);
+        console.log(msg.toString());
         printTerm(msg);
     }
 
@@ -433,8 +433,11 @@
     }
 
     function compile(onSuccess) {
-        // TODO: error handling
-        var xvccEach, currentUser, binFiles, debugInfo;
+        var xvccEach, currentUser, binFiles, debugInfo, printErr;
+        clearTerm();
+        printErr = function(text) {
+            printTermDebug(text + '\n');
+        };
         xvccEach = function(result, info, expandedFile) {
             tryAddToFiles(expandedFile);
             binFiles.push(result);
@@ -442,19 +445,24 @@
             currentUser += 1;
             if (currentUser < labConfg.user.length) {
                 xvcc(labConfg.user[currentUser], labConfg.file,
-                    files, xvccEach, printTermDebug);
+                    files, xvccEach, printErr);
             } else {
                 mkfs(labConfg.disk, files, binFiles, labConfg.file,
                     function(hd) {
                         onSuccess(binFiles[0].content, hd, debugInfo);
-                    }, printTermDebug);
+                    }, printErr);
             }
         };
-        currentUser = -1;
-        binFiles = [];
-        debugInfo = '';
-        xvcc(labConfg.kern, labConfg.file,
-            files, xvccEach, printTermDebug);
+        try {
+            currentUser = -1;
+            binFiles = [];
+            debugInfo = '';
+            xvcc(labConfg.kern, labConfg.file,
+                files, xvccEach, printErr);
+        } catch (err) {
+            console.log(err.message);
+            $("#loadingSign").hide();
+        }
     }
 
     function onCpuReady(cb) {

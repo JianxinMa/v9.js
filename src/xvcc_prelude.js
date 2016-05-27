@@ -87,7 +87,7 @@ xvccCore = function(infile, processed, target,
         infofile = infile.substr(0, infile.length - 1) + 'd';
         Module = {
             arguments: ["-o", target, infile],
-            print: (printOut || console.log),
+            printErr: printOut,
             preRun: [function() {
                 mkDirs('', dirStruct, FS.mkdir);
                 FS.writeFile(infile, processed);

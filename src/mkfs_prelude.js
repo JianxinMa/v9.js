@@ -10,7 +10,7 @@ function mkfs(diskRoot, files, binFiles, dirStruct, onReturn, printOut) {
         diskImg = diskRoot + '.img';
         Module = {
             arguments: [diskImg, diskRoot],
-            print: (printOut || console.log),
+            printErr: printOut,
             preRun: [function() {
                 var saveFile;
                 saveFile = function(file) {
