@@ -1,5 +1,7 @@
 # V9@Web
 
+An in-browser operating system learning platform. Not really production-ready yet. But stay tuned, we'll launch it before November!
+
 ### Usage
 
 The `Step` button is for single stepping. `Continue` button is for running until encountering a breakpoint. `Run` is similar to `Continue`, but ignores breakpoints. The three can be used in a mixed way. And yes, you can set breakpoints while it is running.
