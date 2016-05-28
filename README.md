@@ -26,3 +26,13 @@ You can go to `Terminal` panel to interact with it while it is running.
 
 #### Inspect Variable Values at Runtime
 ![](https://github.com/JianxinMa/v9.js/raw/gh-pages/doc/gif/xv6vars.gif)
+
+#### Save All Your Hard Work
+![](https://github.com/JianxinMa/v9.js/raw/gh-pages/doc/gif/xv6save.gif)
+
+#### Continue Your Work Next Time
+![](https://github.com/JianxinMa/v9.js/raw/gh-pages/doc/gif/xv6reuse.gif)
+
+#### Want to Create a New Lab? Write a Config File for Your Sources!
+![](https://github.com/JianxinMa/v9.js/raw/gh-pages/doc/gif/labcfg.gif)
+
