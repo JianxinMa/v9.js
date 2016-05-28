@@ -3033,7 +3033,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
             regNextHdlr = hdlrItrpt;
             return;
         }
-        regIena = (1);
+        regIena = 1;
         regNextHdlr = hdlrChkpc;
         return;
     }
@@ -3566,7 +3566,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
             };
         };
         setupMemory = function() {
-            hdrMemSz = 64 * 1024 * 1024;
+            hdrMemSz = 128 * 1024 * 1024;
             hdrMem = new buffer.Buffer(hdrMemSz);
             hdrTrK = new buffer.Buffer(1024 * 1024 * 4);
             hdrTwK = new buffer.Buffer(1024 * 1024 * 4);
@@ -3870,6 +3870,21 @@ function createV9(printOut, breakPoints, kernMainTag) {
         }, 50);
     }
 
+    function runNonDebug(cb) {
+        cpuEvent = setInterval(function() {
+            var i;
+            for (i = 0; i < (1 << 21); i = i + 1) {
+                if (regNextHdlr === 0) {
+                    pauseRunning();
+                    cb();
+                    return;
+                }
+                unsignRegs();
+                regNextHdlr();
+            }
+        }, 50);
+    }
+
     function runNonStop(cb) {
         runUntilBreak(cb, true);
     }
@@ -3944,6 +3959,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
         runNonStop: runNonStop,
         runSingleStep: runSingleStep,
         runUntilBreak: runUntilBreak,
+        runNonDebug: runNonDebug,
         writeKbBuf: writeKbBuf,
         needInit: needInit,
         getVirtAddr: getVirtAddr,

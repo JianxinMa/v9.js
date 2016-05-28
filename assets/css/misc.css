@@ -30,7 +30,7 @@ html, body {
     width: 100%;
 }
 
-#labPage, #entryPage, #inspectPage {
+#labPage, #entryPage, #choicePage, #inspectPage {
     position:fixed; 
     width:100%;
     height:100%;
@@ -38,7 +38,7 @@ html, body {
     left:0;
 }
 
-#entryPage {
+#entryPage, #choicePage {
     z-index: 120;
     background:rgba(231, 231, 231, 0.7);
     color:white;
@@ -499,6 +499,27 @@ path.link {
 }
 
 #oldLabBtn {
+    top: 55%;
+}
+
+/**
+ * Choice Page Buttons
+ */
+
+#labChoice1, #labChoice2 {
+    position: absolute;
+    left: 50%;
+    width: 300px;
+    height: 49px;
+    margin-left: -150px;
+    margin-top: -25px;
+}
+
+#labChoice1 {
+    top: 45%;
+}
+
+#labChoice2 {
     top: 55%;
 }
 

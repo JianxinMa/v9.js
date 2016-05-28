@@ -7,8 +7,6 @@
 (function() {
     var editor, labName, labConfg, files, curFileId, breakPoints, cpu;
 
-    labName = "ucore_lab8"; // TODO
-
     function renderTreeView(root, level) {
         var m, w, h, i, tree, diagonal, vis;
 
@@ -557,6 +555,13 @@
                     cpu.writeKbBuf(keyCode);
                 }
             });
+            // XXX begin
+            if (labName !== "xv6") {
+                cpu.runNonStop = cpu.runNonDebug;
+                cpu.runUntilBreak = cpu.runNonDebug;
+                cpu.runSingleStep = cpu.runNonDebug;
+            }
+            // XXX end
         };
         initButtons = function() {
             $("#runBtn").click(function() {
@@ -601,6 +606,7 @@
             });
         };
         $('#entryPage').fadeOut('slow');
+        $('#choicePage').fadeOut('slow');
         $("#labPage").fadeIn('slow');
         initFileList();
         initV9();
@@ -687,6 +693,10 @@
             var clicked;
             clicked = false;
             $('#newLabBtn').on('click', function() {
+                $('#entryPage').fadeOut('slow');
+                $("#choicePage").fadeIn('slow');
+            });
+            $('.labChoice').on('click', function() {
                 var labPath, nFiles, fetchEachFile, fetchFiles;
                 fetchEachFile = function(path, counting) {
                     if (counting) {
@@ -721,6 +731,7 @@
                 if (!clicked) {
                     clicked = true;
                     $("#loadingSign").show();
+                    labName = $(this).text().trim().split(' ').join('_');
                     labPath = "labs/" + labName + '/';
                     $.getJSON(labPath + "config.json", function(config) {
                         labConfg = config;
