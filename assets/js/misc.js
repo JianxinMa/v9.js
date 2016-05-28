@@ -7,7 +7,7 @@
 (function() {
     var editor, labName, labConfg, files, curFileId, breakPoints, cpu;
 
-    labName = "xv6"; // TODO
+    labName = "ucore_lab8"; // TODO
 
     function renderTreeView(root, level) {
         var m, w, h, i, tree, diagonal, vis;
@@ -546,6 +546,7 @@
                 } else {
                     printTermDebug(msg);
                 }
+                return msg.length;
             };
             cpu = createV9(printOut, breakPoints,
                 labConfg.kern.sources[0] + expandedFileSuffix);

@@ -2202,13 +2202,13 @@ function createV9(printOut, breakPoints, kernMainTag) {
     }
 
     function execMUL() {
-        regA = regA * regB;
+        regA = (regA | 0) * (regB | 0);
         regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMULI() {
-        regA = regA * (regIr >> 8);
+        regA = (regA | 0) * (regIr >> 8);
         regNextHdlr = hdlrChkpc;
         return;
     }
@@ -2216,7 +2216,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
     function execMULL() {
         var p, v;
         if (regIr < regFSP) {
-            regA = regA * hdrMem.readInt32LE(regXSp + (regIr >> 8));
+            regA = (regA | 0) * hdrMem.readInt32LE(regXSp + (regIr >> 8));
             regNextHdlr = hdlrChkpc;
             return;
         }
@@ -2229,7 +2229,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
                 return;
             }
         }
-        regA = regA * hdrMem.readInt32LE((v ^ p) & -4);
+        regA = (regA | 0) * hdrMem.readInt32LE((v ^ p) & -4);
         if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
             regNextHdlr = hdlrChkpc;
             return;
@@ -2244,7 +2244,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
             regNextHdlr = hdlrExcpt;
             return;
         }
-        regA = (regA / regB) >>> 0;
+        regA = ((regA | 0) / (regB | 0)) >>> 0;
         regNextHdlr = hdlrChkpc;
         return;
     }
@@ -2257,7 +2257,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
             regNextHdlr = hdlrExcpt;
             return;
         }
-        regA = (regA / t) >>> 0;
+        regA = ((regA | 0) / (t | 0)) >>> 0;
         regNextHdlr = hdlrChkpc;
         return;
     }
@@ -2271,7 +2271,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
                 regNextHdlr = hdlrExcpt;
                 return;
             }
-            regA = (regA / t) >>> 0;
+            regA = ((regA | 0) / (t | 0)) >>> 0;
             regNextHdlr = hdlrChkpc;
             return;
         }
@@ -2290,7 +2290,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
             regNextHdlr = hdlrExcpt;
             return;
         }
-        regA = (regA / t) >>> 0;
+        regA = ((regA | 0) / (t | 0)) >>> 0;
         if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
             regNextHdlr = hdlrChkpc;
             return;
@@ -2361,13 +2361,13 @@ function createV9(printOut, breakPoints, kernMainTag) {
     }
 
     function execMOD() {
-        regA = (regA % regB);
+        regA = ((regA | 0) % (regB | 0));
         regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execMODI() {
-        regA = (regA % (regIr >> 8));
+        regA = ((regA | 0) % (regIr >> 8));
         regNextHdlr = hdlrChkpc;
         return;
     }
@@ -2375,7 +2375,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
     function execMODL() {
         var p, v;
         if (regIr < regFSP) {
-            regA = (regA % hdrMem.readUInt32LE(regXSp + (regIr >> 8)));
+            regA = ((regA | 0) % hdrMem.readUInt32LE(regXSp + (regIr >> 8)));
             regNextHdlr = hdlrChkpc;
             return;
         }
@@ -2388,7 +2388,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
                 return;
             }
         }
-        regA = (regA % hdrMem.readUInt32LE((v ^ p) & -4));
+        regA = ((regA | 0) % hdrMem.readUInt32LE((v ^ p) & -4));
         if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
             regNextHdlr = hdlrChkpc;
             return;
@@ -2583,13 +2583,13 @@ function createV9(printOut, breakPoints, kernMainTag) {
     }
 
     function execSHR() {
-        regA = (regA >> regB);
+        regA = ((regA | 0) >> (regB | 0));
         regNextHdlr = hdlrChkpc;
         return;
     }
 
     function execSHRI() {
-        regA = (regA >> (regIr >> 8));
+        regA = ((regA | 0) >> (regIr >> 8));
         regNextHdlr = hdlrChkpc;
         return;
     }
@@ -2597,7 +2597,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
     function execSHRL() {
         var p, v;
         if (regIr < regFSP) {
-            regA = (regA >> hdrMem.readUInt32LE(regXSp + (regIr >> 8)));
+            regA = ((regA | 0) >> hdrMem.readUInt32LE(regXSp + (regIr >> 8)));
             regNextHdlr = hdlrChkpc;
             return;
         }
@@ -2610,7 +2610,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
                 return;
             }
         }
-        regA = (regA >> hdrMem.readUInt32LE((v ^ p) & -4));
+        regA = ((regA | 0) >> hdrMem.readUInt32LE((v ^ p) & -4));
         if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
             regNextHdlr = hdlrChkpc;
             return;
@@ -2681,7 +2681,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
     }
 
     function execLT() {
-        regA = (regA < regB);
+        regA = ((regA | 0) < (regB | 0));
         regNextHdlr = hdlrChkpc;
         return;
     }
@@ -2699,7 +2699,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
     }
 
     function execGE() {
-        regA = (regA >= regB);
+        regA = ((regA | 0) >= (regB | 0));
         regNextHdlr = hdlrChkpc;
         return;
     }
@@ -2837,7 +2837,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
     }
 
     function execBLT() {
-        if (regA < regB) {
+        if ((regA | 0) < (regB | 0)) {
             regXCycle = (regXCycle + (regIr >> 8));
             regXPc = (regXPc + ((regIr >> 10) << 2));
             if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
