@@ -73,10 +73,14 @@ This is documented in [debugger.md](https://github.com/JianxinMa/v9.js/blob/gh-p
 
 ## Future Work
 
-#### C Compiler
+#### The C Compiler
 
 Error messages from the C compiler of [swieros](https://github.com/rswier/swieros) are usually quite useless. And it also lack support of some ANSI C features. Although our other LLVM-based backend can overcome these issues, it turns out that the other backend requires much work from a server.
 
 We plan to overcoem these by either:
 - Improve the existing C compiler from [swieros](https://github.com/rswier/swieros).
 - Or port [Tiny C Compiler](http://bellard.org/tcc/) to our platform, and put it at the front end.
+
+#### Reliability
+
+The ucore system is recently added, and hasn't been thoroughly tested yet. As a result, we are afraid that there might be some bugs in our hardware simulator and the ported system.
