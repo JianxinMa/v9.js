@@ -70,6 +70,7 @@ This is documented in [debugger.md](https://github.com/JianxinMa/v9.js/blob/gh-p
 - The [ucore](https://github.com/chyyuu) operating system is ported by Leonard Xu and Xu Han, see [v9-ucore](https://github.com/leopard1/v9-ucore).
 - In fact, we have a second backend that uses a LLVM-based C compiler. See [Alex Wang's work](https://github.com/a1exwang/llvm).
 - For this second backend, [a different instruction set](https://github.com/paulzfm/alex-machine) and hardware simulator is used. These are done by [Paul Zhu](https://github.com/paulzfm/v9.js). 
+- We use [CodeMirror](http://codemirror.net) as an editor. [JSZip](https://github.com/Stuk/jszip) and [FileSaver.js](https://github.com/eligrey/FileSaver.js) for saving files.
 
 ## Future Work
 
