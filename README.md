@@ -48,6 +48,18 @@ You can go to `Terminal` panel to interact with it while it is running.
 #### Want to Create a New Lab? Write a Config File for Your Sources!
 ![](https://github.com/JianxinMa/v9.js/raw/gh-pages/doc/gif/labcfg.gif)
 
+## Development
+
+#### How is the simulator implemented?
+
+The JavaScript-implemented hardware simulator is manually translated from its C-implemented origin at [swieros](https://github.com/rswier/swieros). The reason we don't use tools such as [Emscripten](http://kripken.github.io/emscripten-site/) for this is that we find that Emscripten-converted code cannot fully interact with users. Though the reason is unclear.
+
+And it also becomes much easier for us to add dubegging support once we have implemented our own JavaScript version.
+
+#### How is the debugger implemented?
+
+This is documented in [debugger.md](https://github.com/JianxinMa/v9.js/blob/gh-pages/doc/debugger.md).
+
 ## Related Work
 
 - The JavaScript-implemented hardware simulator is manually translated from its C-implemented origin at [swieros](https://github.com/rswier/swieros).
@@ -57,4 +69,14 @@ You can go to `Terminal` panel to interact with it while it is running.
 - The C preprocessor is from [acgessler](https://github.com/acgessler/cpp.js).
 - The [ucore](https://github.com/chyyuu) operating system is ported by Leonard Xu and Xu Han, see [v9-ucore](https://github.com/leopard1/v9-ucore).
 - In fact, we have a second backend that uses a LLVM-based C compiler. See [Alex Wang's work](https://github.com/a1exwang/llvm).
-- For this second backend, [a different instruction set](https://github.com/paulzfm/alex-machine) and hardware simulator is used. These are done by [Paul Zhu](https://github.com/paulzfm/v9.js).
+- For this second backend, [a different instruction set](https://github.com/paulzfm/alex-machine) and hardware simulator is used. These are done by [Paul Zhu](https://github.com/paulzfm/v9.js). 
+
+## Future Work
+
+#### C Compiler
+
+Error messages from the C compiler of [swieros](https://github.com/rswier/swieros) are usually quite useless. And it also lack support of some ANSI C features. Although our other LLVM-based backend can overcome these issues, it turns out that the other backend requires much work from a server.
+
+We plan to overcoem these by either:
+- Improve the existing C compiler from [swieros](https://github.com/rswier/swieros).
+- Or port [Tiny C Compiler](http://bellard.org/tcc/) to our platform, and put it at the front end.
