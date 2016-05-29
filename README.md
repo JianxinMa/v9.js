@@ -73,6 +73,10 @@ This is documented in [debugger.md](https://github.com/JianxinMa/v9.js/blob/gh-p
 
 ## Future Work
 
+#### The C Preprocessor
+
+Currently, variadic macros, ```__line__```, and ```__file___``` are not supported. But don't worry, we are working on them.
+
 #### The C Compiler
 
 Error messages from the C compiler of [swieros](https://github.com/rswier/swieros) are usually quite useless. And it also lack support of some ANSI C features. Although our other LLVM-based backend can overcome these issues, it turns out that the other backend requires much work from a server.
