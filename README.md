@@ -47,3 +47,14 @@ You can go to `Terminal` panel to interact with it while it is running.
 
 #### Want to Create a New Lab? Write a Config File for Your Sources!
 ![](https://github.com/JianxinMa/v9.js/raw/gh-pages/doc/gif/labcfg.gif)
+
+## Related Work
+
+- The JavaScript-implemented hardware simulator is manually translated from its C-implemented origin at [swieros](https://github.com/rswier/swieros).
+- The C compiler is also based on that of [swieros](https://github.com/rswier/swieros).
+- The simplified xv6 operating system is again from [swieros](https://github.com/rswier/swieros).
+- [Emscripten](http://kripken.github.io/emscripten-site/) is used for converting the C-implemented C compiler to a JavaScript one.
+- The C preprocessor is from [acgessler](https://github.com/acgessler/cpp.js).
+- The [ucore](https://github.com/chyyuu) operating system is ported by Leonard Xu and Xu Han, see [v9-ucore](https://github.com/leopard1/v9-ucore).
+- In fact, we have a second backend that uses a LLVM-based C compiler. See [Alex Wang's work](https://github.com/a1exwang/llvm).
+- For this second backend, [a different instruction set](https://github.com/paulzfm/alex-machine) and hardware simulator is used. These are done by [Paul Zhu](https://github.com/paulzfm/v9.js).
