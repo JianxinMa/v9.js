@@ -1,4 +1,4 @@
-# Debugger Design (Not Finished)
+# Debugger Design
 
 ## Support from the Operating System
 
@@ -190,8 +190,7 @@ def print_struct_type_str(var):
   print(")")
 ```
 
-（以下是非正式文档）
-调试信息文件`root/etc/os.d`应该长什么样呢？长这样：
+What's the content of `root/etc/os.d`? It looks like this:
 ```
 = root/etc/os.c
 # 注意上面，文件的第一行必须以=开始，后接代码的文件名。
