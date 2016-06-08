@@ -1,0 +1,266 @@
+= ../../alex-machine-tests/src/test_link.c
+# global variables
+g uint32_v data +13000 (uint)
+g int32_v data +13004 (int)
+g char_v data +13008 (char)
+g uint8_v data +13009 (uchar)
+g int32_ptr data +1300 (ptr(int))
+g arr data +13010 (array(100|4(ptr(ptr(ptr(char))))))
+
+# functions
+< 0x1106c
+l a stk -24 (int)
+l b stk -28 (int)
+l c stk -32 (struct<s1>)
+l x stk -36 (int)
+l y stk -40 (int)
+l z stk -44 (int)
+i 0x0 ../../alex-machine-tests/src/test_link.c 25
+i 0x34 ../../alex-machine-tests/src/test_link.c 26
+i 0x3c ../../alex-machine-tests/src/test_link.c 27
+i 0x4c ../../alex-machine-tests/src/test_link.c 28
+i 0x68 ../../alex-machine-tests/src/test_link.c 29
+
+< 0x110f8
+l a stk -24 (struct<s1>)
+i 0x0 ../../alex-machine-tests/src/test_link.c 32
+i 0x30 ../../alex-machine-tests/src/test_link.c 34
+i 0xb0 ../../alex-machine-tests/src/test_link.c 35
+i 0xd8 ../../alex-machine-tests/src/test_link.c 37
+i 0xdc ../../alex-machine-tests/src/test_link.c 36
+i 0x108 ../../alex-machine-tests/src/test_link.c 38
+
+< 0x11228
+l s stk -24 (ptr(char))
+l maxlen stk -28 (uint)
+l ret stk -32 (uint)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 7
+i 0x38 ../../alex-machine-tests/src/libs/printfmt.c 8
+i 0x44 ../../alex-machine-tests/src/libs/printfmt.c 9
+i 0x50 ../../alex-machine-tests/src/libs/printfmt.c 10
+i 0x5c ../../alex-machine-tests/src/libs/printfmt.c 11
+i 0x70 ../../alex-machine-tests/src/libs/printfmt.c 12
+i 0x80 ../../alex-machine-tests/src/libs/printfmt.c 13
+i 0x8c ../../alex-machine-tests/src/libs/printfmt.c 15
+i 0x90 ../../alex-machine-tests/src/libs/printfmt.c 16
+
+< 0x112e0
+l putch stk -24 (ptr(fun))
+l fd stk -28 (int)
+l putdat stk -32 (ptr(void))
+l fmt stk -36 (ptr(char))
+l ap stk -40 (ptr(char))
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 91
+i 0x48 ../../alex-machine-tests/src/libs/printfmt.c 94
+i 0x5c ../../alex-machine-tests/src/libs/printfmt.c 95
+i 0x88 ../../alex-machine-tests/src/libs/printfmt.c 97
+
+< 0x1138c
+l putch stk -24 (ptr(fun))
+l fd stk -28 (int)
+l putdat stk -32 (ptr(void))
+l fmt stk -36 (ptr(char))
+l ap stk -40 (ptr(char))
+l p stk -44 (ptr(char))
+l ch stk -48 (int)
+l err stk -52 (int)
+l num stk -56 (uint)
+l base stk -60 (int)
+l width stk -64 (int)
+l precision stk -68 (int)
+l lflag stk -72 (int)
+l altflag stk -76 (int)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 112
+i 0xf0 ../../alex-machine-tests/src/libs/printfmt.c 119
+i 0xf4 ../../alex-machine-tests/src/libs/printfmt.c 127
+i 0x100 ../../alex-machine-tests/src/libs/printfmt.c 128
+i 0x12c ../../alex-machine-tests/src/libs/printfmt.c 132
+i 0x1ac ../../alex-machine-tests/src/libs/printfmt.c 165
+i 0x1f0 ../../alex-machine-tests/src/libs/printfmt.c 136
+i 0x218 ../../alex-machine-tests/src/libs/printfmt.c 141
+i 0xb8 ../../alex-machine-tests/src/libs/printfmt.c 120
+i 0xd8 ../../alex-machine-tests/src/libs/printfmt.c 123
+i 0x114 ../../alex-machine-tests/src/libs/printfmt.c 129
+i 0x1a8 ../../alex-machine-tests/src/libs/printfmt.c 146
+i 0x164 ../../alex-machine-tests/src/libs/printfmt.c 147
+i 0x178 ../../alex-machine-tests/src/libs/printfmt.c 148
+i 0x190 ../../alex-machine-tests/src/libs/printfmt.c 149
+i 0x1b4 ../../alex-machine-tests/src/libs/printfmt.c 166
+i 0x1c8 ../../alex-machine-tests/src/libs/printfmt.c 156
+i 0x1cc ../../alex-machine-tests/src/libs/printfmt.c 157
+i 0x1d4 ../../alex-machine-tests/src/libs/printfmt.c 169
+i 0x1ec ../../alex-machine-tests/src/libs/printfmt.c 170
+i 0x1f8 ../../alex-machine-tests/src/libs/printfmt.c 137
+i 0x200 ../../alex-machine-tests/src/libs/printfmt.c 160
+i 0x214 ../../alex-machine-tests/src/libs/printfmt.c 161
+i 0x21c ../../alex-machine-tests/src/libs/printfmt.c 142
+i 0x220 ../../alex-machine-tests/src/libs/printfmt.c 175
+i 0x22c ../../alex-machine-tests/src/libs/printfmt.c 176
+i 0x23c ../../alex-machine-tests/src/libs/printfmt.c 251
+i 0x290 ../../alex-machine-tests/src/libs/printfmt.c 252
+i 0x2a4 ../../alex-machine-tests/src/libs/printfmt.c 246
+i 0x2bc ../../alex-machine-tests/src/libs/printfmt.c 247
+i 0x2dc ../../alex-machine-tests/src/libs/printfmt.c 180
+i 0x2f4 ../../alex-machine-tests/src/libs/printfmt.c 181
+i 0x320 ../../alex-machine-tests/src/libs/printfmt.c 208
+i 0x324 ../../alex-machine-tests/src/libs/printfmt.c 209
+i 0x33c ../../alex-machine-tests/src/libs/printfmt.c 210
+i 0x364 ../../alex-machine-tests/src/libs/printfmt.c 211
+i 0x368 ../../alex-machine-tests/src/libs/printfmt.c 213
+i 0x370 ../../alex-machine-tests/src/libs/printfmt.c 214
+i 0x39c ../../alex-machine-tests/src/libs/printfmt.c 224
+i 0x3a0 ../../alex-machine-tests/src/libs/printfmt.c 225
+i 0x3a8 ../../alex-machine-tests/src/libs/printfmt.c 226
+i 0x3b8 ../../alex-machine-tests/src/libs/printfmt.c 230
+i 0x3dc ../../alex-machine-tests/src/libs/printfmt.c 231
+i 0x408 ../../alex-machine-tests/src/libs/printfmt.c 232
+i 0x40c ../../alex-machine-tests/src/libs/printfmt.c 233
+i 0x414 ../../alex-machine-tests/src/libs/printfmt.c 234
+i 0x42c ../../alex-machine-tests/src/libs/printfmt.c 185
+i 0x43c ../../alex-machine-tests/src/libs/printfmt.c 186
+i 0x46c ../../alex-machine-tests/src/libs/printfmt.c 188
+i 0x500 ../../alex-machine-tests/src/libs/printfmt.c 189
+i 0x4dc ../../alex-machine-tests/src/libs/printfmt.c 190
+i 0x514 ../../alex-machine-tests/src/libs/printfmt.c 198
+i 0x594 ../../alex-machine-tests/src/libs/printfmt.c 193
+i 0x5dc ../../alex-machine-tests/src/libs/printfmt.c 194
+i 0x5f4 ../../alex-machine-tests/src/libs/printfmt.c 195
+i 0x610 ../../alex-machine-tests/src/libs/printfmt.c 196
+i 0x620 ../../alex-machine-tests/src/libs/printfmt.c 202
+i 0x650 ../../alex-machine-tests/src/libs/printfmt.c 201
+i 0x688 ../../alex-machine-tests/src/libs/printfmt.c 218
+i 0x68c ../../alex-machine-tests/src/libs/printfmt.c 219
+i 0x694 ../../alex-machine-tests/src/libs/printfmt.c 220
+i 0x6c0 ../../alex-machine-tests/src/libs/printfmt.c 238
+i 0x6c4 ../../alex-machine-tests/src/libs/printfmt.c 239
+i 0x6f8 ../../alex-machine-tests/src/libs/printfmt.c 241
+i 0x734 ../../alex-machine-tests/src/libs/printfmt.c 242
+i 0x738 ../../alex-machine-tests/src/libs/printfmt.c 121
+
+< 0x11ae8
+l ap stk -24 (ptr(ptr(char)))
+l lflag stk -28 (int)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 71
+i 0x38 ../../alex-machine-tests/src/libs/printfmt.c 72
+i 0x44 ../../alex-machine-tests/src/libs/printfmt.c 73
+i 0x58 ../../alex-machine-tests/src/libs/printfmt.c 75
+i 0x78 ../../alex-machine-tests/src/libs/printfmt.c 76
+i 0x94 ../../alex-machine-tests/src/libs/printfmt.c 79
+i 0x98 ../../alex-machine-tests/src/libs/printfmt.c 81
+
+< 0x11ba8
+l ap stk -24 (ptr(ptr(char)))
+l lflag stk -28 (int)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 53
+i 0x38 ../../alex-machine-tests/src/libs/printfmt.c 54
+i 0x44 ../../alex-machine-tests/src/libs/printfmt.c 55
+i 0x58 ../../alex-machine-tests/src/libs/printfmt.c 57
+i 0x78 ../../alex-machine-tests/src/libs/printfmt.c 58
+i 0x94 ../../alex-machine-tests/src/libs/printfmt.c 61
+i 0x98 ../../alex-machine-tests/src/libs/printfmt.c 63
+
+< 0x11c68
+l putch stk -24 (ptr(fun))
+l fd stk -28 (int)
+l putdat stk -32 (ptr(void))
+l num stk -36 (uint)
+l base stk -40 (uint)
+l width stk -44 (int)
+l padc stk -48 (int)
+l current stk -52 (uint)
+l rest stk -56 (uint)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 29
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 28
+i 0x68 ../../alex-machine-tests/src/libs/printfmt.c 32
+i 0x78 ../../alex-machine-tests/src/libs/printfmt.c 33
+i 0x84 ../../alex-machine-tests/src/libs/printfmt.c 36
+i 0xb8 ../../alex-machine-tests/src/libs/printfmt.c 37
+i 0xe4 ../../alex-machine-tests/src/libs/printfmt.c 38
+i 0xf8 ../../alex-machine-tests/src/libs/printfmt.c 41
+i 0x120 ../../alex-machine-tests/src/libs/printfmt.c 40
+i 0x168 ../../alex-machine-tests/src/libs/printfmt.c 44
+i 0x174 ../../alex-machine-tests/src/libs/printfmt.c 45
+
+< 0x11e00
+l str stk -24 (ptr(char))
+l size stk -28 (uint)
+l fmt stk -32 (ptr(char))
+l ap stk -36 (ptr(char))
+l cnt stk -40 (int)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 286
+i 0x40 ../../alex-machine-tests/src/libs/printfmt.c 289
+i 0x78 ../../alex-machine-tests/src/libs/printfmt.c 290
+i 0x7c ../../alex-machine-tests/src/libs/printfmt.c 292
+
+< 0x11ea0
+l str stk -24 (ptr(char))
+l size stk -28 (uint)
+l fmt stk -32 (ptr(char))
+l ap stk -36 (ptr(char))
+l b stk -40 (struct<sprintbuf>)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 310
+i 0x5c ../../alex-machine-tests/src/libs/printfmt.c 311
+i 0x80 ../../alex-machine-tests/src/libs/printfmt.c 312
+i 0x8c ../../alex-machine-tests/src/libs/printfmt.c 313
+i 0xa0 ../../alex-machine-tests/src/libs/printfmt.c 316
+i 0xe0 ../../alex-machine-tests/src/libs/printfmt.c 318
+i 0xe8 ../../alex-machine-tests/src/libs/printfmt.c 319
+i 0xec ../../alex-machine-tests/src/libs/printfmt.c 320
+
+< 0x11fb4
+l ch stk -24 (int)
+l b stk -28 (ptr(struct<sprintbuf>))
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 272
+i 0x34 ../../alex-machine-tests/src/libs/printfmt.c 273
+i 0x4c ../../alex-machine-tests/src/libs/printfmt.c 274
+i 0x6c ../../alex-machine-tests/src/libs/printfmt.c 275
+i 0x70 ../../alex-machine-tests/src/libs/printfmt.c 277
+
+< 0x12048
+l c stk -24 (char)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 329
+i 0x38 ../../alex-machine-tests/src/libs/printfmt.c 330
+i 0x5c ../../alex-machine-tests/src/libs/printfmt.c 331
+
+< 0x120c8
+l port stk -24 (int)
+l c stk -28 (int)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 322
+i 0x34 ../../alex-machine-tests/src/libs/printfmt.c 326
+i 0x38 ../../alex-machine-tests/src/libs/printfmt.c 323
+i 0x3c ../../alex-machine-tests/src/libs/printfmt.c 328
+
+< 0x12128
+l fmt stk -24 (ptr(char))
+l ap stk -28 (ptr(char))
+l cnt stk -32 (int)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 349
+i 0x38 ../../alex-machine-tests/src/libs/printfmt.c 350
+i 0x44 ../../alex-machine-tests/src/libs/printfmt.c 351
+i 0x84 ../../alex-machine-tests/src/libs/printfmt.c 352
+
+< 0x121d0
+l c stk -24 (int)
+l cnt stk -28 (ptr(void))
+l fd stk -32 (int)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 334
+i 0x3c ../../alex-machine-tests/src/libs/printfmt.c 335
+i 0x68 ../../alex-machine-tests/src/libs/printfmt.c 336
+i 0x74 ../../alex-machine-tests/src/libs/printfmt.c 337
+
+< 0x12268
+l fmt stk -24 (ptr(char))
+l ap stk -28 (ptr(char))
+l cnt stk -32 (int)
+i 0x0 ../../alex-machine-tests/src/libs/printfmt.c 362
+i 0x30 ../../alex-machine-tests/src/libs/printfmt.c 365
+i 0x58 ../../alex-machine-tests/src/libs/printfmt.c 366
+i 0x5c ../../alex-machine-tests/src/libs/printfmt.c 369
+
+# structures
+d struct s1 (20|(s2val:+0:struct<s2>)(??:+4:(a:+0:int)(a1234:+4:int))(u:+12:(v:+0:int))(b:+16:int))
+d struct s2 (4|(xx:+0:int))
+d struct sprintbuf (12|(buf:+0:ptr(char))(ebuf:+4:ptr(char))(cnt:+8:int))
+
+.data 0x13000
+.bss 0x13010

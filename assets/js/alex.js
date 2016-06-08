@@ -1388,7 +1388,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
             infoPool[program].structs[tmp[2]] = tmp[3];
           } else if (line[0] === 'g') {
             addVarInfo(infoPool[program].globals, line);
-          } else if (line[0] === '>') {
+          } else if (line[0] === '>' || line[0] === '<') {
             locals = {};
             tmp = Number(line.substr(2));
             infoPool[program].isEntry[tmp] = true;
@@ -1570,6 +1570,21 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     runUntilBreak(cb, true);
   }
 
+  function runNonDebug(cb) {
+    cpuEvent = setInterval(function() {
+      var i;
+      for (i = 0; i < (1 << 21); i = i + 1) {
+        if (regNextHdlr === 0) {
+          pauseRunning();
+          cb();
+          return;
+        }
+        unsignRegs();
+        regNextHdlr();
+      }
+    }, 50);
+  }
+
   function writeKbBuf(c) {
     kbBuffer.push(c);
   }
@@ -1640,6 +1655,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     runNonStop: runNonStop,
     runSingleStep: runSingleStep,
     runUntilBreak: runUntilBreak,
+    runNonDebug: runNonDebug,
     writeKbBuf: writeKbBuf,
     needInit: needInit,
     getVirtAddr: getVirtAddr,
