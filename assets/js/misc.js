@@ -1,13 +1,11 @@
 /*jslint white:true browser:true maxlen:80 */
-/*global CodeMirror, d3, $,JSZip, saveAs */
-/*global createV9, xvcc, mkfs, expandedFileSuffix */
+/*global CodeMirror, d3, $,JSZip, saveAs, buffer */
+/*global createV9, createAlex, xvcc, mkfs, expandedFileSuffix */
 
 "use strict";
 
 (function() {
     var editor, labName, labConfg, files, curFileId, breakPoints, cpu;
-
-    labName = "xv6"; // TODO
 
     function renderTreeView(root, level) {
         var m, w, h, i, tree, diagonal, vis;
@@ -469,11 +467,19 @@
         $("#loadingSign").show();
         saveCurrentFile();
         if (cpu.needInit()) {
-            compile(function(os, hd, de) {
-                cpu.setupSoftware(os, hd, de);
+            if (labConfg.cpu === 'alex') {
+                // XXX
+                cpu.setupSoftware(labConfg.mainBin, new ArrayBuffer(0),
+                    labConfg.mainInfo);
                 clearTerm();
                 cb();
-            });
+            } else {
+                compile(function(os, hd, de) {
+                    cpu.setupSoftware(os, hd, de);
+                    clearTerm();
+                    cb();
+                });
+            }
         } else {
             cb();
         }
@@ -546,9 +552,16 @@
                 } else {
                     printTermDebug(msg);
                 }
+                return msg.length;
             };
-            cpu = createV9(printOut, breakPoints,
-                labConfg.kern.sources[0] + expandedFileSuffix);
+            if (labConfg.cpu === 'alex') {
+                // XXX
+                cpu = createAlex(printOut, breakPoints,
+                    labConfg.hackyPrefix + labConfg.kern.sources[0]);
+            } else {
+                cpu = createV9(printOut, breakPoints,
+                    labConfg.kern.sources[0] + expandedFileSuffix);
+            }
             $("#terminal").keypress(function(e) {
                 var keyCode;
                 keyCode = e.keyCode || e.which;
@@ -556,6 +569,12 @@
                     cpu.writeKbBuf(keyCode);
                 }
             });
+            if (labName !== "xv6") {
+                // XXX 
+                cpu.runNonStop = cpu.runNonDebug;
+                cpu.runUntilBreak = cpu.runNonDebug;
+                cpu.runSingleStep = cpu.runNonDebug;
+            }
         };
         initButtons = function() {
             $("#runBtn").click(function() {
@@ -600,6 +619,7 @@
             });
         };
         $('#entryPage').fadeOut('slow');
+        $('#choicePage').fadeOut('slow');
         $("#labPage").fadeIn('slow');
         initFileList();
         initV9();
@@ -686,6 +706,10 @@
             var clicked;
             clicked = false;
             $('#newLabBtn').on('click', function() {
+                $('#entryPage').fadeOut('slow');
+                $("#choicePage").fadeIn('slow');
+            });
+            $('.labChoice').on('click', function() {
                 var labPath, nFiles, fetchEachFile, fetchFiles;
                 fetchEachFile = function(path, counting) {
                     if (counting) {
@@ -720,6 +744,7 @@
                 if (!clicked) {
                     clicked = true;
                     $("#loadingSign").show();
+                    labName = $(this).text().trim().split(' ').join('_');
                     labPath = "labs/" + labName + '/';
                     $.getJSON(labPath + "config.json", function(config) {
                         labConfg = config;
@@ -727,6 +752,23 @@
                         files = [];
                         fetchFiles('', labConfg.file, true);
                         fetchFiles('', labConfg.file, false);
+                        // XXX
+                        $.get(labPath + config.binInBase64,
+                            function(bin) {
+                                var buf, ab, view, i;
+                                buf = new buffer.Buffer(bin, 'base64');
+                                ab = new ArrayBuffer(buf.length);
+                                view = new Uint8Array(ab);
+                                for (i = 0; i < buf.length; i++) {
+                                    view[i] = buf[i];
+                                }
+                                config.mainBin = ab;
+                            });
+                        // XXX
+                        $.get(labPath + config.info,
+                            function(info) {
+                                config.mainInfo = info;
+                            });
                     });
                 }
             });

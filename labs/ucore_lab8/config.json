@@ -1,0 +1,127 @@
+{
+    "lab": "ucore_lab8",
+    "cpu": "v9",
+    "file": {
+        "ucore": {
+            "kern": {
+                "driver": {
+                    "ide.h": 0
+                },
+                "fs": {
+                    "fs.h": 0,
+                    "fsstruct.h": 0,
+                    "swapfs.h": 0
+                },
+                "include": {
+                    "string.h": 0
+                },
+                "libs": {
+                    "io.h": 0,
+                    "skew_heap.h": 0
+                },
+                "main.c": 0,
+                "mm": {
+                    "default_pmm.h": 0,
+                    "kmalloc.h": 0,
+                    "memlayout.h": 0,
+                    "mmu.h": 0,
+                    "pmm.h": 0,
+                    "swap_fifo.h": 0,
+                    "swap.h": 0,
+                    "vmm.h": 0
+                },
+                "process": {
+                    "proc.h": 0,
+                    "pstruct.h": 0
+                },
+                "schedule": {
+                    "default_sched.h": 0,
+                    "sched.h": 0,
+                    "schstruct.h": 0
+                },
+                "sync": {
+                    "sync.h": 0
+                },
+                "syscall": {
+                    "syscall.h": 0
+                },
+                "trap": {
+                    "tfstruct.h": 0,
+                    "trap.h": 0
+                }
+            },
+            "lib": {
+                "atomic.h": 0,
+                "call.h": 0,
+                "defs.h": 0,
+                "error.h": 0,
+                "hash.h": 0,
+                "lib.h": 0,
+                "list.h": 0,
+                "printfmt.h": 0,
+                "rand.h": 0,
+                "u.h": 0,
+                "v9.h": 0
+            },
+            "user": {
+                "badarg.c": 0,
+                "bin": {},
+                "exit.c": 0,
+                "faultreadkernel.c": 0,
+                "forktree.c": 0,
+                "libs": {
+                    "exit.c": 0,
+                    "io.h": 0,
+                    "panic.h": 0,
+                    "syscall.h": 0,
+                    "ulib.h": 0,
+                    "umain.h": 0
+                },
+                "pgdir.c": 0,
+                "+softint.c": 0,
+                "+testbss.c": 0,
+                "yield.c": 0,
+                "+badsegment.c": 0,
+                "divzero.c": 0,
+                "faultread.c": 0,
+                "forktest.c": 0,
+                "hello.c": 0,
+                "matrix.c": 0,
+                "priority.c": 0,
+                "spin.c": 0,
+                "waitkill.c": 0
+            }
+        }
+    },
+    "disk": "ucore/user/bin",
+    "kern": {
+        "include": [
+            "ucore/lib",
+            "ucore/kern/include",
+            "ucore/kern/libs",
+            "ucore/kern/mm",
+            "ucore/kern/fs",
+            "ucore/kern/driver",
+            "ucore/kern/sync",
+            "ucore/kern/trap",
+            "ucore/kern/process",
+            "ucore/kern/schedule",
+            "ucore/kern/syscall"
+        ],
+        "sources": [
+            "ucore/kern/main.c"
+        ],
+        "target": "kernel.elf"
+    },
+    "user": [{
+        "include": [
+            "ucore/user/libs",
+            "ucore/lib",
+            "ucore/kern/include"
+        ],
+        "sources": [
+            "ucore/user/priority.c"
+        ],
+        "target": "ucore/user/bin/priority"
+    }]
+}

@@ -1,0 +1,23 @@
+{
+    "lab": "alex",
+    "cpu": "alex",
+    "hackyPrefix": "../../alex-machine-tests/",
+    "file": {
+        "src": {
+            "libs": {
+                "defs.h": 0,
+                "error.h": 0,
+                "printfmt.c": 0,
+                "stdarg.h": 0,
+                "stdio.h": 0
+            },
+            "test_link.c": 0,
+            "start.s": 0
+        }
+    },
+    "kern": {
+        "sources": ["src/test_link.c"]
+    },
+    "binInBase64": "main.base64",
+    "info": "main.info"
+}
