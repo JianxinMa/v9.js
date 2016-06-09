@@ -1264,7 +1264,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
       };
     };
     setupMemory = function () {
-      hdrMemSz = 64 * 1024 * 1024;
+      hdrMemSz = 128 * 1024 * 1024;
       hdrMem = new buffer.Buffer(hdrMemSz);
       hdrTrK = new buffer.Buffer(1024 * 1024 * 4);
       hdrTwK = new buffer.Buffer(1024 * 1024 * 4);
@@ -1302,9 +1302,11 @@ function createAlex(printOut, breakPoints, kernMainTag) {
       j = abOS.byteLength;
       for (i = 0; i < 16; i = i + 1) {
         hdr[i] = view[i];
+        hdrMem[i] = view[i]; // XXX
       }
       for (i = 16; i < j; i = i + 1) {
-        hdrMem[i - 16] = view[i];
+        // XXX hdrMem[i - 16] = view[i];
+        hdrMem[i] = view[i];
       }
       hdr = {
         magic: hdr.readUInt32LE(0),

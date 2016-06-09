@@ -1,11 +1,11 @@
 = ../../alex-machine-tests/src/test_link.c
 # global variables
-g uint32_v data +13000 (uint)
-g int32_v data +13004 (int)
-g char_v data +13008 (char)
-g uint8_v data +13009 (uchar)
-g int32_ptr data +1300 (ptr(int))
-g arr data +13010 (array(100|4(ptr(ptr(ptr(char))))))
+g uint32_v data 0 (uint)
+g int32_v data 4 (int)
+g char_v data 8 (char)
+g uint8_v data 9 (uchar)
+g int32_ptr data 12 (ptr(int))
+g arr data 16 (array(100|4(ptr(ptr(ptr(char))))))
 
 # functions
 < 0x1106c
@@ -15,20 +15,20 @@ l c stk -32 (struct<s1>)
 l x stk -36 (int)
 l y stk -40 (int)
 l z stk -44 (int)
-i 0x0 ../../alex-machine-tests/src/test_link.c 25
-i 0x34 ../../alex-machine-tests/src/test_link.c 26
-i 0x3c ../../alex-machine-tests/src/test_link.c 27
-i 0x4c ../../alex-machine-tests/src/test_link.c 28
-i 0x68 ../../alex-machine-tests/src/test_link.c 29
+i 0x0 ../../alex-machine-tests/src/test_link.c 18
+i 0x34 ../../alex-machine-tests/src/test_link.c 19
+i 0x3c ../../alex-machine-tests/src/test_link.c 20
+i 0x4c ../../alex-machine-tests/src/test_link.c 21
+i 0x68 ../../alex-machine-tests/src/test_link.c 22
 
 < 0x110f8
 l a stk -24 (struct<s1>)
-i 0x0 ../../alex-machine-tests/src/test_link.c 32
-i 0x30 ../../alex-machine-tests/src/test_link.c 34
-i 0xb0 ../../alex-machine-tests/src/test_link.c 35
-i 0xd8 ../../alex-machine-tests/src/test_link.c 37
-i 0xdc ../../alex-machine-tests/src/test_link.c 36
-i 0x108 ../../alex-machine-tests/src/test_link.c 38
+i 0x0 ../../alex-machine-tests/src/test_link.c 25
+i 0x30 ../../alex-machine-tests/src/test_link.c 27
+i 0xb0 ../../alex-machine-tests/src/test_link.c 28
+i 0xd8 ../../alex-machine-tests/src/test_link.c 30
+i 0xdc ../../alex-machine-tests/src/test_link.c 29
+i 0x108 ../../alex-machine-tests/src/test_link.c 31
 
 < 0x11228
 l s stk -24 (ptr(char))
@@ -258,9 +258,9 @@ i 0x58 ../../alex-machine-tests/src/libs/printfmt.c 366
 i 0x5c ../../alex-machine-tests/src/libs/printfmt.c 369
 
 # structures
-d struct s1 (20|(s2val:+0:struct<s2>)(??:+4:(a:+0:int)(a1234:+4:int))(u:+12:(v:+0:int))(b:+16:int))
+d struct s1 (8|(s2val:+0:struct<s2>)(b:+4:int))
 d struct s2 (4|(xx:+0:int))
 d struct sprintbuf (12|(buf:+0:ptr(char))(ebuf:+4:ptr(char))(cnt:+8:int))
 
 .data 0x13000
-.bss 0x13010
+.bss 0x131a0

@@ -11,7 +11,8 @@
                 "stdarg.h": 0,
                 "stdio.h": 0
             },
-            "test_link.c": 0
+            "test_link.c": 0,
+            "start.s": 0
         }
     },
     "kern": {
