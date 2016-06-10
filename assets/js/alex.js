@@ -336,7 +336,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
         printOut(2, "Warning: trying to write register R0\n");
       } else if (regIndex == SP) {
         // NOTE: val == SP + (val - SP)
-        var offset = val >>> 0 - getRegister(SP) >>> 0;
+        var offset = (val >>> 0) - (getRegister(SP) >>> 0);
         if (regFSP) {
           regFSP = regFSP - offset;
           if (regFSP < 0 || regFSP > (4096 << 8)) {
@@ -496,13 +496,15 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     var addrJumper = function (addr, next) {
       console.log('jump addr='+addr);
       // NOTE: addr == PC + (addr - PC)
-      var offset = addr >>> 0 - getPC() >>> 0;
+      var offset = (addr >>> 0) - (getPC() >>> 0);
       regXCycle = (regXCycle + offset);
-      regXPc = (regXPc + (offset >> 2) << 2);
+      //regXPc = (regXPc + (offset >> 2) << 2);
+      regXPc = (regXPc + ((offset >> 2) << 2));
       if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
         regNextHdlr = hdlrFixpc;
         return;
       }
+      console.log('now PC='+getPC());
       next();
     };
 
@@ -648,7 +650,9 @@ function createAlex(printOut, breakPoints, kernMainTag) {
           regNextHdlr = hdlrExcpt;
         });
       }
-      executors[0x00] = executor(decodeRType, function () {});
+      executors[0x00] = executor(decodeRType, function () {
+        console.log('current PC='+getPC());
+      });
 
       executors[0x01] = executor(decodeRType, exeBinR(add32));
       executors[0x02] = executor(decodeIType(ext32), exeBinI(add32));
