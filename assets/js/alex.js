@@ -1015,9 +1015,11 @@ function createAlex(printOut, breakPoints, kernMainTag) {
       });
       executors[0x86] = kexecutor(decodeRType, function (args, next) {
         if (getRegister(args['ra']) == 0) { // clear
+          console.log('clear int');
           regIena = 0;
           next();
         } else { // set
+          console.log('set int');
           if (regIpend) {
             regTrap = (regIpend & -regIpend);
             regIpend ^= regTrap;
