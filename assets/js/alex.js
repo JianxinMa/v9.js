@@ -221,13 +221,14 @@ function createAlex(printOut, breakPoints, kernMainTag) {
 
     var nextNormal = function () {
       regNextHdlr = hdlrChkpc;
+      console.log('next normal');
     };
 
     // 1. executor
 
-    // [mf] -> ((int32 -> obj) -> (obj -> (any -> unit) -> unit) -> [mf]) -> unit
+    // bool -> ((int32 -> obj) -> (obj -> (any -> unit) -> unit) -> [mf]) -> unit
     // where mf :: any -> (any -> unit) -> unit
-    var pipeExecutor = function (preMiddlewares) {
+    var pipeExecutor = function (flag) {
       return function (decode, exe, middlewares) {
         return function () {
           middlewares = middlewares || [nextNormal];
@@ -242,43 +243,47 @@ function createAlex(printOut, breakPoints, kernMainTag) {
            --}
            */
           var handleMiddlewares = function (data, middlewares) {
-            var i = 0;
+            var mwc = 0;
             var next = function (data) {
-              if (i < middlewares.length) {
-                middlewares[i++](data, next);
+              if (mwc < middlewares.length) {
+                (middlewares[mwc++])(data, next);
               }
             };
             // trigger the first middleware
             next(data);
           };
 
-          var mws = preMiddlewares;
+          var mws = [];
+          if (flag) {
+            mws.push(function (data, next) {
+              if (regUser) { // if in user mode, then raise FPRIV
+                regTrap = FPRIV;
+                regNextHdlr = hdlrExcpt;
+                return;
+              }
+              next(data);
+            });
+          }
           mws.push(function (data, next) {
             exe(decode(data), next);
           });
-          mws.concat(middlewares);
+          mws = mws.concat(middlewares);
           handleMiddlewares(regIr, mws);
         };
       };
     };
 
     // executor for user mode
-    var executor = pipeExecutor([]);
+    var executor = pipeExecutor(false);
 
     // executor for kernel mode
-    var kexecutor = pipeExecutor([function (data, next) {
-      if (regUser) { // if in user mode, then raise FPRIV
-        regTrap = FPRIV;
-        regNextHdlr = hdlrExcpt;
-        return;
-      }
-      next(data);
-    }]);
+    var kexecutor = pipeExecutor(true);
 
     // 2. decoders (R-type or I-type) and extenders (signed, unsigned, offset)
 
     // int32 -> obj
     var decodeRType = function (ins) {
+      console.log('decode R, ins='+ins.toString(16));
       return {
         'ra': (ins >>> 20) & 0xF,
         'rb': (ins >>> 16) & 0xF,
@@ -286,9 +291,10 @@ function createAlex(printOut, breakPoints, kernMainTag) {
       };
     };
 
-    // int32 -> obj
+    // (int32 -> int32) -> int32 -> obj
     var decodeIType = function (extend) {
       return function (ins) {
+        console.log('decode I, ins='+ins.toString(16));
         return {
           'ra': (ins >>> 20) & 0xF,
           'rb': (ins >>> 16) & 0xF,
@@ -326,11 +332,11 @@ function createAlex(printOut, breakPoints, kernMainTag) {
 
     // int -> int32 -> unit
     var writeRegister = function (regIndex, val) {
-      if (regIndex == 0) {
-        printOut(2, "Warning: trying to write register R0");
+      if (regIndex === 0) {
+        printOut(2, "Warning: trying to write register R0\n");
       } else if (regIndex == SP) {
         // NOTE: val == SP + (val - SP)
-        var offset = val >>> 0 - getRegister(SP) >>> 0;
+        var offset = (val >>> 0) - (getRegister(SP) >>> 0);
         if (regFSP) {
           regFSP = regFSP - offset;
           if (regFSP < 0 || regFSP > (4096 << 8)) {
@@ -345,6 +351,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
       } else {
         regs[regIndex] = val;
       }
+      console.log('write reg '+regIndex+':='+val);
     };
 
     // 3. exe functions: for binary/branch/load/store/...
@@ -352,6 +359,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     // (int32 -> int32 -> int32) -> (obj -> unit -> unit)
     var exeBinR = function (op) {
       return function (args, next) {
+        console.log('exe bin args='+JSON.stringify(args));
         writeRegister(args['ra'], op(getRegister(args['rb']), getRegister(args['rc'])));
         next();
       };
@@ -360,6 +368,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     // (int32 -> int32 -> int32) -> (obj -> unit -> unit)
     var exeBinI = function (op) {
       return function (args, next) {
+        console.log('exe bin args='+JSON.stringify(args));
         writeRegister(args['ra'], op(getRegister(args['rb']), args['imm']));
         next();
       };
@@ -379,6 +388,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     // (uint32 -> uint32 -> int32) -> (obj -> unit -> unit)
     var exeLoad = function (loader) {
       return function (args, next) {
+        console.log('load args='+JSON.stringify(args));
         var p, v;
         v = add32(getRegister(args['rb']), args['imm']) >>> 0;
         p = regTr.readUInt32LE((v >>> 12) * 4);
@@ -413,9 +423,11 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     // (uint32 -> uint32 -> int32 -> unit) -> (obj -> unit -> unit)
     var exeStore = function (saver) {
       return function (args, next) {
+        console.log('store args='+JSON.stringify(args));
         var p, v;
         v = add32(getRegister(args['rb']), args['imm']) >>> 0;
         p = regTw.readUInt32LE((v >>> 12) * 4);
+        console.log('p='+p+', v='+v);
         if (!p) {
           p = pageLookW(v);
           if (!p) {
@@ -464,6 +476,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
 
     // int32 -> unit -> unit
     var offsetJumper = function (offset, next) {
+      console.log('jump offset='+offset);
       regXCycle = (regXCycle + offset);
       regXPc = (regXPc + (offset >> 2) << 2);
       if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
@@ -476,18 +489,22 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     // unit
     var nextJump = function () {
       regNextHdlr = hdlrChkio;
+      console.log('next jump');
     };
 
     // int32 -> unit -> unit
     var addrJumper = function (addr, next) {
+      console.log('jump addr='+addr);
       // NOTE: addr == PC + (addr - PC)
-      var offset = addr >>> 0 - getPC() >>> 0;
+      var offset = (addr >>> 0) - (getPC() >>> 0);
       regXCycle = (regXCycle + offset);
-      regXPc = (regXPc + (offset >> 2) << 2);
+      //regXPc = (regXPc + (offset >> 2) << 2);
+      regXPc = (regXPc + ((offset >> 2) << 2));
       if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
         regNextHdlr = hdlrFixpc;
         return;
       }
+      console.log('now PC='+getPC());
       next();
     };
 
@@ -633,7 +650,9 @@ function createAlex(printOut, breakPoints, kernMainTag) {
           regNextHdlr = hdlrExcpt;
         });
       }
-      executors[0x00] = executor(decodeRType, function () {});
+      executors[0x00] = executor(decodeRType, function () {
+        console.log('current PC='+getPC());
+      });
 
       executors[0x01] = executor(decodeRType, exeBinR(add32));
       executors[0x02] = executor(decodeIType(ext32), exeBinI(add32));
@@ -756,15 +775,19 @@ function createAlex(printOut, breakPoints, kernMainTag) {
       executors[0x30] = executor(decodeIType(ext32), exeFLoad);
 
       executors[0x31] = executor(decodeIType(ext32), function (args, next) {
+        console.log('exe LI args='+JSON.stringify(args));
         writeRegister(args['ra'], args['imm']);
         next();
       });
       executors[0x32] = executor(decodeIType(uext32), function (args, next) {
+        console.log('exe LIU args='+JSON.stringify(args));
         writeRegister(args['ra'], args['imm']);
         next();
       });
       executors[0x33] = executor(decodeIType(uext32), function (args, next) {
-        writeRegister(args['ra'], or32(and32(getRegister(args['ra']), 0xFFFF)), shl32(args['imm'], 16));
+        console.log('exe LIH args='+JSON.stringify(args));
+        var tmp = or32(and32(getRegister(args['ra']), 0xFFFF), shl32(args['imm'], 16));
+        writeRegister(args['ra'], tmp);
         next();
       });
 
@@ -996,9 +1019,11 @@ function createAlex(printOut, breakPoints, kernMainTag) {
       });
       executors[0x86] = kexecutor(decodeRType, function (args, next) {
         if (getRegister(args['ra']) == 0) { // clear
+          console.log('clear int');
           regIena = 0;
           next();
         } else { // set
+          console.log('set int');
           if (regIpend) {
             regTrap = (regIpend & -regIpend);
             regIpend ^= regTrap;
@@ -1260,11 +1285,13 @@ function createAlex(printOut, breakPoints, kernMainTag) {
       hdlrInstr = function () {
         regIr = hdrMem.readUInt32LE(regXPc);
         regXPc = regXPc + 4;
+        console.log('regs='+regs);
+        console.log('fetch ins='+regIr.toString(16));
         (executors[getOpCode(regIr)])();
       };
     };
     setupMemory = function () {
-      hdrMemSz = 64 * 1024 * 1024;
+      hdrMemSz = 128 * 1024 * 1024;
       hdrMem = new buffer.Buffer(hdrMemSz);
       hdrTrK = new buffer.Buffer(1024 * 1024 * 4);
       hdrTwK = new buffer.Buffer(1024 * 1024 * 4);
@@ -1302,9 +1329,11 @@ function createAlex(printOut, breakPoints, kernMainTag) {
       j = abOS.byteLength;
       for (i = 0; i < 16; i = i + 1) {
         hdr[i] = view[i];
+        hdrMem[i] = view[i]; // XXX
       }
       for (i = 16; i < j; i = i + 1) {
-        hdrMem[i - 16] = view[i];
+        // XXX hdrMem[i - 16] = view[i];
+        hdrMem[i] = view[i];
       }
       hdr = {
         magic: hdr.readUInt32LE(0),
@@ -1388,7 +1417,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
             infoPool[program].structs[tmp[2]] = tmp[3];
           } else if (line[0] === 'g') {
             addVarInfo(infoPool[program].globals, line);
-          } else if (line[0] === '>') {
+          } else if (line[0] === '>' || line[0] === '<') {
             locals = {};
             tmp = Number(line.substr(2));
             infoPool[program].isEntry[tmp] = true;
@@ -1570,6 +1599,21 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     runUntilBreak(cb, true);
   }
 
+  function runNonDebug(cb) {
+    cpuEvent = setInterval(function() {
+      var i;
+      for (i = 0; i < (1 << 21); i = i + 1) {
+        if (regNextHdlr === 0) {
+          pauseRunning();
+          cb();
+          return;
+        }
+        unsignRegs();
+        regNextHdlr();
+      }
+    }, 50);
+  }
+
   function writeKbBuf(c) {
     kbBuffer.push(c);
   }
@@ -1640,6 +1684,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     runNonStop: runNonStop,
     runSingleStep: runSingleStep,
     runUntilBreak: runUntilBreak,
+    runNonDebug: runNonDebug,
     writeKbBuf: writeKbBuf,
     needInit: needInit,
     getVirtAddr: getVirtAddr,
