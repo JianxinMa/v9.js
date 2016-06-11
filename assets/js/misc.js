@@ -569,12 +569,14 @@
                     cpu.writeKbBuf(keyCode);
                 }
             });
+            /*
             if (labName !== "xv6") {
                 // XXX 
                 cpu.runNonStop = cpu.runNonDebug;
                 cpu.runUntilBreak = cpu.runNonDebug;
                 cpu.runSingleStep = cpu.runNonDebug;
             }
+           */
         };
         initButtons = function() {
             $("#runBtn").click(function() {

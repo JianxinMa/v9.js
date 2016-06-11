@@ -1383,8 +1383,9 @@ function createAlex(printOut, breakPoints, kernMainTag) {
         };
       };
       infoPool = {};
+      var funcStart; //XXX
       infoStr.split('\n').forEach(function (line) {
-        var tmp;
+        var tmp; 
         line = line.trim();
         if (line.length > 0 && line[0] !== '#') {
           if (line[0] === '=') {
@@ -1406,12 +1407,13 @@ function createAlex(printOut, breakPoints, kernMainTag) {
           } else if (line[0] === '>' || line[0] === '<') {
             locals = {};
             tmp = Number(line.substr(2));
+            funcStart = tmp;
             infoPool[program].isEntry[tmp] = true;
           } else if (line[0] === 'l') {
             addVarInfo(locals, line);
           } else if (line[0] === 'i') {
             tmp = split(line);
-            infoPool[program].asms[Number(tmp[1])] = {
+            infoPool[program].asms[Number(tmp[1]) + funcStart] = {
               point: tmp[2] + ' ' + tmp[3],
               locals: locals
             };
@@ -1526,10 +1528,10 @@ function createAlex(printOut, breakPoints, kernMainTag) {
             if (currentInfo.isEntry[addr]) {
               regFrameBase.push((regXSp - regTSp) >>> 0);
             }
-            if ((executors[getOpCode(hdrMem.readUInt32LE(regXPc))]) ===
-              execLEV) {
-              regFrameBase.pop();
-            }
+            //XXX if ((executors[getOpCode(hdrMem.readUInt32LE(regXPc))]) ===
+            //XXX   execLEV) {
+            //XXX   regFrameBase.pop();
+            //XXX }
             localDefs = currentInfo.asms[addr].locals;
             nxt = currentInfo.asms[addr].point;
             if (!fst) {
@@ -1539,9 +1541,10 @@ function createAlex(printOut, breakPoints, kernMainTag) {
               break;
             }
           } else {
-            if (hdrMem.readUInt32LE(regXPc) !== 0x2a9) {
-              console.log('In runSingleStep: 0x2a9 expected');
-            }
+            //XXX console.log('not found:', '0x' + addr.toString(16));
+            // if (hdrMem.readUInt32LE(regXPc) !== 0x2a9) {
+            //   console.log('In runSingleStep: 0x2a9 expected');
+            // }
           }
         }
         regNextHdlr();
@@ -1612,7 +1615,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     var v;
     if (space === 'stk') {
       v = regFrameBase[regFrameBase.length - 1];
-    } else if (space === 'dat') {
+    } else if (space === 'data') {
       v = currentInfo.data - regInfoOffset;
     } else if (space === 'bss') {
       v = currentInfo.bss - regInfoOffset;
