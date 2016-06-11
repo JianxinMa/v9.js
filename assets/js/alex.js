@@ -477,8 +477,9 @@ function createAlex(printOut, breakPoints, kernMainTag) {
     // int32 -> unit -> unit
     var offsetJumper = function (offset, next) {
       console.log('jump offset='+offset);
+      offset -= 4;
       regXCycle = (regXCycle + offset);
-      regXPc = (regXPc + (offset >> 2) << 2);
+      regXPc = (regXPc + ((offset >> 2) << 2));
       if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
         regNextHdlr = hdlrFixpc;
         return;
@@ -498,7 +499,6 @@ function createAlex(printOut, breakPoints, kernMainTag) {
       // NOTE: addr == PC + (addr - PC)
       var offset = (addr >>> 0) - (getPC() >>> 0);
       regXCycle = (regXCycle + offset);
-      //regXPc = (regXPc + (offset >> 2) << 2);
       regXPc = (regXPc + ((offset >> 2) << 2));
       if ((regXPc - regFPc) >>> 0 < (-4096) >>> 0) {
         regNextHdlr = hdlrFixpc;
@@ -650,9 +650,9 @@ function createAlex(printOut, breakPoints, kernMainTag) {
           regNextHdlr = hdlrExcpt;
         });
       }
-      executors[0x00] = executor(decodeRType, function () {
-        console.log('current PC='+getPC());
-      });
+      //executors[0x00] = executor(decodeRType, function () {
+      //  console.log('current PC='+getPC());
+      //});
 
       executors[0x01] = executor(decodeRType, exeBinR(add32));
       executors[0x02] = executor(decodeIType(ext32), exeBinI(add32));
@@ -740,7 +740,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
       }, [addrJumper, nextJump]);
       executors[0x2B] = executor(decodeRType, function (args, next) {
         writeRegister(I1, getRegister(args['ra'])); // ra
-        writeRegister(I0, add32(getPC(), 4)); // PC + 4
+        writeRegister(I0, getPC()); // PC + 4 (NOTE: current PC is already the next PC, say PC + 4.)
         args['ra'] = I0;
         args['rb'] = SP;
         args['imm'] = -4;
@@ -990,6 +990,9 @@ function createAlex(printOut, breakPoints, kernMainTag) {
         next();
       });
       executors[0x81] = kexecutor(decodeRType, function (args, next) {
+        if (!args['rc']) {
+         args['rc'] = I0;
+        }
         writeRegister(args['rc'], printOut(getRegister(args['ra']), String.fromCharCode(getRegister(args['rb']))) ?
           1 : 0);
         next();
@@ -1286,7 +1289,7 @@ function createAlex(printOut, breakPoints, kernMainTag) {
         regIr = hdrMem.readUInt32LE(regXPc);
         regXPc = regXPc + 4;
         console.log('regs='+regs);
-        console.log('fetch ins='+regIr.toString(16));
+        console.log('fetch ins='+regIr.toString(16)+', PC=' + (regXPc - 4));
         (executors[getOpCode(regIr)])();
       };
     };
