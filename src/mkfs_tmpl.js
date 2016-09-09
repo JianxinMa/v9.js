@@ -1,7 +1,7 @@
 /*jslint white:true browser:true maxlen:80 bitwise:true */
 /*global FS, mkDirs, expandedFileSuffix */
 
-"use strict";
+// "use strict";  // emcc might generate some non-strict code
 
 function mkfs(diskRoot, files, binFiles, dirStruct, onReturn, printOut) {
     var Module;
@@ -33,4 +33,5 @@ function mkfs(diskRoot, files, binFiles, dirStruct, onReturn, printOut) {
             }]
         };
     }());
+    /* {{emcc_stub}} */
 }

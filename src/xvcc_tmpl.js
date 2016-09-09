@@ -1,7 +1,7 @@
 /*jslint white:true browser:true maxlen:80*/
 /*global FS, cpp_js */
 
-"use strict";
+// "use strict";  // emcc might generate some non-strict code
 
 var xvccCore;
 
@@ -113,4 +113,5 @@ xvccCore = function(infile, processed, target,
             }]
         };
     }());
+    /* {{emcc_stub}} */
 };
