@@ -693,6 +693,7 @@
             var clicked;
             clicked = false;
             $('#newLabBtn').on('click', function() {
+                clicked = false;
                 $('#entryPage').fadeOut('slow');
                 $("#choicePage").fadeIn('slow');
             });
