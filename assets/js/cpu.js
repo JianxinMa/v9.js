@@ -2620,7 +2620,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
     }
 
     function execSRU() {
-        regA >>= regB;
+        regA >>>= regB;
         regNextHdlr = hdlrChkpc;
         return;
     }
@@ -2634,7 +2634,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
     function execSRUL() {
         var p, v;
         if (regIr < regFSP) {
-            regA = (regA >> hdrMem.readUInt32LE(regXSp + (regIr >> 8)));
+            regA = (regA >>> hdrMem.readUInt32LE(regXSp + (regIr >> 8)));
             regNextHdlr = hdlrChkpc;
             return;
         }
@@ -2647,7 +2647,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
                 return;
             }
         }
-        regA = (regA >> hdrMem.readUInt32LE((v ^ p) & -4));
+        regA = (regA >>> hdrMem.readUInt32LE((v ^ p) & -4));
         if (regFSP || (v ^ (regXSp - regTSp)) & -4096) {
             regNextHdlr = hdlrChkpc;
             return;

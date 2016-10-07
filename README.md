@@ -1,6 +1,4 @@
-# Please go to https://github.com/JianxinMa/OsTrain2016 for an improved and refactored version.
-
-# V9@Web
+# V9@Web (STILL UNDER ACTIVE DEVELOPMENT)
 
 ## What is this?
 
