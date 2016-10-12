@@ -1,0 +1,34 @@
+.terminal {
+    word-wrap: break-word;
+    font-size: 12px;
+    height: 90%;
+    overflow: auto;
+}
+
+.terminal div.terminal-inner {
+    width: 95%;
+    height: 95%;
+    background: #333;
+    padding: 0.5em;
+    overflow: auto;
+}
+
+.terminal div.terminal-message {
+    color: #ddd;
+    font-family: monospace;
+    padding: 0.1em;
+}
+
+.blinking-cursor {
+    animation: 1s blink step-end infinite;
+}
+
+@keyframes blink {
+    from,
+    to {
+        color: transparent;
+    }
+    50% {
+        color: white;
+    }
+}

@@ -1,9 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import CodeMirror from "codemirror";
-
-require('codemirror/addon/selection/active-line');
-require('codemirror/mode/clike/clike');
+import "codemirror/addon/selection/active-line";
+import "codemirror/mode/clike/clike";
+import "codemirror/lib/codemirror.css";
 
 class CodeEditor extends React.Component {
     componentDidMount() {
@@ -18,7 +18,7 @@ class CodeEditor extends React.Component {
     render() {
         return (
             <div>
-                <textarea ref="textarea" defaultValue={this.props.defaultValue}/>
+                <textarea ref="textarea" defaultValue="// No opened file."/>
             </div>
         );
     }
