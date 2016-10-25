@@ -1,11 +1,11 @@
 /*jslint white:true browser:true maxlen:80 */
 /*global CodeMirror, d3, $,JSZip, saveAs */
-/*global createV9, xvcc, mkfs, expandedFileSuffix */
+/*global createV9, xvcc, mkfs */
 
 "use strict";
 
 (function() {
-    var editor, labName, labConfg, files, curFileId, breakPoints, cpu;
+    var editor, labName, labConfg, files, curFileId, breakPoints, cpu, socket;
 
     function renderTreeView(root, level) {
         var m, w, h, i, tree, diagonal, vis;
@@ -431,36 +431,59 @@
     }
 
     function compile(onSuccess) {
-        var xvccEach, currentUser, binFiles, debugInfo, printErr;
+        var xvccEach, currentTarget, binFiles, debugInfo, printErr;
+        var targetCppPairs, diskPath, osBinPath;
         clearTerm();
         printErr = function(text) {
             printTermDebug(text + '\n');
         };
-        xvccEach = function(result, info, expandedFile) {
-            tryAddToFiles(expandedFile);
+        xvccEach = function(result, info) {
             binFiles.push(result);
             debugInfo += info;
-            currentUser += 1;
-            if (currentUser < labConfg.user.length) {
-                xvcc(labConfg.user[currentUser], labConfg.file,
-                    files, xvccEach, printErr);
+            currentTarget += 1;
+            if (currentTarget < targetCppPairs.length) {
+                var preprocessed = targetCppPairs[currentTarget].preprocessed;
+                var target = targetCppPairs[currentTarget].target;
+                xvcc(preprocessed, target, labConfg.file, xvccEach, printErr);
             } else {
-                mkfs(labConfg.disk, files, binFiles, labConfg.file,
+                mkfs(diskPath, files, binFiles, labConfg.file,
                     function(hd) {
-                        onSuccess(binFiles[0].content, hd, debugInfo);
+                        onSuccess(binFiles.filter(function (f) {
+                            return f.filename == osBinPath;
+                        })[0].content, hd, debugInfo);
                     }, printErr);
             }
         };
-        try {
-            currentUser = -1;
-            binFiles = [];
-            debugInfo = '';
-            xvcc(labConfg.kern, labConfg.file,
-                files, xvccEach, printErr);
-        } catch (err) {
-            console.log(err.message);
-            $("#loadingSign").hide();
-        }
+        socket.emit('x-save', {
+            files: files
+                .filter(function (f) {
+                    var name = f.filename;
+                    return name.endsWith(".c") || name.endsWith(".h") || name.endsWith(".txt");
+                })
+                .map(function (f) {
+                    return {
+                        name: f.filename,
+                        content: f.content
+                    };
+                })
+        }, function (data) {
+            // resolve({target: target, : output});
+            targetCppPairs = data.preprocessedFiles;
+            diskPath = data.diskPath;
+            osBinPath = data.osBinPath;
+            labConfg.kernTarget = osBinPath;
+            try {
+                currentTarget = 0;
+                binFiles = [];
+                debugInfo = '';
+                var preprocessed = targetCppPairs[currentTarget].preprocessed;
+                var target = targetCppPairs[currentTarget].target;
+                xvcc(preprocessed, target, labConfg.file, xvccEach, printErr);
+            } catch (err) {
+                console.log(err.message);
+                $("#loadingSign").hide();
+            }
+        });
     }
 
     function onCpuReady(cb) {
@@ -468,7 +491,7 @@
         saveCurrentFile();
         if (cpu.needInit()) {
             compile(function(os, hd, de) {
-                cpu.setupSoftware(os, hd, de);
+                cpu.setupSoftware(os, hd, de, labConfg.kernTarget + '.i');
                 clearTerm();
                 cb();
             });
@@ -534,7 +557,7 @@
             $("#fileMenu").append('<li style="float:right">' +
                 '<a id="currentFile" href="#" class="disabled">' +
                 '~ empty ~</a></li>');
-            editFile(labConfg.kern.sources[0]);
+            editFile(files[0].filename);
         };
         initV9 = function() {
             var printOut;
@@ -546,8 +569,7 @@
                 }
                 return msg.length;
             };
-            cpu = createV9(printOut, breakPoints,
-                labConfg.kern.sources[0] + expandedFileSuffix);
+            cpu = createV9(printOut, breakPoints);
             $("#terminal").keypress(function(e) {
                 var keyCode;
                 keyCode = e.keyCode || e.which;
@@ -555,13 +577,6 @@
                     cpu.writeKbBuf(keyCode);
                 }
             });
-            // XXX begin
-            if (labName !== "xv6") {
-                cpu.runNonStop = cpu.runNonDebug;
-                cpu.runUntilBreak = cpu.runNonDebug;
-                cpu.runSingleStep = cpu.runNonDebug;
-            }
-            // XXX end
         };
         initButtons = function() {
             $("#runBtn").click(function() {
@@ -593,9 +608,7 @@
                 saveCurrentFile();
                 zip = new JSZip();
                 files.forEach(function(file) {
-                    if (!file.filename.endsWith(expandedFileSuffix)) {
-                        zip.file(file.filename, file.content);
-                    }
+                    zip.file(file.filename, file.content);
                 });
                 zip.file('config.json', JSON.stringify(labConfg));
                 zip.generateAsync({
@@ -698,48 +711,32 @@
                 $("#choicePage").fadeIn('slow');
             });
             $('.labChoice').on('click', function() {
-                var labPath, nFiles, fetchEachFile, fetchFiles;
-                fetchEachFile = function(path, counting) {
-                    if (counting) {
-                        nFiles = nFiles + 1;
-                    } else {
-                        $.get(labPath + path, function(data) {
-                            files.push({
-                                filename: path,
-                                encoding: 'utf8',
-                                content: data
-                            });
-                            nFiles = nFiles - 1;
-                            if (nFiles === 0) {
-                                loadLabPage();
-                            }
-                        });
-                    }
-                };
-                fetchFiles = function(path, dir, counting) {
-                    var p;
-                    for (p in dir) {
-                        if (dir.hasOwnProperty(p)) {
-                            if (dir[p] === 0) {
-                                fetchEachFile(path + p, counting);
-                            } else {
-                                fetchFiles(path + p + '/', dir[p],
-                                    counting);
-                            }
-                        }
-                    }
-                };
                 if (!clicked) {
                     clicked = true;
                     $("#loadingSign").show();
                     labName = $(this).text().trim().split(' ').join('_');
-                    labPath = "labs/" + labName + '/';
-                    $.getJSON(labPath + "config.json", function(config) {
-                        labConfg = config;
-                        nFiles = 0;
-                        files = [];
-                        fetchFiles('', labConfg.file, true);
-                        fetchFiles('', labConfg.file, false);
+                    socket.emit('x-open', {labName: labName}, function (data) {
+                        files = data.files.map(function (f) {
+                            return {
+                                filename: f.name,
+                                encoding: 'utf8',
+                                content: f.content
+                            };
+                        });
+                        labConfg = {file: {}};
+                        data.files.forEach(function (f) {
+                            var parts = f.name.split('/');
+                            var p = labConfg.file;
+                            for (var i = 0; i < parts.length; i++) {
+                                var key = parts[i];
+                                if (!p.hasOwnProperty(key)) {
+                                    p[key] = ((i + 1 != parts.length) ? {} : 0);
+                                }
+                                p = p[key];
+                            }
+                        });
+                        labConfg.kernTarget = null;
+                        loadLabPage();
                     });
                 }
             });
@@ -755,5 +752,6 @@
         initEntryButtons();
     }
 
+    socket = io(window.location.host);
     loadEntryPage();
 }());

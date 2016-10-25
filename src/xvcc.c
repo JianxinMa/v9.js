@@ -204,8 +204,8 @@ void info_open(char* c_file)
     int i;
 
     i = strlen(c_file);
-    if (c_file[i - 1] != 'c') {
-        fprintf(stderr, "%s : error: source %s should end with .c\n", cmd,
+    if (c_file[i - 2] != '.' || c_file[i - 1] != 'i') {
+        fprintf(stderr, "%s : error: source %s should end with .i\n", cmd,
             c_file);
         exit(-1);
     }
@@ -216,8 +216,10 @@ void info_open(char* c_file)
             stderr, "%s : error: can't open info file %s\n", cmd, c_file);
         exit(-1);
     }
-    c_file[i - 1] = 'c';
+    c_file[i - 1] = 'i';
     fprintf(info_fd, "= %s\n", c_file);
+
+    // magic debug hint
     *((uint*)ip) = 0xFF2017FF;
     ip += 4;
     strcpy((char*)ip, c_file);
@@ -664,6 +666,15 @@ void next()
                 }
                 continue;
             }
+
+            {  // Added by majx.
+                int len;
+                sscanf(pos, "%d \"%s\"", &line, file);
+                --line;
+                len = strlen(file);
+                if (file[len - 1] == '"') file[len - 1] = '\0';
+            }
+
             while (*pos && *pos != '\n') {
                 pos++;
             }

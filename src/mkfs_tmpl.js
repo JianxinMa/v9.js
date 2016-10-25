@@ -14,11 +14,9 @@ function mkfs(diskRoot, files, binFiles, dirStruct, onReturn, printOut) {
             preRun: [function() {
                 var saveFile;
                 saveFile = function(file) {
-                    if (!file.filename.endsWith(expandedFileSuffix)) {
-                        FS.writeFile(file.filename, file.content, {
-                            encoding: file.encoding
-                        });
-                    }
+                    FS.writeFile(file.filename, file.content, {
+                        encoding: file.encoding
+                    });
                 };
                 mkDirs('', dirStruct, FS.mkdir);
                 files.forEach(saveFile);

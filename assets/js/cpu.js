@@ -3,7 +3,7 @@
 
 "use strict";
 
-function createV9(printOut, breakPoints, kernMainTag) {
+function createV9(printOut, breakPoints) {
     var PTE_P = 0x001,
         PTE_W = 0x002,
         PTE_U = 0x004,
@@ -73,7 +73,9 @@ function createV9(printOut, breakPoints, kernMainTag) {
         hdlrInstr,
         cpuEvent,
         infoPool,
-        currentInfo;
+        kernMainTag,
+        currentInfo,
+        currentInKern;
 
     function clearTLB() {
         var v;
@@ -3441,6 +3443,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
             hdlrItrpt = function() {
                 var p;
                 currentInfo = infoPool[kernMainTag];
+                currentInKern = true;
                 regInfoOffset = 0;
                 regXSp = regXSp - regTSp;
                 regTSp = 0;
@@ -3581,7 +3584,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
         regNextHdlr = 0;
     }
 
-    function setupSoftware(abOS, abFS, infoStr) {
+    function setupSoftware(abOS, abFS, infoStr, firstInfo) {
         var cleanMemory, wipeMemory, wipeRegs, readInfo;
         cleanMemory = function() {
             hdrMem.fill(0);
@@ -3680,6 +3683,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
                         infoPool[program].structs = {};
                         infoPool[program].asms = {};
                         infoPool[program].isEntry = {};
+                        infoPool[program].revAsm = {};  // XXX: for speeding up, but had gave up.
                     } else if (line.startsWith('.data')) {
                         infoPool[program].data = Number(split(line)[1]);
                     } else if (line.startsWith('.bss')) {
@@ -3697,16 +3701,29 @@ function createV9(printOut, breakPoints, kernMainTag) {
                         addVarInfo(locals, line);
                     } else if (line[0] === 'i') {
                         tmp = split(line);
-                        infoPool[program].asms[Number(tmp[1])] = {
-                            point: tmp[2] + ' ' + tmp[3],
+                        var whichFile = tmp[2];
+                        if (whichFile.startsWith('users/')) {
+                            whichFile = whichFile.split('/').slice(3).join('/');
+                        }
+                        var addr = Number(tmp[1]);
+                        var point = whichFile + ' ' + tmp[3];
+                        infoPool[program].asms[addr] = {
+                            point: point,
                             locals: locals
                         };
+                        if (!infoPool[program].revAsm[point]) {
+                            infoPool[program].revAsm[point] = [addr, addr];
+                        } else {
+                            infoPool[program].revAsm[point][1] = addr;
+                        }
                     } else {
                         console.log('In readInfo: unsupported', line);
                     }
                 }
             });
+            kernMainTag = firstInfo;
             currentInfo = infoPool[kernMainTag];
+            currentInKern = true;
             regInfoOffset = 0;
             regToLoadInfo = false;
         };
@@ -3770,6 +3787,7 @@ function createV9(printOut, breakPoints, kernMainTag) {
         }
         if (infoPool[s]) {
             currentInfo = infoPool[s];
+            currentInKern = (s == kernMainTag);
         } else {
             console.log('In loadUserProcInfo: bad s', s);
         }
@@ -3805,22 +3823,23 @@ function createV9(printOut, breakPoints, kernMainTag) {
                 loadUserProcInfo();
             } else {
                 if (regNextHdlr === hdlrInstr) {
-                    if (!regUser && currentInfo === infoPool[kernMainTag]) {
+                    if (!regUser && currentInKern) {
                         addr = regXPc >>> 0;
                     } else {
                         addr = (regXPc - regTPc) >>> 0;
                     }
                     addr += regInfoOffset;
-                    if (currentInfo.asms[addr]) {
+                    var asmInfo = currentInfo.asms[addr];
+                    if (asmInfo) {
                         if (currentInfo.isEntry[addr]) {
                             regFrameBase.push((regXSp - regTSp) >>> 0);
                         }
-                        if ((executors[hdrMem.readUInt32LE(regXPc) & 0xFF]) ===
-                            execLEV) {
+                        // if ((executors[hdrMem.readUInt32LE(regXPc) & 0xFF]) === execLEV) {
+                        if ((hdrMem.readUInt32LE(regXPc) & 0xFF) === 0x02) {
                             regFrameBase.pop();
                         }
-                        localDefs = currentInfo.asms[addr].locals;
-                        nxt = currentInfo.asms[addr].point;
+                        localDefs = asmInfo.locals;
+                        nxt = asmInfo.point;
                         if (!fst) {
                             fst = nxt;
                         }
