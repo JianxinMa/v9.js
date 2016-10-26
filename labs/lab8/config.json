@@ -1,0 +1,245 @@
+{
+  "name": "lab8",
+  "files": [
+    "ucore/kern/main.c",
+    "bin/empty.txt",
+    "ucore/lib/hash.h",
+    "ucore/lib/rand.h",
+    "ucore/lib/v9.h",
+    "ucore/lib/atomic.h",
+    "ucore/lib/u.h",
+    "ucore/lib/defs.h",
+    "ucore/lib/error.h",
+    "ucore/lib/printfmt.h",
+    "ucore/lib/lib.h",
+    "ucore/lib/list.h",
+    "ucore/lib/call.h",
+    "ucore/user/forktest.c",
+    "ucore/user/faultread.c",
+    "ucore/user/exit.c",
+    "ucore/user/yield.c",
+    "ucore/user/faultreadkernel.c",
+    "ucore/user/divzero.c",
+    "ucore/user/+badsegment.c",
+    "ucore/user/+testbss.c",
+    "ucore/user/waitkill.c",
+    "ucore/user/libs/file.h",
+    "ucore/user/libs/ulib.h",
+    "ucore/user/libs/exit.c",
+    "ucore/user/libs/panic.h",
+    "ucore/user/libs/syscall.h",
+    "ucore/user/libs/io.h",
+    "ucore/user/libs/umain.h",
+    "ucore/user/badarg.c",
+    "ucore/user/spin.c",
+    "ucore/user/+softint.c",
+    "ucore/user/forktree.c",
+    "ucore/user/sh.c",
+    "ucore/user/pgdir.c",
+    "ucore/user/matrix.c",
+    "ucore/user/hello.c",
+    "ucore/user/priority.c",
+    "ucore/kern/include/string.h",
+    "ucore/kern/sync/sync.h",
+    "ucore/kern/driver/ide.h",
+    "ucore/kern/mm/kmalloc.h",
+    "ucore/kern/mm/memlayout.h",
+    "ucore/kern/mm/pmm.h",
+    "ucore/kern/mm/default_pmm.h",
+    "ucore/kern/mm/vmm.h",
+    "ucore/kern/mm/swap_fifo.h",
+    "ucore/kern/mm/mmu.h",
+    "ucore/kern/mm/swap.h",
+    "ucore/kern/process/pstruct.h",
+    "ucore/kern/process/proc.h",
+    "ucore/kern/schedule/default_sched.h",
+    "ucore/kern/schedule/schstruct.h",
+    "ucore/kern/schedule/sched.h",
+    "ucore/kern/libs/io.h",
+    "ucore/kern/libs/skew_heap.h",
+    "ucore/kern/syscall/syscall.h",
+    "ucore/kern/trap/trap.h",
+    "ucore/kern/trap/tfstruct.h",
+    "ucore/kern/fs/console.h",
+    "ucore/kern/fs/file.h",
+    "ucore/kern/fs/fs.h",
+    "ucore/kern/fs/swapfs.h",
+    "ucore/kern/fs/fsstruct.h"
+  ],
+  "targets": [
+    {
+      "include": [
+        "ucore/lib",
+        "ucore/kern/include",
+        "ucore/kern/libs",
+        "ucore/kern/mm",
+        "ucore/kern/fs",
+        "ucore/kern/driver",
+        "ucore/kern/sync",
+        "ucore/kern/trap",
+        "ucore/kern/process",
+        "ucore/kern/schedule",
+        "ucore/kern/syscall"
+      ],
+      "sources": [
+        "ucore/kern/main.c"
+      ],
+      "target": "ucore_os"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/sh.c"
+      ],
+      "target": "bin/sh"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/priority.c"
+      ],
+      "target": "bin/priority"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/hello.c"
+      ],
+      "target": "bin/hello"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/forktree.c"
+      ],
+      "target": "bin/forktree"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/faultreadkernel.c"
+      ],
+      "target": "bin/faultreadkernel"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/faultread.c"
+      ],
+      "target": "bin/faultread"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/exit.c"
+      ],
+      "target": "bin/exit"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/divzero.c"
+      ],
+      "target": "bin/divzero"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/badarg.c"
+      ],
+      "target": "bin/badarg"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/pgdir.c"
+      ],
+      "target": "bin/pgdir"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/matrix.c"
+      ],
+      "target": "bin/matrix"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/spin.c"
+      ],
+      "target": "bin/spin"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/waitkill.c"
+      ],
+      "target": "bin/waitkill"
+    },
+    {
+      "include": [
+        "ucore/user/libs",
+        "ucore/lib",
+        "ucore/kern/include"
+      ],
+      "sources": [
+        "ucore/user/yield.c"
+      ],
+      "target": "bin/yield"
+    }
+  ],
+  "disk": "bin"
+}
