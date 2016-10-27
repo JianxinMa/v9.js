@@ -3778,6 +3778,7 @@ function createV9(printOut, breakPoints) {
                     break;
                 }
             }
+            // xv6 puts ELF header (16 bytes) at va 0x0, hence real .text during runtime starts at 0x10.
             regInfoOffset = -16;
         } else if (m === 0xff2016ff) {
             s = kernMainTag;

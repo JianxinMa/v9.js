@@ -285,10 +285,14 @@
                 i = memType.indexOf('(');
                 offset = Number(memType.substr(0, i));
                 memType = memType.substr(i);
-                for (i = 0; i < j; i = i + 1) {
+                var trunc_j = ((j > 10) ? 10 : j);
+                for (i = 0; i < trunc_j; i = i + 1) {
                     k.children.push(getOneVarValue('[' + i.toString() + ']',
                         v + i * offset, memType, showType, showAddr
                     ));
+                }
+                if (i < j) {
+                    k.children.push({name: '...'});
                 }
                 return k;
             }
@@ -302,6 +306,8 @@
                 subTypes = cdr.substr(1, cdr.length - 2);
                 if (cdr[0] === '<' && cdr[cdr.length - 1] === '>') {
                     subTypes = cpu.getStructType(subTypes);
+                } else {
+                    subTypes = '(' + subTypes + ')';
                 }
                 i = subTypes.indexOf('|');
                 subTypes = subTypes.substr(i + 1);
