@@ -3443,8 +3443,10 @@ function createV9(printOut, breakPoints) {
             };
             hdlrItrpt = function() {
                 var p;
-                currentInfo = infoPool[kernMainTag];
-                currentInKern = true;
+                if (!currentInKern) {
+                    currentInfo = infoPool[kernMainTag];
+                    currentInKern = true;
+                }
                 regInfoOffset = 0;
                 regXSp = regXSp - regTSp;
                 regTSp = 0;
@@ -3825,7 +3827,7 @@ function createV9(printOut, breakPoints) {
         if (!continuing) {
             pauseRunning();
         }
-        while (true) {
+        for (var _ = 0; _ < 32; _++) {
             unsignRegs();
             if (regNextHdlr === 0) {
                 pauseRunning();
