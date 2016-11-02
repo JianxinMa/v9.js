@@ -73,6 +73,7 @@ function createV9(printOut, breakPoints) {
         hdlrInstr,
         cpuEvent,
         infoPool,
+        isUcore,
         kernMainTag,
         currentInfo,
         currentInKern;
@@ -3584,8 +3585,9 @@ function createV9(printOut, breakPoints) {
         regNextHdlr = 0;
     }
 
-    function setupSoftware(abOS, abFS, infoStr, firstInfo) {
+    function setupSoftware(abOS, abFS, infoStr, firstInfo, isXV6) {
         var cleanMemory, wipeMemory, wipeRegs, readInfo;
+        isUcore = !isXV6;
         cleanMemory = function() {
             hdrMem.fill(0);
             hdrTrK.fill(0);
@@ -3754,8 +3756,13 @@ function createV9(printOut, breakPoints) {
 
     function loadUserProcInfo() {
         var p, v, s, t, m;
+        var USERBASE = 0x200000;
         regToLoadInfo = false;
-        v = 16;
+        if (isUcore) {
+            v = USERBASE;
+        } else {
+            v = 16;
+        }
         p = regTr.readUInt32LE((v >>> 12) * 4);
         if (!p) {
             p = pageLookR(v);
@@ -3778,9 +3785,14 @@ function createV9(printOut, breakPoints) {
                     break;
                 }
             }
-            // xv6 puts ELF header (16 bytes) at va 0x0, hence real .text during runtime starts at 0x10.
-            regInfoOffset = -16;
+            if (isUcore) {
+                regInfoOffset = -USERBASE;
+            } else {
+                // xv6 puts ELF header (16 bytes) at va 0x0, hence real .text during runtime starts at 0x10.
+                regInfoOffset = -16;
+            }
         } else if (m === 0xff2016ff) {
+            // xv6 only, for the first user process
             s = kernMainTag;
             regInfoOffset = hdrMem.readUInt32LE(p - 16);
         } else {

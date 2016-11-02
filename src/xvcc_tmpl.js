@@ -37,6 +37,26 @@ function xvcc(processed, target, dirStruct, onReturn, printOut) {
                         encoding: 'binary'
                     })
                 };
+                {
+                    // Ad-hoc bugfix: it add magic debug hint to
+                    // the ELF file. The hint should be added by
+                    // the compiler. However, the JavaScript version
+                    // of the compiler doesn't behave correctly.
+                    // Though the C version works fine.
+
+                    // Actually we already have an ad-hoc fix in xvcc.c.
+                    // Here this code just serves as double-insurance.
+
+                    var i = 16;
+                    result.content[i++] = 0xff;
+                    result.content[i++] = 0x17;
+                    result.content[i++] = 0x20;
+                    result.content[i++] = 0xff;
+                    for (var s = 0; s < infile.length; s++) {
+                        result.content[i++] = infile.charCodeAt(s);
+                    }
+                    result.content[i++] = 0;
+                }
                 info = FS.readFile(infofile, {
                     encoding: 'utf8'
                 });

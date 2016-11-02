@@ -5,7 +5,7 @@
 "use strict";
 
 (function() {
-    var editor, labName, labConfg, files, curFileId, breakPoints, cpu, socket;
+    var editor, labName, labConfg, files, curFileId, breakPoints, cpu, socket, isXV6;
 
     function renderTreeView(root, level) {
         var m, w, h, i, tree, diagonal, vis;
@@ -497,7 +497,7 @@
         saveCurrentFile();
         if (cpu.needInit()) {
             compile(function(os, hd, de) {
-                cpu.setupSoftware(os, hd, de, labConfg.kernTarget + '.i');
+                cpu.setupSoftware(os, hd, de, labConfg.kernTarget + '.i', isXV6);
                 clearTerm();
                 cb();
             });
@@ -721,6 +721,7 @@
                     clicked = true;
                     $("#loadingSign").show();
                     labName = $(this).text().trim().split(' ').join('_');
+                    isXV6 = labName.toLowerCase().includes('xv6');
                     socket.emit('x-open', {labName: labName}, function (data) {
                         files = data.files.map(function (f) {
                             return {

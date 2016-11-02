@@ -198,6 +198,7 @@ enum {
 // clang-format on
 
 FILE* info_fd;
+char info_input_file[1024];
 
 void info_open(char* c_file)
 {
@@ -219,12 +220,21 @@ void info_open(char* c_file)
     c_file[i - 1] = 'i';
     fprintf(info_fd, "= %s\n", c_file);
 
+    // Note: the following part works fine with C version of this
+    // compiler. However, the Emscripten-converted JavaScript version
+    // of this compiler seems not to execute the following code
+    // correctly, especially when compiling ucore.
+
     // magic debug hint
     *((uint*)ip) = 0xFF2017FF;
     ip += 4;
     strcpy((char*)ip, c_file);
     ip += strlen(c_file) + 1;
     ip = (ip + 7) & -8;
+
+    // An ad-hoc fix for the above noted bug (part 1),
+    // see part 2 at the lower part of main.
+    strcpy(info_input_file, c_file);
 }
 
 void info_print_current_line()
@@ -4444,6 +4454,13 @@ int main(int argc, char* argv[])
     if (verbose)
         fprintf(stderr, "entry = %d text = %d data = %d bss = %d\n",
             amain - ts, text, data, bss);
+
+    {
+        // An ad-hoc fix for a bug noted in info_open() (part 2),
+        // see part 1 at the end of info_open().
+        *((uint*)ts) = 0xFF2017FF;
+        strcpy((char*)(ts + 4), info_input_file);
+    }
 
     if (!errs) {
         while (pdata != patchdata) {
