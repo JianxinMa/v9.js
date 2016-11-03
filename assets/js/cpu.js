@@ -3862,8 +3862,18 @@ function createV9(printOut, breakPoints) {
                             break;
                         }
                     } else {
-                        if (hdrMem.readUInt32LE(regXPc) !== 0x2a9) {
-                            console.log('In runSingleStep: 0x2a9 expected');
+                        if (isUcore) {
+                            // Instruction 0x2: LEV
+                            if (hdrMem.readUInt32LE(regXPc) !== 0x2) {
+                                console.log('In runSingleStep: ??? expected at addr', addr,
+                                    'but meet', hdrMem.readUInt32LE(regXPc), 'instead');
+                            }
+                        } else {
+                            // 0x2a9 is xv6-specific, it means "trap S_exit".
+                            if (hdrMem.readUInt32LE(regXPc) !== 0x2a9) {
+                                console.log('In runSingleStep: trap_S exit expected at addr', addr,
+                                    'but meet', hdrMem.readUInt32LE(regXPc), 'instead');
+                            }
                         }
                     }
                 }
