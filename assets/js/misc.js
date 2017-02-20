@@ -555,13 +555,6 @@
                     cpu.writeKbBuf(keyCode);
                 }
             });
-            // XXX begin
-            if (labName !== "xv6") {
-                cpu.runNonStop = cpu.runNonDebug;
-                cpu.runUntilBreak = cpu.runNonDebug;
-                cpu.runSingleStep = cpu.runNonDebug;
-            }
-            // XXX end
         };
         initButtons = function() {
             $("#runBtn").click(function() {
